@@ -1,0 +1,74 @@
+[
+  {
+    "etiqueta": "A - Tranquilidad y silencio - Hospitales, bibliotecas, guarderias, sanatorios, hogares geriatricos",
+    "sector": "A",
+    "dia": 55,
+    "noche": 45
+  },
+  {
+    "etiqueta": "B - Tranquilidad y ruido moderado - Zonas residenciales o exclusivamente destinadas para desarrollo habitacional, hoteleria y hospedajes.",
+    "sector": "B",
+    "dia": 65,
+    "noche": 50
+  },
+  {
+    "etiqueta": "B - Tranquilidad y ruido moderado - Universidades, colegios, escuelas, centros de estudio e investigacion.",
+    "sector": "B",
+    "dia": 65,
+    "noche": 50
+  },
+  {
+    "etiqueta": "B - Tranquilidad y ruido moderado - Parques en zonas urbanas, diferentes a los parques mecanicos al aire libre.",
+    "sector": "B",
+    "dia": 65,
+    "noche": 50
+  },
+  {
+    "etiqueta": "C - Ruido Intermedio Restringido - Zonas con usos permitidos industriales, como industrias en general, zonas portuarias, parques industriales, zonas francas.",
+    "sector": "C",
+    "dia": 75,
+    "noche": 70
+  },
+  {
+    "etiqueta": "C - Ruido Intermedio Restringido - Zonas con usos permitidos comerciales, como centros comerciales, almacenes, locales o instalaciones de tipo comercial, talleres de mecanica automotriz e industrial, centros deportivos y recreativos, gimnasios, restaurantes, bares, tabernas, discotecas, bingos, casinos.",
+    "sector": "C",
+    "dia": 70,
+    "noche": 55
+  },
+  {
+    "etiqueta": "C - Ruido Intermedio Restringido - Zonas con usos permitidos de oficinas.",
+    "sector": "C",
+    "dia": 65,
+    "noche": 50
+  },
+  {
+    "etiqueta": "C - Ruido Intermedio Restringido - Zonas con usos institucionales.",
+    "sector": "C",
+    "dia": 65,
+    "noche": 50
+  },
+  {
+    "etiqueta": "C - Ruido Intermedio Restringido - Zonas con otros usos relacionados, como parques mecanicos al aire libre, areas destinadas a espectaculos publicos al aire libre, vias troncales, autopistas, vias arterias, vias principales.",
+    "sector": "C",
+    "dia": 80,
+    "noche": 70
+  },
+  {
+    "etiqueta": "D - Zona suburbana o rural de tranquilidad y ruido moderado - Residencial suburbana",
+    "sector": "D",
+    "dia": 55,
+    "noche": 45
+  },
+  {
+    "etiqueta": "D - Zona suburbana o rural de tranquilidad y ruido moderado - Rural Habitada destinada a explotacion agropecuaria.",
+    "sector": "D",
+    "dia": 55,
+    "noche": 45
+  },
+  {
+    "etiqueta": "D - Zona suburbana o rural de tranquilidad y ruido moderado - Zonas de recreacion y descanso, como parques naturales y reservas naturales",
+    "sector": "D",
+    "dia": 55,
+    "noche": 45
+  }
+]

@@ -1,0 +1,25 @@
+# Blueprint de Render para el motor de calculo (API FastAPI + core/).
+# En Render: New > Blueprint > este repositorio. Pedira ENGINE_API_KEY
+# (la misma clave configurada en Vercel).
+services:
+  - type: web
+    name: ruido-motor
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: virginia
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - core/**
+        - engine/**
+        - templates/**
+        - Dockerfile
+    envVars:
+      - key: ENGINE_API_KEY
+        sync: false
+      # El plan gratuito tiene 512 MB de RAM: un solo proceso.
+      - key: WEB_CONCURRENCY
+        value: "1"
