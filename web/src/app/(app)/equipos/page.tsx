@@ -4,13 +4,15 @@ import { deleteEquipmentAction } from "@/app/actions/admin";
 import { ConfirmButton } from "@/components/confirm-button";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireUser } from "@/lib/session";
 import { listEquipment } from "@/server/equipment";
 import { EquipmentForm } from "./equipment-form";
 
 export const metadata: Metadata = { title: "Equipos" };
 
 export default async function EquipmentPage() {
-  const items = await listEquipment();
+  const [items, user] = await Promise.all([listEquipment(), requireUser()]);
+  const esAdmin = user.role === "admin";
   return (
     <>
       <PageHeader
@@ -26,14 +28,16 @@ export default async function EquipmentPage() {
                 <div className="min-w-0 flex-1">
                   <EquipmentForm item={e} />
                 </div>
-                <ConfirmButton
-                  action={deleteEquipmentAction.bind(null, e.id)}
-                  confirm={`¿Eliminar el equipo ${e.codigo || e.serial}?`}
-                  size="icon-sm"
-                  title="Eliminar"
-                >
-                  <Trash2 className="text-red-600" />
-                </ConfirmButton>
+                {esAdmin && (
+                  <ConfirmButton
+                    action={deleteEquipmentAction.bind(null, e.id)}
+                    confirm={`¿Eliminar el equipo ${e.codigo || e.serial}?`}
+                    size="icon-sm"
+                    title="Eliminar"
+                  >
+                    <Trash2 className="text-red-600" />
+                  </ConfirmButton>
+                )}
               </div>
             ))}
           </CardContent>

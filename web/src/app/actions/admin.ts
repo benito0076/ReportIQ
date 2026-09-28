@@ -46,8 +46,9 @@ export async function updateEquipmentAction(id: string, _prev: ActionState, form
   return { ok: true, message: "Equipo actualizado." };
 }
 
+/** Solo los administradores eliminan equipos del inventario. */
 export async function deleteEquipmentAction(id: string) {
-  await assertUser();
+  await assertAdmin();
   await deleteEquipment(id);
   revalidatePath("/equipos");
 }

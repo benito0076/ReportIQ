@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { fmtNum } from "@/lib/format";
 import { SECTORES } from "@/lib/validation";
+import { requireUser } from "@/lib/session";
 import { getProject, listPoints } from "@/server/projects";
 import { ProjectForm } from "../project-form";
 import { InformeForm } from "./informe-form";
@@ -17,7 +18,7 @@ export const metadata: Metadata = { title: "Proyecto" };
 
 export default async function ProjectPage({ params }: PageProps<"/proyectos/[id]">) {
   const { id } = await params;
-  const [project, pts] = await Promise.all([getProject(id), listPoints(id)]);
+  const [project, pts, user] = await Promise.all([getProject(id), listPoints(id), requireUser()]);
   const sectorCorto = (etiqueta: string) => {
     const s = SECTORES.find((x) => x.etiqueta === etiqueta);
     return s ? `${s.sector} · ${s.dia}/${s.noche} dB(A)` : "Sin sector";
@@ -160,15 +161,17 @@ export default async function ProjectPage({ params }: PageProps<"/proyectos/[id]
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
-        <ConfirmButton
-          action={deleteProjectAction.bind(null, id)}
-          confirm="¿Eliminar este proyecto con todos sus puntos, memorias e informes? Esta acción no se puede deshacer."
-          variant="destructive"
-        >
-          <Trash2 /> Eliminar proyecto
-        </ConfirmButton>
-      </div>
+      {user.role === "admin" && (
+        <div className="flex justify-end">
+          <ConfirmButton
+            action={deleteProjectAction.bind(null, id)}
+            confirm="¿Eliminar este proyecto con todos sus puntos, memorias e informes? Esta acción no se puede deshacer."
+            variant="destructive"
+          >
+            <Trash2 /> Eliminar proyecto
+          </ConfirmButton>
+        </div>
+      )}
     </div>
   );
 }
