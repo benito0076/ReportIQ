@@ -14,11 +14,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core import meteorologia, norms
 from core.charts import generar_graficas
 from core.excel_export import exportar_resultados
-from core.models import ArchivoMemoria, DIRECCIONES, ESQUEMAS, ESQUEMA_LABELS, Proyecto
+from core.models import ArchivoMemoria, DIRECCIONES, ESQUEMAS, ESQUEMA_LABELS, DatosInforme, Proyecto
 from core.pipeline import procesar_proyecto
 from core.project_io import cargar_proyecto, guardar_proyecto
 from core.report_generator import ErrorPlantilla, generar_informe
-from core.isophones import SinCoordenadasError, generar_mapa_isofonas_esquema
+from core.isophones import SinCoordenadasError, generar_mapa_isofonas_esquema, generar_mapa_localizacion
 from core.equipos import cargar_equipos, guardar_equipos
 
 # Cuando la app corre empaquetada con PyInstaller (--onefile), los recursos
@@ -99,8 +99,14 @@ class PuntoDialog(tk.Toplevel):
         if punto and punto.descripcion:
             self.txt_descripcion.insert("1.0", punto.descripcion)
 
+        ttk.Label(frm, text="Fuentes de ruido percibidas:").grid(row=9, column=0, sticky="nw", pady=4)
+        self.txt_fuentes = tk.Text(frm, width=60, height=4, wrap="word")
+        self.txt_fuentes.grid(row=9, column=1, pady=4, sticky="w")
+        if punto and punto.fuentes:
+            self.txt_fuentes.insert("1.0", punto.fuentes)
+
         botones = ttk.Frame(frm)
-        botones.grid(row=9, column=0, columnspan=2, pady=(12, 0))
+        botones.grid(row=10, column=0, columnspan=2, pady=(12, 0))
         ttk.Button(botones, text="Guardar", command=self._guardar).pack(side="left", padx=4)
         ttk.Button(botones, text="Cancelar", command=self.destroy).pack(side="left", padx=4)
 
@@ -129,7 +135,73 @@ class PuntoDialog(tk.Toplevel):
             "incertidumbre": incert, "longitud": self.var_lon.get(), "latitud": self.var_lat.get(),
             "altitud": self.var_altitud.get().strip(), "foto_ruta": self.var_foto.get(),
             "descripcion": self.txt_descripcion.get("1.0", "end").rstrip("\n"),
+            "fuentes": self.txt_fuentes.get("1.0", "end").strip(),
         }
+        self.destroy()
+
+
+class DatosInformeDialog(tk.Toplevel):
+    """Datos para redactar el informe Word: area de estudio, portada,
+    encabezado, informacion del cliente y firmas del cuadro de control."""
+
+    CAMPOS = [
+        ("area_estudio", "Area de estudio (como se nombra en el texto):", "entry"),
+        ("municipio", "Municipio:", "entry"),
+        ("departamento", "Departamento:", "entry"),
+        ("titulo", "Titulo de portada/encabezado (un renglon por linea):", "text"),
+        ("expediente", "Expediente:", "entry"),
+        ("version", "Version del informe:", "entry"),
+        ("fecha", "Fecha del informe (AAAA-MM-DD, vacio = hoy):", "entry"),
+        ("cliente_nit", "NIT del cliente:", "entry"),
+        ("cliente_direccion", "Direccion del cliente:", "entry"),
+        ("cliente_contacto", "Contacto (nombre y telefono):", "entry"),
+        ("cliente_ciudad", "Ciudad del cliente:", "entry"),
+        ("cliente_departamento", "Departamento del cliente:", "entry"),
+        ("cliente_actividad", "Actividad del cliente:", "text"),
+        ("elaboro_nombre", "Elaboro (nombre):", "entry"),
+        ("elaboro_cargo", "Elaboro (cargo):", "entry"),
+        ("autorizo_nombre", "Autorizo (nombre):", "entry"),
+        ("autorizo_cargo", "Autorizo (cargo):", "entry"),
+    ]
+
+    def __init__(self, master, datos: DatosInforme):
+        super().__init__(master)
+        self.title("Datos del informe")
+        self.transient(master)
+        self.grab_set()
+        self.resultado = None
+        frm = ttk.Frame(self, padding=12)
+        frm.pack(fill="both", expand=True)
+        self._widgets = {}
+        for fila, (clave, etiqueta, tipo) in enumerate(self.CAMPOS):
+            ttk.Label(frm, text=etiqueta).grid(row=fila, column=0, sticky="nw", pady=2)
+            valor = getattr(datos, clave) or ""
+            if tipo == "text":
+                w = tk.Text(frm, width=60, height=3, wrap="word")
+                w.insert("1.0", valor)
+            else:
+                w = ttk.Entry(frm, width=62)
+                w.insert(0, valor)
+            w.grid(row=fila, column=1, sticky="w", pady=2, padx=6)
+            self._widgets[clave] = w
+        botones = ttk.Frame(frm)
+        botones.grid(row=len(self.CAMPOS), column=0, columnspan=2, pady=(12, 0))
+        ttk.Button(botones, text="Guardar", command=self._guardar).pack(side="left", padx=4)
+        ttk.Button(botones, text="Cancelar", command=self.destroy).pack(side="left", padx=4)
+
+    def _guardar(self):
+        valores = {}
+        for clave, w in self._widgets.items():
+            valores[clave] = (w.get("1.0", "end") if isinstance(w, tk.Text) else w.get()).strip()
+        if valores["fecha"]:
+            try:
+                import datetime
+
+                datetime.date.fromisoformat(valores["fecha"])
+            except ValueError:
+                messagebox.showerror("Fecha invalida", "Escriba la fecha como AAAA-MM-DD.", parent=self)
+                return
+        self.resultado = DatosInforme(**valores)
         self.destroy()
 
 
@@ -267,6 +339,11 @@ class App(tk.Tk):
         ttk.Button(meteo_frame, text="Cargar archivo...", command=self._elegir_meteo).pack(side="left", padx=2)
         ttk.Button(meteo_frame, text="Quitar", command=self._quitar_meteo).pack(side="left", padx=2)
 
+        ttk.Label(datos, text="Redaccion del informe:").grid(row=3, column=0, sticky="w", pady=(6, 0))
+        ttk.Button(datos, text="Datos del informe (area, portada, cliente, firmas)...",
+                   command=self._editar_datos_informe).grid(row=3, column=1, columnspan=3, sticky="w", padx=6,
+                                                            pady=(6, 0))
+
         puntos_frame = ttk.LabelFrame(frm, text="Puntos de monitoreo", padding=10)
         puntos_frame.pack(fill="both", expand=True)
 
@@ -291,6 +368,12 @@ class App(tk.Tk):
         ttk.Button(botones, text="Agregar punto", command=self._agregar_punto).pack(side="left", padx=4)
         ttk.Button(botones, text="Editar punto", command=self._editar_punto).pack(side="left", padx=4)
         ttk.Button(botones, text="Eliminar punto", command=self._eliminar_punto).pack(side="left", padx=4)
+
+    def _editar_datos_informe(self):
+        dlg = DatosInformeDialog(self, self.proyecto.informe)
+        self.wait_window(dlg)
+        if dlg.resultado is not None:
+            self.proyecto.informe = dlg.resultado
 
     def _elegir_meteo(self):
         ruta = filedialog.askopenfilename(
@@ -327,6 +410,7 @@ class App(tk.Tk):
             p.altitud = dlg.resultado["altitud"]
             p.foto_ruta = dlg.resultado["foto_ruta"]
             p.descripcion = dlg.resultado["descripcion"]
+            p.fuentes = dlg.resultado["fuentes"]
             self._refrescar_puntos()
             self._refrescar_combo_puntos()
 
@@ -353,6 +437,7 @@ class App(tk.Tk):
             punto.altitud = dlg.resultado["altitud"]
             punto.foto_ruta = dlg.resultado["foto_ruta"]
             punto.descripcion = dlg.resultado["descripcion"]
+            punto.fuentes = dlg.resultado["fuentes"]
             self._refrescar_puntos()
             self._refrescar_combo_puntos()
 
@@ -636,21 +721,28 @@ class App(tk.Tk):
         if self.proyecto.meteo_ruta:
             meteo = self._analizar_meteo(os.path.join(os.path.dirname(salida), "meteorologia_informe"))
 
+        graficas = dict(self.rutas_graficas)
         try:
+            graficas["localizacion"] = generar_mapa_localizacion(
+                self.proyecto, os.path.join(os.path.dirname(salida), "localizacion_puntos.png"))
+        except Exception:  # noqa: BLE001
+            pass  # sin coordenadas: queda la imagen de la plantilla
+
+        try:
+            self._sincronizar_datos_proyecto()
             _, faltantes = generar_informe(
                 self.resultados, plantilla, salida,
-                graficas=self.rutas_graficas, isofonas=self.rutas_isofonas,
+                graficas=graficas, isofonas=self.rutas_isofonas,
                 ruta_equipos=RUTA_EQUIPOS if os.path.exists(RUTA_EQUIPOS) else None,
                 meteo=meteo,
             )
             self._log(f"Informe Word generado en: {salida}")
             if faltantes:
-                self._log("Tablas no encontradas en la plantilla: " + "; ".join(faltantes))
+                self._log("Revisar en el informe: " + "; ".join(faltantes))
                 messagebox.showwarning(
                     "Informe generado con advertencias",
                     f"Informe generado en:\n{salida}\n\n"
-                    "No se encontraron en la plantilla (y por lo tanto quedaron sin llenar) "
-                    "las siguientes tablas:\n- " + "\n- ".join(faltantes),
+                    "Revise en el informe:\n- " + "\n- ".join(faltantes),
                 )
             else:
                 messagebox.showinfo("Listo", f"Informe generado en:\n{salida}")

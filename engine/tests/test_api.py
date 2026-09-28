@@ -116,8 +116,12 @@ class TestApiMotor(unittest.TestCase):
         self.assertIn("Comparacion Norma", wb.sheetnames)
 
     def test_generar_word(self):
+        proyecto = self._proyecto()
+        proyecto["informe"] = {"area_estudio": "el área de la Planta Sur", "expediente": "EXP-7",
+                               "elaboro_nombre": "Ana Pérez"}
+        proyecto["puntos"][0]["fuentes"] = "Se percibió el tránsito de camiones."
         cuerpo = {
-            "proyecto": self._proyecto(), "tipo": "word",
+            "proyecto": proyecto, "tipo": "word",
             "equipos": [{"nombre": "Sonometro X", "codigo": "612-C", "serial": "6599"}],
         }
         r = self.client.post("/v1/generar", json=cuerpo, headers=AUTH)
@@ -126,6 +130,10 @@ class TestApiMotor(unittest.TestCase):
         doc = docx.Document(io.BytesIO(r.content))
         texto = "\n".join(c.text for t in doc.tables for row in t.rows for c in row.cells)
         self.assertIn("612-C", texto)
+        self.assertIn("Ana Pérez", texto)
+        parrafos = "\n".join(p.text for p in doc.paragraphs)
+        self.assertIn("ubicados en el área de la Planta Sur", parrafos)
+        self.assertIn("En el punto P1 se percibió el tránsito de camiones.", parrafos)
         self.assertIsInstance(json.loads(unquote(r.headers["x-advertencias"])), list)
 
     def test_generar_word_plantilla_invalida(self):

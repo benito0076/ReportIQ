@@ -52,14 +52,22 @@ export default async function SettingsPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Mapas de isófonas</CardTitle>
+            <CardTitle>Firmas y planos</CardTitle>
             <CardDescription>
-              El cuadro «Elaboró» de los planos muestra el logo de Ambienciq Ingenieros. Este texto solo se usa si el
-              logo no está disponible.
+              Nombres y cargos del cuadro de control del informe Word (con la fecha del informe) y texto de respaldo
+              del cuadro «Elaboró» de los planos.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SettingsForm elaboradoPor={s.elaboradoPor} />
+            <SettingsForm
+              settings={{
+                elaboradoPor: s.elaboradoPor,
+                elaboroNombre: s.elaboroNombre,
+                elaboroCargo: s.elaboroCargo,
+                autorizoNombre: s.autorizoNombre,
+                autorizoCargo: s.autorizoCargo,
+              }}
+            />
           </CardContent>
         </Card>
       </div>

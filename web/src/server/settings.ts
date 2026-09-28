@@ -3,13 +3,28 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import { deleteObject } from "@/lib/storage";
+import type { SettingsInput } from "@/lib/validation";
 
 export async function getSettings() {
   const [row] = await db.select().from(settings).where(eq(settings.id, 1)).limit(1);
-  return row ?? { id: 1, elaboradoPor: "", plantillaKey: null, plantillaNombre: null, updatedAt: new Date() };
+  return (
+    row ?? {
+      id: 1,
+      elaboradoPor: "",
+      elaboroNombre: "",
+      elaboroCargo: "",
+      autorizoNombre: "",
+      autorizoCargo: "",
+      plantillaKey: null,
+      plantillaNombre: null,
+      updatedAt: new Date(),
+    }
+  );
 }
 
-export async function updateSettings(values: Partial<{ elaboradoPor: string; plantillaKey: string | null; plantillaNombre: string | null }>) {
+export async function updateSettings(
+  values: Partial<SettingsInput & { plantillaKey: string | null; plantillaNombre: string | null }>,
+) {
   const previous = await getSettings();
   await db
     .insert(settings)

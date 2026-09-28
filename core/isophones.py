@@ -469,3 +469,96 @@ def generar_mapas_isofonas(resultados_proyecto, carpeta_salida: str, con_basemap
         except SinCoordenadasError:
             continue
     return rutas
+
+
+def generar_mapa_localizacion(proyecto, ruta_salida: str, con_basemap: bool = True,
+                              elaborado_por: str = COMPANIA_DEFECTO, logo_ruta: str = LOGO_DEFECTO,
+                              generar_pdf: bool = False):
+    """Plano de localizacion de los puntos de monitoreo (Imagen 1 del informe):
+    imagen satelital, puntos con su nombre, cuadricula Origen Nacional y la
+    misma columna lateral de los mapas de isofonas (localizacion general,
+    leyenda de puntos, proyecto, elaboro y escala grafica). Necesita al menos
+    un punto con coordenadas."""
+    con_coords = puntos_con_coordenadas(proyecto)
+    if not con_coords:
+        raise SinCoordenadasError("Ningun punto tiene coordenadas para el mapa de localizacion.")
+
+    nombres = [p.nombre for p, _, _ in con_coords]
+    xs, ys = [], []
+    for _, x, y in con_coords:
+        xm, ym = origen_nacional_a_web_mercator(x, y)
+        xs.append(xm)
+        ys.append(ym)
+
+    ancho = max(max(xs) - min(xs), max(ys) - min(ys), 300)
+    cx, cy = (max(xs) + min(xs)) / 2, (max(ys) + min(ys)) / 2
+    # Encuadre con margen y proporcion similar a la del area del mapa.
+    medio_x = ancho * 0.5 * 1.35 * 1.2
+    medio_y = ancho * 0.5 * 1.35
+    x_min, x_max, y_min, y_max = cx - medio_x, cx + medio_x, cy - medio_y, cy + medio_y
+
+    fig = plt.figure(figsize=(15, 9.2), dpi=150)
+    ax = fig.add_axes([0.045, 0.07, 0.66, 0.87])
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_aspect("equal", adjustable="datalim")  # sin deformar el terreno
+    mapa_ok = _agregar_mapa_base(ax) if con_basemap else False
+    if not mapa_ok:
+        ax.set_facecolor("#dddddd")
+
+    colores = [COLORES_PUNTOS[i % len(COLORES_PUNTOS)] for i in range(len(xs))]
+    ax.scatter(xs, ys, s=90, c=colores, edgecolors="black", linewidths=1.2, zorder=5)
+    halo = [pe.withStroke(linewidth=3, foreground="white")]
+    for nombre, x, y in zip(nombres, xs, ys):
+        ax.annotate(nombre, (x, y), textcoords="offset points", xytext=(8, 7), fontsize=9,
+                    fontweight="bold", color="black", path_effects=halo, zorder=6)
+
+    y_ref, x_ref = (y_min + y_max) / 2, (x_min + x_max) / 2
+
+    def _fmt_x(val, _pos):
+        lat, lon = web_mercator_a_geografica(val, y_ref)
+        return f"{geografica_a_origen_nacional(lat, lon)[0]:,.0f}".replace(",", ".")
+
+    def _fmt_y(val, _pos):
+        lat, lon = web_mercator_a_geografica(x_ref, val)
+        return f"{geografica_a_origen_nacional(lat, lon)[1]:,.0f}".replace(",", ".")
+
+    ax.xaxis.set_major_formatter(FuncFormatter(_fmt_x))
+    ax.yaxis.set_major_formatter(FuncFormatter(_fmt_y))
+    ax.tick_params(axis="both", labelsize=6.5, top=True, labeltop=True, right=True, labelright=True)
+    ax.grid(color="#b0c4de", alpha=0.55, linewidth=0.6, zorder=4)
+    ax.set_title("Localización de los puntos de monitoreo de ruido ambiental", fontsize=11)
+    _dibujar_rosa_vientos(ax)
+    if not mapa_ok and con_basemap:
+        ax.text(0.5, -0.07, "Mapa base satelital no disponible (sin conexion a internet)",
+                transform=ax.transAxes, ha="center", fontsize=7, color="#a00000")
+
+    col_x, col_w = 0.735, 0.235
+    y_top, y_bottom = 0.965, 0.02
+    deseadas = {"localizacion": 0.30, "puntos": min(0.30, 0.05 + 0.026 * len(nombres)),
+                "proyecto": 0.13, "elaboro": 0.10, "grafica": 0.08}
+    gap_deseado = 0.014
+    total = sum(deseadas.values()) + gap_deseado * (len(deseadas) - 1)
+    factor = min(1.0, (y_top - y_bottom) / total)
+    alturas = {k: v * factor for k, v in deseadas.items()}
+    gap = gap_deseado * factor
+
+    y = y_top - alturas["localizacion"]
+    _dibujar_localizacion(fig, [col_x, y, col_w, alturas["localizacion"]], cx, cy,
+                          (x_min, x_max, y_min, y_max), con_basemap)
+    y -= gap + alturas["puntos"]
+    _dibujar_leyenda_puntos(fig, [col_x, y, col_w, alturas["puntos"]], nombres, colores)
+    y -= gap + alturas["proyecto"]
+    lineas = [l for l in [proyecto.cliente, proyecto.nombre_proyecto, "LOCALIZACIÓN DE PUNTOS - RUIDO AMBIENTAL"] if l]
+    _dibujar_info_proyecto(fig, [col_x, y, col_w, alturas["proyecto"]], lineas)
+    y -= gap + alturas["elaboro"]
+    _dibujar_elaborado(fig, [col_x, y, col_w, alturas["elaboro"]], elaborado_por, logo_ruta)
+    y -= gap + alturas["grafica"]
+    _dibujar_escala_grafica_caja(fig, [col_x, y, col_w, alturas["grafica"]], x_max - x_min)
+
+    os.makedirs(os.path.dirname(ruta_salida) or ".", exist_ok=True)
+    fig.savefig(ruta_salida)
+    if generar_pdf:
+        fig.savefig(os.path.splitext(ruta_salida)[0] + ".pdf")
+    plt.close(fig)
+    return ruta_salida

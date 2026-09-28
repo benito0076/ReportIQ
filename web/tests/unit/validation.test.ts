@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ValidationError } from "@/lib/errors";
 import { SECTORES, parseDecimal, parseOrThrow, pointSchema } from "@/lib/validation";
 
-const base = { nombre: "RA1", sector: "", incertidumbre: "0,0043", este: "", norte: "", altitud: "", descripcion: "" };
+const base = { nombre: "RA1", sector: "", incertidumbre: "0,0043", este: "", norte: "", altitud: "", descripcion: "", fuentes: "" };
 
 describe("pointSchema", () => {
   it("acepta coma decimal y sector de la lista", () => {

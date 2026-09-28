@@ -109,7 +109,15 @@ export async function deleteUserAction(id: string): Promise<ActionState> {
 export async function updateSettingsAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   try {
     await assertAdmin();
-    await updateSettings(parseOrThrow(settingsSchema, { elaboradoPor: str(form, "elaboradoPor") }));
+    await updateSettings(
+      parseOrThrow(settingsSchema, {
+        elaboradoPor: str(form, "elaboradoPor"),
+        elaboroNombre: str(form, "elaboroNombre"),
+        elaboroCargo: str(form, "elaboroCargo"),
+        autorizoNombre: str(form, "autorizoNombre"),
+        autorizoCargo: str(form, "autorizoCargo"),
+      }),
+    );
   } catch (e) {
     return toActionState(e, form);
   }

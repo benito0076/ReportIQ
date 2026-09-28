@@ -22,6 +22,7 @@ export interface PuntoPayload {
   incertidumbre: number;
   altitud: string;
   descripcion: string;
+  fuentes: string;
   foto: ArchivoRemoto | null;
   memorias: Record<string, Record<string, ArchivoRemoto>>;
 }
@@ -31,6 +32,8 @@ export interface ProyectoPayload {
   codigo_informe: string;
   cliente: string;
   puntos: PuntoPayload[];
+  /** Datos de redacción del informe (claves de engine/schemas.py InformeIn). */
+  informe: Record<string, string>;
   meteorologia: ArchivoRemoto | null;
 }
 

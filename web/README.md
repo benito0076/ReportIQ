@@ -46,6 +46,13 @@ Navegador ──► App web Next.js (Vercel) ──► Motor Python FastAPI (Ren
    para completar el capítulo de meteorología (tabla de promedios diarios, textos,
    gráficas y rosa de vientos). Las filas con valores imposibles se descartan con
    una advertencia.
+   **Datos del informe** (área de estudio, municipio, título de portada,
+   expediente, versión, fecha y datos del cliente) y, en cada punto, las
+   **fuentes de ruido percibidas**: con ellos y los resultados el Word sale
+   redactado — portada, encabezado, cuadro de control, resumen, objetivos,
+   información del cliente, tabla de la Res. 0627 con el sector resaltado,
+   fuentes de ruido, análisis por jornada y conclusiones — junto con el mapa de
+   localización de los puntos. Word actualiza los índices al abrir el archivo.
 2. **Memorias del sonómetro**: una tabla por punto con las 4 jornadas × 5
    direcciones. «Subir las 5» permite elegir varios `.xlsx` a la vez; la dirección
    se reconoce por el nombre del archivo (`RA1_Norte.xlsx`, `RA1_N.xlsx`…).
@@ -55,7 +62,7 @@ Navegador ──► App web Next.js (Vercel) ──► Motor Python FastAPI (Ren
    gráficas e isófonas** (PNG + PDF); quedan en un historial descargable.
 
 Además: **Equipos** (inventario de sonómetros por serial), **Usuarios** y
-**Ajustes** (plantilla Word propia y texto «Elaboró» de los planos) para los
+**Ajustes** (plantilla Word propia, firmas del cuadro de control y texto «Elaboró» de los planos) para los
 administradores. El primer acceso abre `/setup` para crear el administrador.
 
 ## Desarrollo local

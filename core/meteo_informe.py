@@ -93,6 +93,11 @@ def aplicar_meteorologia(doc, analisis, graficas: dict) -> list:
             faltantes.append(f"Parrafo de '{titulo}' en meteorologia")
             continue
         set_paragraph_text(destino, analisis.textos[clave])
+        if clave == "viento" and analisis.textos.get("viento_mediciones"):
+            # Segundo parrafo: condicion de viento < 3 m/s durante las mediciones.
+            siguiente = next((p for _, p in parrafos[pos + 1:] if p is not destino and "3 m/s" in p.text), None)
+            if siguiente is not None:
+                set_paragraph_text(siguiente, analisis.textos["viento_mediciones"])
 
     for palabra, claves in _GRAFICAS:
         idx = next((i for i, el in enumerate(capitulo) if el.tag == f"{_W}p"

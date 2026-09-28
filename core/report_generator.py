@@ -235,10 +235,35 @@ def _filas_equipos(resultados_proyecto, ruta_equipos=None):
     return filas
 
 
+def _reemplazar_imagen_tras_leyenda(doc, palabras, ruta_imagen) -> bool:
+    """Cambia la primera imagen que sigue a la leyenda (p. ej. 'Imagen 1.
+    Localizacion ...') por `ruta_imagen`. Devuelve False si no la encuentra."""
+    from docx.text.paragraph import Paragraph
+
+    from .docx_utils import _sin_tildes, blips, reemplazar_imagen
+
+    cuerpo = list(doc.element.body.iterchildren())
+    for i, el in enumerate(cuerpo):
+        if not el.tag.endswith("}p"):
+            continue
+        parrafo = Paragraph(el, doc)
+        if (parrafo.style.name or "").lower().startswith(("toc", "table of figures")):
+            continue  # entrada del indice de imagenes
+        texto = _sin_tildes(parrafo.text.strip())
+        if texto.startswith(palabras[0]) and all(p in texto for p in palabras[1:]):
+            for siguiente in [el] + cuerpo[i + 1:i + 4]:
+                encontrados = blips(siguiente)
+                if encontrados:
+                    reemplazar_imagen(doc, encontrados[0], ruta_imagen)
+                    return True
+            return False
+    return False
+
+
 def generar_informe(
     resultados_proyecto, ruta_plantilla: str, ruta_salida: str,
     graficas: dict | None = None, isofonas: dict | None = None, ruta_equipos: str | None = None,
-    meteo=None,
+    meteo=None, hoy=None,
 ):
     """`meteo` = (analisis, graficas_meteo) de core/meteorologia.py; si se
     indica, reemplaza el contenido del capitulo de meteorologia."""
@@ -283,8 +308,9 @@ def generar_informe(
         doc, requeridos=["nombre", "codigo", "serial"],
         contexto_excluido=["calibrador"], filas_encabezado=1,
     )
+    filas_equipos = _filas_equipos(resultados_proyecto, ruta_equipos)
     if t_equipos is not None and resultados_proyecto.equipos_detectados:
-        escribir_filas(t_equipos, 1, _filas_equipos(resultados_proyecto, ruta_equipos))
+        escribir_filas(t_equipos, 1, filas_equipos)
     elif not resultados_proyecto.equipos_detectados:
         faltantes.append("Equipos de medicion (no se detecto ningun numero de serie en las memorias)")
     else:
@@ -366,8 +392,22 @@ def generar_informe(
             insertar_imagen_despues_de(doc, "Mapas de Isofonas", isofonas[esquema], ancho_emu=5400000)
             insertar_texto_despues_de(doc, "Mapas de Isofonas", ESQUEMA_LABELS[esquema], negrita=True)
 
+    # --- Mapa de localizacion de los puntos (Imagen 1) ---
+    faltantes_textos_extra = []
+    if graficas.get("localizacion") and not _reemplazar_imagen_tras_leyenda(
+            doc, ("imagen", "localizacion"), graficas["localizacion"]):
+        faltantes_textos_extra.append("Imagen de localización de los puntos (leyenda 'Imagen 1. Localización')")
+
+    # --- Textos: portada, encabezado, resumen, objetivos, cliente, analisis, conclusiones ---
+    from .informe_textos import aplicar_textos
+
+    faltantes_textos = aplicar_textos(doc, resultados_proyecto, filas_equipos, hoy=hoy) + faltantes_textos_extra
+
     faltantes_meteo = []
-    if meteo is not None:
+    if meteo is None:
+        faltantes_meteo.append("Capítulo de meteorología: no hay datos de la estación meteorológica para los días "
+                               "de medición; quedó el texto de la plantilla")
+    else:
         from .meteo_informe import aplicar_meteorologia
 
         analisis_meteo, graficas_meteo = meteo
@@ -383,4 +423,4 @@ def generar_informe(
             "'templates/informe_template.docx', y no un documento en blanco."
         )
 
-    return ruta_salida, faltantes + faltantes_meteo
+    return ruta_salida, faltantes + faltantes_textos + faltantes_meteo

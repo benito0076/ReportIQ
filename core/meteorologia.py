@@ -456,6 +456,20 @@ def _textos(a: AnalisisMeteo) -> dict:
         t["viento"] = texto
     else:
         t["viento"] = "No se dispone de registros de viento para los días de monitoreo."
+
+    vmax = a.viento_max_en_mediciones
+    if vmax is not None and vmax < 3:
+        t["viento_mediciones"] = (
+            "Cabe aclarar que en el momento en que se realizaron las mediciones en periodo diurno y nocturno, se "
+            f"presentaron velocidades de viento inferiores a 3 m/s (valor máximo registrado: {fmt(vmax)} m/s), "
+            "dichos datos se encuentran consignados en el Anexo 4. Registros de Campo, dando cumplimiento así con lo "
+            "establecido en la normatividad ambiental vigente en materia de la ejecución de los monitoreos de Ruido.")
+    elif vmax is not None:
+        t["viento_mediciones"] = (
+            "Durante los intervalos de medición la estación meteorológica registró velocidades de viento de hasta "
+            f"{fmt(vmax)} m/s, superiores al límite de 3 m/s establecido en la Resolución 0627 de 2006 para la "
+            "ejecución de los monitoreos de ruido; los datos se encuentran consignados en el Anexo 4. Registros de "
+            "Campo.")
     return t
 
 
