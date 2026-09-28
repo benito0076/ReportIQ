@@ -18,8 +18,22 @@ type Db = ReturnType<typeof createDb>;
 // Reutiliza la conexión entre recargas en caliente durante el desarrollo.
 const globalForDb = globalThis as unknown as { __db?: Db };
 
-export const db: Db = globalForDb.__db ?? createDb();
-if (process.env.NODE_ENV !== "production") globalForDb.__db = db;
+function getDb(): Db {
+  if (!globalForDb.__db) globalForDb.__db = createDb();
+  return globalForDb.__db;
+}
+
+/**
+ * La conexión se crea en el primer uso y no al importar el módulo: así
+ * `next build` no necesita DATABASE_URL (Vercel importa las rutas al compilar).
+ */
+export const db = new Proxy({} as Db, {
+  get(_target, prop) {
+    const real = getDb();
+    const value = Reflect.get(real, prop, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
 
 export type Transaction = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export type DbOrTx = Db | Transaction;
