@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { assertUser } from "@/lib/session";
-import { parseOrThrow, pointSchema, projectSchema } from "@/lib/validation";
+import { INFORME_CAMPOS, informeSchema, parseOrThrow, pointSchema, projectSchema } from "@/lib/validation";
 import {
   createPoint,
   createProject,
@@ -15,6 +15,7 @@ import {
   setProjectMeteo,
   updatePoint,
   updateProject,
+  updateProjectInforme,
 } from "@/server/projects";
 import { deleteReport } from "@/server/processing";
 import { str, toActionState, type ActionState } from "./state";
@@ -36,6 +37,7 @@ function pointInput(form: FormData) {
     norte: str(form, "norte"),
     altitud: str(form, "altitud"),
     descripcion: str(form, "descripcion"),
+    fuentes: str(form, "fuentes"),
   });
 }
 
@@ -59,6 +61,18 @@ export async function updateProjectAction(projectId: string, _prev: ActionState,
   }
   revalidatePath(`/proyectos/${projectId}`);
   return { ok: true, message: "Datos del proyecto guardados." };
+}
+
+export async function updateInformeAction(projectId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    await assertUser();
+    const input = parseOrThrow(informeSchema, Object.fromEntries(INFORME_CAMPOS.map((k) => [k, str(form, k)])));
+    await updateProjectInforme(projectId, input);
+  } catch (e) {
+    return toActionState(e, form);
+  }
+  revalidatePath(`/proyectos/${projectId}`);
+  return { ok: true, message: "Datos del informe guardados." };
 }
 
 export async function deleteProjectAction(projectId: string) {

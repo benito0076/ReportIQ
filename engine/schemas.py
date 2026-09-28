@@ -31,10 +31,32 @@ class PuntoIn(BaseModel):
     incertidumbre: float = 0.0
     altitud: str = ""
     descripcion: str = ""
+    fuentes: str = ""  # fuentes de ruido percibidas (capitulo del informe)
     foto: Optional[ArchivoRemoto] = None
     # esquema -> direccion -> archivo de memoria del sonometro (.xlsx)
     memorias: dict[Esquema, dict[Direccion, ArchivoRemoto]] = Field(default_factory=dict)
     correcciones_manuales: list[CorreccionManual] = Field(default_factory=list)
+
+
+class InformeIn(BaseModel):
+    """Datos para redactar el informe Word (ver core.models.DatosInforme)."""
+    area_estudio: str = ""
+    municipio: str = ""
+    departamento: str = ""
+    titulo: str = ""
+    expediente: str = ""
+    version: str = "1.0"
+    fecha: str = ""
+    cliente_nit: str = ""
+    cliente_direccion: str = ""
+    cliente_contacto: str = ""
+    cliente_ciudad: str = ""
+    cliente_departamento: str = ""
+    cliente_actividad: str = ""
+    elaboro_nombre: str = ""
+    elaboro_cargo: str = ""
+    autorizo_nombre: str = ""
+    autorizo_cargo: str = ""
 
 
 class ProyectoIn(BaseModel):
@@ -42,6 +64,7 @@ class ProyectoIn(BaseModel):
     codigo_informe: str = ""
     cliente: str = ""
     puntos: list[PuntoIn] = Field(default_factory=list)
+    informe: InformeIn = Field(default_factory=InformeIn)
     # Archivo de la estacion meteorologica (.xlsx); opcional.
     meteorologia: Optional[ArchivoRemoto] = None
 

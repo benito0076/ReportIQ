@@ -23,6 +23,7 @@ export function PointForm({ projectId, point }: { projectId: string; point?: Poi
     norte: point?.norte ?? "",
     altitud: point?.altitud ?? "",
     descripcion: point?.descripcion ?? "",
+    fuentes: point?.fuentes ?? "",
   };
   return (
     <form action={formAction} className="grid gap-4 sm:grid-cols-2">
@@ -63,6 +64,15 @@ export function PointForm({ projectId, point }: { projectId: string; point?: Poi
       </Field>
       <Field label="Descripción del punto" htmlFor="descripcion" error={fe.descripcion} className="sm:col-span-2">
         <Textarea id="descripcion" name="descripcion" rows={6} defaultValue={v.descripcion} />
+      </Field>
+      <Field
+        label="Fuentes de ruido percibidas"
+        htmlFor="fuentes"
+        error={fe.fuentes}
+        className="sm:col-span-2"
+        hint="Para el capítulo «Descripción de las fuentes generadoras de ruido» y las conclusiones. Ej.: Se percibieron aves, grillos y el tránsito ocasional de motocicletas por la vía destapada."
+      >
+        <Textarea id="fuentes" name="fuentes" rows={4} defaultValue={v.fuentes} />
       </Field>
       <div className="flex gap-2 sm:col-span-2">
         <SubmitButton>{point ? "Guardar punto" : "Crear punto"}</SubmitButton>

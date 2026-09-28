@@ -7,6 +7,7 @@ import * as engine from "@/lib/engine";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { deleteObject, downloadUrl, newKey, putObject } from "@/lib/storage";
 import type { ResultadosProyecto } from "@/lib/engine-types";
+import { informePayload } from "@/lib/informe";
 import { getProject, isUuid, listMemoryFiles, listPoints, saveResults } from "./projects";
 import { getSettings } from "./settings";
 
@@ -15,10 +16,11 @@ const ENGINE_URL_TTL = 15 * 60;
 
 /** Arma el proyecto para el motor, con URLs firmadas para memorias y fotos. */
 export async function buildPayload(projectId: string): Promise<engine.ProyectoPayload> {
-  const [project, pts, mems] = await Promise.all([
+  const [project, pts, mems, settings] = await Promise.all([
     getProject(projectId),
     listPoints(projectId),
     listMemoryFiles(projectId),
+    getSettings(),
   ]);
   if (pts.length === 0) throw new ValidationError("Agregue al menos un punto de monitoreo.");
   if (mems.length === 0) throw new ValidationError("Suba al menos una memoria del sonómetro.");
@@ -41,6 +43,7 @@ export async function buildPayload(projectId: string): Promise<engine.ProyectoPa
         incertidumbre: p.incertidumbre,
         altitud: p.altitud,
         descripcion: p.descripcion,
+        fuentes: p.fuentes,
         foto: p.fotoKey
           ? { url: await downloadUrl(p.fotoKey, { ttl: ENGINE_URL_TTL }), nombre: p.fotoNombre ?? "foto.jpg" }
           : null,
@@ -53,6 +56,12 @@ export async function buildPayload(projectId: string): Promise<engine.ProyectoPa
     codigo_informe: project.codigoInforme,
     cliente: project.cliente,
     puntos,
+    informe: informePayload(project.informe, {
+      elaboroNombre: settings.elaboroNombre,
+      elaboroCargo: settings.elaboroCargo,
+      autorizoNombre: settings.autorizoNombre,
+      autorizoCargo: settings.autorizoCargo,
+    }),
     meteorologia: project.meteoKey
       ? { url: await downloadUrl(project.meteoKey, { ttl: ENGINE_URL_TTL }), nombre: project.meteoNombre ?? "meteorologia.xlsx" }
       : null,

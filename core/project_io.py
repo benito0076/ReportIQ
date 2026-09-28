@@ -3,8 +3,9 @@ JSON, para poder retomar el trabajo entre sesiones de la aplicacion."""
 from __future__ import annotations
 
 import json
+from dataclasses import asdict, fields
 
-from .models import DIRECCIONES, ESQUEMAS, ArchivoMemoria, Proyecto, Punto
+from .models import DIRECCIONES, ESQUEMAS, ArchivoMemoria, DatosInforme, Proyecto, Punto
 
 
 def proyecto_a_dict(proyecto: Proyecto) -> dict:
@@ -13,6 +14,7 @@ def proyecto_a_dict(proyecto: Proyecto) -> dict:
         "codigo_informe": proyecto.codigo_informe,
         "cliente": proyecto.cliente,
         "meteo_ruta": proyecto.meteo_ruta,
+        "informe": asdict(proyecto.informe),
         "puntos": [
             {
                 "no_punto": p.no_punto,
@@ -23,6 +25,7 @@ def proyecto_a_dict(proyecto: Proyecto) -> dict:
                 "incertidumbre": p.incertidumbre,
                 "altitud": p.altitud,
                 "descripcion": p.descripcion,
+                "fuentes": p.fuentes,
                 "foto_ruta": p.foto_ruta,
                 "archivos": {
                     esquema: {d: p.archivos[esquema][d].ruta for d in DIRECCIONES}
@@ -44,6 +47,7 @@ def dict_a_proyecto(data: dict) -> Proyecto:
         codigo_informe=data.get("codigo_informe", ""),
         cliente=data.get("cliente", ""),
         meteo_ruta=data.get("meteo_ruta", ""),
+        informe=datos_informe_desde_dict(data.get("informe")),
     )
     for pd in data.get("puntos", []):
         punto = Punto(
@@ -51,6 +55,7 @@ def dict_a_proyecto(data: dict) -> Proyecto:
             longitud=pd.get("longitud", ""), latitud=pd.get("latitud", ""),
             incertidumbre=pd.get("incertidumbre", 0.0),
             altitud=pd.get("altitud", ""), descripcion=pd.get("descripcion", ""),
+            fuentes=pd.get("fuentes", ""),
             foto_ruta=pd.get("foto_ruta", ""),
         )
         archivos_data = pd.get("archivos", {})
@@ -63,6 +68,12 @@ def dict_a_proyecto(data: dict) -> Proyecto:
             punto.correcciones_manuales[(esquema, direccion)] = valores
         proyecto.puntos.append(punto)
     return proyecto
+
+
+def datos_informe_desde_dict(data) -> DatosInforme:
+    """Crea DatosInforme ignorando claves desconocidas (archivos de otras versiones)."""
+    validos = {f.name for f in fields(DatosInforme)}
+    return DatosInforme(**{k: str(v or "") for k, v in (data or {}).items() if k in validos})
 
 
 def guardar_proyecto(proyecto: Proyecto, ruta: str):

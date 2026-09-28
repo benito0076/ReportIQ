@@ -3,7 +3,7 @@ import { and, asc, count, desc, eq, inArray, max } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
 import type { Direccion, Esquema } from "@/db/enums";
 import { memoryFiles, points, projects, reports, users } from "@/db/schema";
-import type { PointInput, ProjectInput } from "@/lib/validation";
+import type { DatosInforme, PointInput, ProjectInput } from "@/lib/validation";
 import { NotFoundError } from "@/lib/errors";
 import { deleteObject } from "@/lib/storage";
 
@@ -50,6 +50,12 @@ export async function updateProject(id: string, input: ProjectInput) {
   await getProject(id);
   // Nombre, cliente y código no afectan los cálculos: los resultados se conservan.
   await db.update(projects).set(input).where(eq(projects.id, id));
+}
+
+/** Datos de redacción del informe: no afectan los cálculos. */
+export async function updateProjectInforme(id: string, informe: DatosInforme) {
+  await getProject(id);
+  await db.update(projects).set({ informe }).where(eq(projects.id, id));
 }
 
 /** Borra el proyecto y todos sus archivos en el almacenamiento. */

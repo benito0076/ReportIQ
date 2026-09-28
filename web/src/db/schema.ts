@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { Direccion, Esquema, ReportKind, UserRole } from "./enums";
 import type { ResultadosProyecto } from "@/lib/engine-types";
+import type { DatosInforme } from "@/lib/validation";
 
 export type { UserRole };
 
@@ -46,6 +47,8 @@ export const projects = pgTable(
     /** Archivo de la estación meteorológica (capítulo de meteorología del informe). */
     meteoKey: text("meteo_key"),
     meteoNombre: varchar("meteo_nombre", { length: 255 }),
+    /** Datos para redactar el informe Word (área de estudio, portada, cliente…). */
+    informe: jsonb("informe").$type<Partial<DatosInforme>>().notNull().default(sql`'{}'::jsonb`),
     procesadoAt: timestamp("procesado_at", { withTimezone: true }),
     ...timestamps,
   },
@@ -67,6 +70,8 @@ export const points = pgTable(
     norte: varchar("norte", { length: 50 }).notNull().default(""),
     altitud: varchar("altitud", { length: 50 }).notNull().default(""),
     descripcion: text("descripcion").notNull().default(""),
+    /** Fuentes de ruido percibidas (capítulo «Descripción de las fuentes» del informe). */
+    fuentes: text("fuentes").notNull().default(""),
     fotoKey: text("foto_key"),
     fotoNombre: varchar("foto_nombre", { length: 255 }),
     ...timestamps,
@@ -124,6 +129,11 @@ export const equipment = pgTable("equipment", {
 export const settings = pgTable("settings", {
   id: integer("id").primaryKey().default(1),
   elaboradoPor: varchar("elaborado_por", { length: 255 }).notNull().default(""),
+  /** Firmas del cuadro de control del informe. */
+  elaboroNombre: varchar("elaboro_nombre", { length: 255 }).notNull().default(""),
+  elaboroCargo: varchar("elaboro_cargo", { length: 255 }).notNull().default(""),
+  autorizoNombre: varchar("autorizo_nombre", { length: 255 }).notNull().default(""),
+  autorizoCargo: varchar("autorizo_cargo", { length: 255 }).notNull().default(""),
   plantillaKey: text("plantilla_key"),
   plantillaNombre: varchar("plantilla_nombre", { length: 255 }),
   updatedAt: timestamp("updated_at", { withTimezone: true })

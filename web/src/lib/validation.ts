@@ -34,6 +34,40 @@ export const projectSchema = z.object({
 });
 export type ProjectInput = z.output<typeof projectSchema>;
 
+/** Datos para redactar el informe Word (portada, encabezado, resumen, cliente). */
+export const INFORME_CAMPOS = [
+  "areaEstudio",
+  "municipio",
+  "departamento",
+  "titulo",
+  "expediente",
+  "version",
+  "fecha",
+  "clienteNit",
+  "clienteDireccion",
+  "clienteContacto",
+  "clienteCiudad",
+  "clienteDepartamento",
+  "clienteActividad",
+] as const;
+
+export const informeSchema = z.object({
+  areaEstudio: optionalText(500),
+  municipio: optionalText(120),
+  departamento: optionalText(120),
+  titulo: optionalText(600),
+  expediente: optionalText(100),
+  version: optionalText(20),
+  fecha: optionalText(10).refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), "Fecha inválida."),
+  clienteNit: optionalText(50),
+  clienteDireccion: optionalText(300),
+  clienteContacto: optionalText(300),
+  clienteCiudad: optionalText(120),
+  clienteDepartamento: optionalText(120),
+  clienteActividad: optionalText(1000),
+});
+export type DatosInforme = z.output<typeof informeSchema>;
+
 export const pointSchema = z.object({
   nombre: text(100).min(1, "El punto debe tener un nombre."),
   sector: optionalText(1000).refine(
@@ -55,6 +89,7 @@ export const pointSchema = z.object({
   norte: coordinate,
   altitud: optionalText(50),
   descripcion: optionalText(5000),
+  fuentes: optionalText(5000),
 });
 export type PointInput = z.output<typeof pointSchema>;
 
@@ -79,7 +114,14 @@ export const setupSchema = z.object({ fullName: optionalText(255), email, passwo
 
 export const passwordSchema = z.object({ password });
 
-export const settingsSchema = z.object({ elaboradoPor: optionalText(255) });
+export const settingsSchema = z.object({
+  elaboradoPor: optionalText(255),
+  elaboroNombre: optionalText(255),
+  elaboroCargo: optionalText(255),
+  autorizoNombre: optionalText(255),
+  autorizoCargo: optionalText(255),
+});
+export type SettingsInput = z.output<typeof settingsSchema>;
 
 /** Valida y convierte los errores de Zod en un ValidationError por campo. */
 export function parseOrThrow<S extends z.ZodType>(schema: S, data: unknown): z.output<S> {

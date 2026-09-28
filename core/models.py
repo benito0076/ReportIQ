@@ -36,6 +36,7 @@ class Punto:
     incertidumbre: float = 0.0
     altitud: str = ""  # m.s.n.m., opcional
     descripcion: str = ""
+    fuentes: str = ""  # fuentes de ruido percibidas en el punto (capitulo del informe)
     foto_ruta: str = ""
     # esquema -> {direccion -> ArchivoMemoria}
     archivos: dict = field(default_factory=lambda: {e: {d: ArchivoMemoria(d) for d in DIRECCIONES} for e in ESQUEMAS})
@@ -51,12 +52,40 @@ class Punto:
 
 
 @dataclass
+class DatosInforme:
+    """Datos del informe Word que no salen de las mediciones: se usan para
+    redactar el resumen, los objetivos, la informacion del cliente, el
+    encabezado, la portada y el cuadro de control del documento."""
+    # Como se nombra el sitio en el texto, p. ej. "el área de actividades de
+    # la Gerencia General de Activos con Socios, específicamente en el Campo Colorado".
+    area_estudio: str = ""
+    municipio: str = ""
+    departamento: str = ""
+    # Titulo de la portada y del encabezado (una linea por renglon).
+    titulo: str = ""
+    expediente: str = ""
+    version: str = "1.0"
+    fecha: str = ""  # AAAA-MM-DD; vacio = fecha en que se genera el informe
+    cliente_nit: str = ""
+    cliente_direccion: str = ""
+    cliente_contacto: str = ""
+    cliente_ciudad: str = ""
+    cliente_departamento: str = ""
+    cliente_actividad: str = ""
+    elaboro_nombre: str = ""
+    elaboro_cargo: str = ""
+    autorizo_nombre: str = ""
+    autorizo_cargo: str = ""
+
+
+@dataclass
 class Proyecto:
     nombre_proyecto: str = ""
     codigo_informe: str = ""
     cliente: str = ""
     puntos: list = field(default_factory=list)
     meteo_ruta: str = ""  # archivo de la estacion meteorologica (.xlsx), opcional
+    informe: DatosInforme = field(default_factory=DatosInforme)
 
     def agregar_punto(self, nombre: str, sector: str = "") -> Punto:
         no = len(self.puntos) + 1

@@ -22,9 +22,9 @@ import httpx
 from core.charts import generar_graficas
 from core.excel_export import exportar_resultados
 from core import isophones
-from core.isophones import SinCoordenadasError, generar_mapa_isofonas_esquema
+from core.isophones import SinCoordenadasError, generar_mapa_isofonas_esquema, generar_mapa_localizacion
 from core import meteorologia
-from core.models import ESQUEMA_LABELS, ESQUEMAS, ArchivoMemoria, Proyecto, Punto
+from core.models import ESQUEMA_LABELS, ESQUEMAS, ArchivoMemoria, DatosInforme, Proyecto, Punto
 from core.pipeline import ResultadosProyecto, procesar_proyecto
 from core.report_generator import ErrorPlantilla, generar_informe
 
@@ -101,6 +101,7 @@ def preparar(proyecto_in: ProyectoIn, carpeta: str, plantilla: Optional[ArchivoR
         nombre_proyecto=proyecto_in.nombre_proyecto,
         codigo_informe=proyecto_in.codigo_informe,
         cliente=proyecto_in.cliente,
+        informe=DatosInforme(**proyecto_in.informe.model_dump()),
     )
     ctx = Contexto(carpeta=carpeta, proyecto=proyecto)
     descargas: list[tuple[ArchivoRemoto, str]] = []
@@ -109,7 +110,7 @@ def preparar(proyecto_in: ProyectoIn, carpeta: str, plantilla: Optional[ArchivoR
         punto = Punto(
             no_punto=pin.no_punto, nombre=pin.nombre, sector=pin.sector,
             longitud=pin.este, latitud=pin.norte, incertidumbre=pin.incertidumbre,
-            altitud=pin.altitud, descripcion=pin.descripcion,
+            altitud=pin.altitud, descripcion=pin.descripcion, fuentes=pin.fuentes,
         )
         for esquema, por_direccion in pin.memorias.items():
             for direccion, archivo in por_direccion.items():
@@ -236,6 +237,21 @@ def _generar_isofonas(ctx: Contexto, resultados, carpeta: str, elaborado_por: st
     return rutas, errores
 
 
+def _generar_localizacion(ctx: Contexto, carpeta: str, elaborado_por: str, generar_pdf: bool):
+    """Plano de localizacion de los puntos (Imagen 1 del informe). Devuelve (ruta|None, errores)."""
+    extra = {"elaborado_por": elaborado_por} if elaborado_por else {}
+    isophones.ultimo_error_mapa_base = None
+    try:
+        ruta = generar_mapa_localizacion(ctx.proyecto, os.path.join(carpeta, "localizacion_puntos.png"),
+                                         con_basemap=CON_MAPA_BASE, generar_pdf=generar_pdf, **extra)
+    except SinCoordenadasError:
+        return None, ["Mapa de localizacion: ningun punto tiene coordenadas; se dejo la imagen de la plantilla."]
+    errores = []
+    if isophones.ultimo_error_mapa_base:
+        errores.append(f"Mapa satelital no disponible ({isophones.ultimo_error_mapa_base})")
+    return ruta, errores
+
+
 def generar_excel(ctx: Contexto) -> Entregable:
     resultados = procesar(ctx)
     ruta = os.path.join(ctx.carpeta, "resultados.xlsx")
@@ -277,8 +293,9 @@ def generar_anexos(ctx: Contexto, elaborado_por: str = "") -> Entregable:
     with _LOCK_GRAFICOS:
         graficas = generar_graficas(resultados, carpeta)
         isofonas, errores = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=True)
+        localizacion, errores_loc = _generar_localizacion(ctx, carpeta, elaborado_por, generar_pdf=True)
         meteo, avisos_meteo = _meteorologia(ctx, resultados, os.path.join(carpeta, "meteorologia"))
-    errores += avisos_meteo
+    errores += [e for e in errores_loc if e not in errores] + avisos_meteo
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -290,6 +307,11 @@ def generar_anexos(ctx: Contexto, elaborado_por: str = "") -> Entregable:
             pdf = os.path.splitext(ruta)[0] + ".pdf"
             if os.path.exists(pdf):
                 zf.write(pdf, f"isofonas/{os.path.basename(pdf)}")
+        if localizacion:
+            zf.write(localizacion, f"localizacion/{os.path.basename(localizacion)}")
+            pdf = os.path.splitext(localizacion)[0] + ".pdf"
+            if os.path.exists(pdf):
+                zf.write(pdf, f"localizacion/{os.path.basename(pdf)}")
         if meteo:
             for ruta in meteo[1].values():
                 zf.write(ruta, f"meteorologia/{os.path.basename(ruta)}")
@@ -307,6 +329,10 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
     with _LOCK_GRAFICOS:
         graficas = generar_graficas(resultados, carpeta)
         isofonas, errores_isofonas = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=False)
+        localizacion, errores_loc = _generar_localizacion(ctx, carpeta, elaborado_por, generar_pdf=False)
+        if localizacion:
+            graficas["localizacion"] = localizacion
+        errores_isofonas += [e for e in errores_loc if e not in errores_isofonas]
         meteo, avisos_meteo = _meteorologia(ctx, resultados, os.path.join(carpeta, "meteorologia"))
 
     ruta_equipos = None
@@ -326,7 +352,7 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
     with open(salida, "rb") as f:
         contenido = f.read()
     advertencias = [a.mensaje for a in resultados.advertencias]
-    advertencias += [f"Tabla no encontrada en la plantilla: {t}" for t in faltantes]
+    advertencias += [f"Revisar en el informe: {t}" for t in faltantes]
     advertencias += errores_isofonas
     advertencias += avisos_meteo
     return Entregable(contenido, f"{_nombre_base(ctx)} - Informe.docx", MIME_DOCX, advertencias)

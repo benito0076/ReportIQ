@@ -11,6 +11,7 @@ import { fmtNum } from "@/lib/format";
 import { SECTORES } from "@/lib/validation";
 import { getProject, listPoints } from "@/server/projects";
 import { ProjectForm } from "../project-form";
+import { InformeForm } from "./informe-form";
 
 export const metadata: Metadata = { title: "Proyecto" };
 
@@ -29,6 +30,20 @@ export default async function ProjectPage({ params }: PageProps<"/proyectos/[id]
         </CardHeader>
         <CardContent>
           <ProjectForm project={project} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos del informe</CardTitle>
+          <CardDescription>
+            Con estos datos y los resultados se redactan la portada, el encabezado, el resumen, los objetivos, la
+            información del cliente, el análisis de resultados y las conclusiones del Word. Las firmas (elaboró y
+            autorizó) se configuran en Ajustes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <InformeForm projectId={id} informe={project.informe} />
         </CardContent>
       </Card>
 
