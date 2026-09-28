@@ -57,6 +57,9 @@ COLORES_PUNTOS = [
 
 COLOR_TITULO_CAJA = "#1F3864"
 COMPANIA_DEFECTO = "AMBIENCIQ INGENIEROS S.A.S."
+# Logo de la empresa para el cuadro "ELABORO" (se omite si el archivo no existe).
+LOGO_DEFECTO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "templates", "logo_empresa.png")
 
 
 class SinCoordenadasError(Exception):
@@ -181,9 +184,26 @@ def _dibujar_info_proyecto(fig, rect, lineas):
             fontweight="bold", transform=ax.transAxes, wrap=True)
 
 
-def _dibujar_elaborado(fig, rect, texto):
-    ax = _caja(fig, rect, "ELABORO", alto_titulo=0.35)
-    ax.text(0.5, (1 - 0.35) / 2, texto, ha="center", va="center", fontsize=7.5,
+def _dibujar_elaborado(fig, rect, texto, logo_ruta=None):
+    alto_titulo = 0.30
+    ax = _caja(fig, rect, "ELABORO", alto_titulo=alto_titulo)
+    x_texto = 0.5
+    if logo_ruta and os.path.exists(logo_ruta):
+        try:
+            imagen = plt.imread(logo_ruta)
+            # Logo a la izquierda, ocupando el alto disponible bajo el titulo;
+            # el ancho se ajusta a la proporcion real de la caja en la figura.
+            ancho_fig, alto_fig = fig.get_size_inches()
+            alto_rel = (1 - alto_titulo) * 0.8
+            alto_in = alto_rel * rect[3] * alto_fig
+            ancho_rel = alto_in * imagen.shape[1] / imagen.shape[0] / (rect[2] * ancho_fig)
+            sub = ax.inset_axes([0.04, (1 - alto_titulo - alto_rel) / 2, ancho_rel, alto_rel])
+            sub.imshow(imagen)
+            sub.axis("off")
+            x_texto = 0.04 + ancho_rel + (1 - 0.04 - ancho_rel) / 2
+        except Exception:  # noqa: BLE001  (logo danado: se deja solo el texto)
+            x_texto = 0.5
+    ax.text(x_texto, (1 - alto_titulo) / 2, texto, ha="center", va="center", fontsize=7.5,
             fontweight="bold", transform=ax.transAxes, wrap=True)
 
 
@@ -261,7 +281,8 @@ def _dibujar_rosa_vientos(ax):
 
 def generar_mapa_isofonas_esquema(resultados_proyecto, esquema: str, ruta_salida: str,
                                    titulo: str = "", con_basemap: bool = True,
-                                   elaborado_por: str = COMPANIA_DEFECTO, generar_pdf: bool = True):
+                                   elaborado_por: str = COMPANIA_DEFECTO, generar_pdf: bool = True,
+                                   logo_ruta: str = LOGO_DEFECTO):
     """Genera el mapa de isofonas para un esquema especifico (DH, DNH, NDH o
     NDNH), con el formato de plano usado actualmente (mapa satelital real,
     isolineas, cuadricula Origen Nacional, y columna lateral con
@@ -380,7 +401,7 @@ def generar_mapa_isofonas_esquema(resultados_proyecto, esquema: str, ruta_salida
         "puntos": min(0.30, 0.05 + 0.026 * len(nombres)),
         "escala": 0.33,
         "proyecto": 0.11,
-        "elaboro": 0.075,
+        "elaboro": 0.09,
         "grafica": 0.075,
     }
     gap_deseado = 0.014
@@ -408,7 +429,7 @@ def generar_mapa_isofonas_esquema(resultados_proyecto, esquema: str, ruta_salida
     _dibujar_info_proyecto(fig, [col_x, y_cursor, col_w, alturas["proyecto"]], lineas_proyecto or ["PROYECTO"])
 
     y_cursor -= gap + alturas["elaboro"]
-    _dibujar_elaborado(fig, [col_x, y_cursor, col_w, alturas["elaboro"]], elaborado_por)
+    _dibujar_elaborado(fig, [col_x, y_cursor, col_w, alturas["elaboro"]], elaborado_por, logo_ruta)
 
     y_cursor -= gap + alturas["grafica"]
     _dibujar_escala_grafica_caja(fig, [col_x, y_cursor, col_w, alturas["grafica"]], x_max - x_min)
