@@ -461,52 +461,77 @@ def _textos(a: AnalisisMeteo) -> dict:
 
 # ---------------------------------------------------------------- graficas
 COLORES_CLASES = ["#C3DFC6", "#FFFF00", "#FF0000", "#0000FF", "#008000"]
+COLOR_COLUMNAS = "#B5D30A"  # verde de las graficas diarias del informe
+COLOR_BORDE_GRAFICA = "#92D050"
+
+
+def _tope_eje(maximo: float) -> float:
+    """Limite superior 'redondo' del eje Y, con espacio para las etiquetas."""
+    objetivo = maximo * 1.2
+    for paso in (5, 10, 20, 50, 100, 200, 500):
+        if objetivo / paso <= 10:
+            return paso * math.ceil(objetivo / paso)
+    return objetivo
 
 
 def generar_graficas_meteo(a: AnalisisMeteo, carpeta: str) -> dict:
-    """Genera temperatura, humedad, presion (series horarias de los dias de
-    medicion), rosa de vientos y distribucion de clases de viento."""
+    """Genera temperatura, humedad y presion (columnas con el promedio de
+    cada dia de medicion), rosa de vientos y distribucion de clases de viento."""
     import matplotlib
     matplotlib.use("Agg")
-    import matplotlib.dates as mdates
     import matplotlib.pyplot as plt
     import numpy as np
 
     os.makedirs(carpeta, exist_ok=True)
     rutas = {}
 
-    def serie(attr, titulo, ylabel, color, nombre):
-        puntos = [(r.fecha, getattr(r, attr)) for r in a.registros if getattr(r, attr) is not None]
-        if not puntos:
+    def columnas(attr, titulo, ylabel, nombre, y_max=None, paso=None):
+        """Columnas con el promedio diario (estilo de las graficas del informe):
+        barras verdes con borde negro, valor sobre cada barra, fondo gris con
+        lineas guia, eje Y desde 0 y fechas AAAA-MM-DD."""
+        dias = [(d.dia, getattr(d, attr)) for d in a.dias if getattr(d, attr) is not None]
+        if not dias:
             return
-        fig, ax = plt.subplots(figsize=(8, 4), dpi=150)
-        # Una linea por dia para no unir con un trazo el final de un dia y el inicio del siguiente.
-        for d in a.dias:
-            xs = [f for f, _ in puntos if f.date() == d.dia]
-            ys = [v for f, v in puntos if f.date() == d.dia]
-            if xs:
-                ax.plot(xs, ys, color=color, linewidth=1.4, marker="o", markersize=2.5)
-            media = getattr(d, attr)
-            if media is not None and xs:
-                ax.hlines(media, min(xs), max(xs), colors="#555555", linestyles="--", linewidth=1)
-        ax.plot([], [], color="#555555", linestyle="--", label="Promedio diario")
-        ax.set_title(titulo)
-        ax.set_ylabel(ylabel)
-        ax.grid(linestyle="--", alpha=0.4)
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m\n%H:%M"))
-        ax.legend(fontsize=8, loc="best")
-        fig.tight_layout()
+        etiquetas = [d.isoformat() for d, _ in dias]
+        valores = [v for _, v in dias]
+        ancho = max(7.5, min(12.0, 1.6 + 1.25 * len(dias)))
+        fig, ax = plt.subplots(figsize=(ancho, 3.9), dpi=150)
+        fig.patch.set_edgecolor(COLOR_BORDE_GRAFICA)
+        fig.patch.set_linewidth(2)
+        ax.set_facecolor("#F0F0F0")
+        barras = ax.bar(etiquetas, valores, width=0.4, color=COLOR_COLUMNAS, edgecolor="black", linewidth=0.8,
+                        zorder=3)
+        tope = y_max if y_max is not None else _tope_eje(max(valores))
+        # Espacio para la etiqueta de valor sobre la barra mas alta.
+        while paso and max(valores) > tope * 0.88:
+            tope += paso
+        ax.set_ylim(0, tope)
+        if paso:
+            ax.set_yticks(np.arange(0, tope + paso / 2, paso))
+        ax.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"{v:.0f}"))
+        for b, v in zip(barras, valores):
+            ax.annotate(fmt(v), (b.get_x() + b.get_width() / 2, v), xytext=(0, 4), textcoords="offset points",
+                        ha="center", va="bottom", fontsize=11, zorder=5,
+                        bbox=dict(boxstyle="square,pad=0.25", facecolor="white", edgecolor="none"))
+        ax.grid(axis="y", color="#A6A6A6", linewidth=0.8, zorder=0)
+        ax.set_axisbelow(True)
+        for lado in ("top", "right"):
+            ax.spines[lado].set_visible(False)
+        ax.set_title(titulo, fontsize=13, fontweight="bold")
+        ax.set_ylabel(ylabel, fontsize=11, fontweight="bold")
+        ax.set_xlabel("Fechas de monitoreo", fontsize=11, labelpad=8)
+        ax.tick_params(axis="x", labelsize=8.5, length=0)
+        ax.tick_params(axis="y", labelsize=10)
+        fig.tight_layout(pad=1.2)
         ruta = os.path.join(carpeta, nombre)
-        fig.savefig(ruta)
+        fig.savefig(ruta, edgecolor=fig.get_edgecolor())
         plt.close(fig)
         rutas[attr] = ruta
 
-    serie("temperatura", "Temperatura ambiente durante los días de monitoreo", "Temperatura (°C)", "#C0504D",
-          "meteo_temperatura.png")
-    serie("humedad", "Humedad relativa durante los días de monitoreo", "Humedad relativa (%)", "#4F81BD",
-          "meteo_humedad.png")
-    serie("presion", "Presión atmosférica durante los días de monitoreo", "Presión (mmHg)", "#9BBB59",
-          "meteo_presion.png")
+    columnas("temperatura", "Temperatura Ambiente Diaria", "Temperatura (°C)", "meteo_temperatura.png")
+    columnas("humedad", "Humedad Relativa Diaria", "Humedad relativa (%)", "meteo_humedad.png", y_max=100, paso=10)
+    columnas("presion", "Presión Atmosférica Diaria", "Presión atmosférica (mm Hg)", "meteo_presion.png",
+             y_max=1000, paso=100)
 
     if a.frecuencias:
         # Distribucion de clases (incluye calmas).
