@@ -71,6 +71,9 @@ class DatosMemoria:
     numero_serie: Optional[str] = None
     modelo: Optional[str] = None
     espectro_laeq: dict = field(default_factory=dict)  # banda(str) -> dB
+    # Primeras filas de la hoja Resumen (etiqueta y valores), para poder
+    # diagnosticar formatos de exportacion no reconocidos.
+    muestra_resumen: list = field(default_factory=list)
 
 
 def leer_memoria(ruta: str) -> DatosMemoria:
@@ -84,10 +87,11 @@ def leer_memoria(ruta: str) -> DatosMemoria:
         raise ErrorLecturaMemoria(f"El archivo '{ruta}' no tiene una hoja 'Resumen'.")
 
     ws = wb["Resumen"]
+    filas = [tuple(r) for r in ws.iter_rows(values_only=True)]
     valores = {}
     numero_serie = None
     modelo = None
-    for row in ws.iter_rows(values_only=True):
+    for row in filas:
         if not row:
             continue
         etiqueta = _norm(row[0])
@@ -121,17 +125,79 @@ def leer_memoria(ruta: str) -> DatosMemoria:
     datos.numero_serie = _norm(numero_serie) or None
     datos.modelo = _norm(modelo) or None
     for campo in ("lpico", "lmax", "lmin", "l90", "laeq", "laieq"):
-        val = valores.get(campo)
-        try:
-            setattr(datos, campo, float(val) if val is not None else None)
-        except (TypeError, ValueError):
-            setattr(datos, campo, None)
+        val = _numero(valores.get(campo))
+        if val is None:
+            # Formato no reconocido por las etiquetas exactas: busqueda
+            # tolerante (otras variantes de etiqueta, valor en otra columna o
+            # en la fila de abajo, numeros como texto con coma decimal).
+            val = _buscar_flexible(filas, campo)
+        setattr(datos, campo, val)
+    datos.muestra_resumen = _muestra(filas)
 
     if "OBA" in wb.sheetnames:
         datos.espectro_laeq = _leer_espectro(wb["OBA"])
 
     wb.close()
     return datos
+
+
+def _numero(valor) -> Optional[float]:
+    """Convierte a float numeros o textos numericos ("57,8", "57.8 dB")."""
+    if valor is None or isinstance(valor, bool):
+        return None
+    if isinstance(valor, (int, float)):
+        return float(valor)
+    m = re.fullmatch(r"\s*(-?\d+(?:[.,]\d+)?)\s*(?:dB(?:\(A\))?)?\s*", str(valor), re.IGNORECASE)
+    return float(m.group(1).replace(",", ".")) if m else None
+
+
+# Etiqueta normalizada: minusculas, sin espacios, parentesis, "dB" ni
+# puntuacion (p.ej. "LAS 90,0 (dB)" -> "las900", "LAeq" -> "laeq"). El
+# caracter de ponderacion puede venir mal codificado: se acepta cualquiera,
+# salvo C o Z (ponderaciones distintas de A) para los niveles que son A.
+_PATRONES_FLEXIBLES = {
+    "laieq": re.compile(r"^l[^cz]?ieq$"),
+    "laeq": re.compile(r"^l[^cz]?eq$"),
+    "l90": re.compile(r"^l[^cz]?[sf]?90(0)?$"),
+    "lmax": re.compile(r"^l[^cz]?[sf]?max$"),
+    "lmin": re.compile(r"^l[^cz]?[sf]?min$"),
+    "lpico": re.compile(r"^l.?(pk|peak|pico)$"),
+}
+
+
+def _normalizar_etiqueta(texto: str) -> str:
+    t = texto.lower().replace("(db)", "").replace("db(a)", "").replace("db", "")
+    return re.sub(r"[\s()\[\],.:_\-]+", "", t)
+
+
+def _buscar_flexible(filas, campo) -> Optional[float]:
+    patron = _PATRONES_FLEXIBLES[campo]
+    for i, row in enumerate(filas):
+        for j, celda in enumerate(row):
+            if not isinstance(celda, str) or not patron.match(_normalizar_etiqueta(celda)):
+                continue
+            # 1) Primer valor numerico a la derecha en la misma fila.
+            for v in row[j + 1:]:
+                n = _numero(v)
+                if n is not None:
+                    return n
+            # 2) Formato horizontal: valor en la misma columna, fila de abajo.
+            if i + 1 < len(filas) and j < len(filas[i + 1]):
+                n = _numero(filas[i + 1][j])
+                if n is not None:
+                    return n
+    return None
+
+
+def _muestra(filas, max_filas=40) -> list:
+    salida = []
+    for row in filas:
+        celdas = [_norm(c) for c in row if c is not None and _norm(c)]
+        if celdas:
+            salida.append(" | ".join(celdas[:6]))
+        if len(salida) >= max_filas:
+            break
+    return salida
 
 
 def _leer_espectro(ws) -> dict:

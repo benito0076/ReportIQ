@@ -66,6 +66,13 @@ def procesar_proyecto(proyecto: Proyecto) -> ResultadosProyecto:
                         AdvertenciaProceso(punto.nombre, esquema, direccion, str(exc))
                     )
                     continue
+                if datos.laeq is None:
+                    resultados.advertencias.append(AdvertenciaProceso(
+                        punto.nombre, esquema, direccion,
+                        "No se encontro el LAeq en la hoja 'Resumen' de la memoria (formato de "
+                        "exportacion no reconocido); esta direccion no tendra nivel corregido. "
+                        "Contenido de la hoja: " + " / ".join(datos.muestra_resumen[:25]),
+                    ))
                 rd = procesar_direccion(direccion, datos, ks=ks, pantalla=pantalla)
                 resultados_direccion[direccion] = rd
                 if rd.numero_serie:
