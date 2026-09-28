@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { assertUser } from "@/lib/session";
+import { assertAdmin, assertUser } from "@/lib/session";
 import { INFORME_CAMPOS, informeSchema, parseOrThrow, pointSchema, projectSchema } from "@/lib/validation";
 import {
   createPoint,
@@ -75,8 +75,9 @@ export async function updateInformeAction(projectId: string, _prev: ActionState,
   return { ok: true, message: "Datos del informe guardados." };
 }
 
+/** Solo los administradores eliminan proyectos (se borran también memorias e informes). */
 export async function deleteProjectAction(projectId: string) {
-  await assertUser();
+  await assertAdmin();
   await deleteProject(projectId);
   redirect("/proyectos");
 }

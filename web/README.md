@@ -63,7 +63,8 @@ Navegador ──► App web Next.js (Vercel) ──► Motor Python FastAPI (Ren
 
 Además: **Equipos** (inventario de sonómetros por serial), **Usuarios** y
 **Ajustes** (plantilla Word propia, firmas del cuadro de control y texto «Elaboró» de los planos) para los
-administradores. El primer acceso abre `/setup` para crear el administrador.
+administradores. Solo los administradores pueden eliminar proyectos y equipos.
+El primer acceso abre `/setup` para crear el administrador.
 
 ## Desarrollo local
 
