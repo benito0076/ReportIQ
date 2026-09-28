@@ -21,6 +21,7 @@ import httpx
 
 from core.charts import generar_graficas
 from core.excel_export import exportar_resultados
+from core import isophones
 from core.isophones import SinCoordenadasError, generar_mapa_isofonas_esquema
 from core.models import ESQUEMA_LABELS, ESQUEMAS, ArchivoMemoria, Proyecto, Punto
 from core.pipeline import ResultadosProyecto, procesar_proyecto
@@ -214,6 +215,7 @@ def _generar_isofonas(ctx: Contexto, resultados, carpeta: str, elaborado_por: st
             continue
         etiqueta = ESQUEMA_LABELS[esquema]
         titulo = f"Mapa de isofonas - {etiqueta} - {ctx.proyecto.nombre_proyecto}" if con_titulo else ""
+        isophones.ultimo_error_mapa_base = None
         try:
             rutas[esquema] = generar_mapa_isofonas_esquema(
                 resultados, esquema, os.path.join(carpeta, f"isofonas_{esquema}.png"),
@@ -221,6 +223,10 @@ def _generar_isofonas(ctx: Contexto, resultados, carpeta: str, elaborado_por: st
             )
         except SinCoordenadasError as exc:
             errores.append(f"Mapa de isofonas {etiqueta}: {exc}")
+        if isophones.ultimo_error_mapa_base:
+            aviso = f"Mapa satelital no disponible ({isophones.ultimo_error_mapa_base})"
+            if aviso not in errores:
+                errores.append(aviso)
     return rutas, errores
 
 
@@ -265,7 +271,7 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
     os.makedirs(carpeta, exist_ok=True)
     with _LOCK_GRAFICOS:
         graficas = generar_graficas(resultados, carpeta)
-        isofonas, _ = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=False)
+        isofonas, errores_isofonas = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=False)
 
     ruta_equipos = None
     if equipos:
@@ -285,4 +291,5 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
         contenido = f.read()
     advertencias = [a.mensaje for a in resultados.advertencias]
     advertencias += [f"Tabla no encontrada en la plantilla: {t}" for t in faltantes]
+    advertencias += errores_isofonas
     return Entregable(contenido, f"{_nombre_base(ctx)} - Informe.docx", MIME_DOCX, advertencias)

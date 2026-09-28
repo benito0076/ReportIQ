@@ -28,6 +28,8 @@ from core import norms
 from . import service
 from .schemas import GenerarIn, ProcesarIn
 
+# Los avisos de core/ (p.ej. fallo del mapa satelital) salen en los logs del servicio.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("engine")
 
 app = FastAPI(title="Motor de ruido ambiental (Res. 0627)", docs_url=None, redoc_url=None)
