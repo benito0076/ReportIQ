@@ -7,6 +7,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     MPLBACKEND=Agg \
     PORT=8000
 
+# libexpat1: rasterio (usado por contextily para el mapa satelital de las
+# isofonas) trae GDAL empaquetado, pero enlaza la libexpat del sistema, que
+# la imagen slim no incluye. Sin ella el mapa sale sin fondo satelital.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libexpat1 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY engine/requirements.txt engine/requirements.txt
 RUN pip install --no-cache-dir -r engine/requirements.txt
