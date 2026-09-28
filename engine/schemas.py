@@ -42,6 +42,8 @@ class ProyectoIn(BaseModel):
     codigo_informe: str = ""
     cliente: str = ""
     puntos: list[PuntoIn] = Field(default_factory=list)
+    # Archivo de la estacion meteorologica (.xlsx); opcional.
+    meteorologia: Optional[ArchivoRemoto] = None
 
 
 class EquipoIn(BaseModel):

@@ -10,6 +10,7 @@ import { UPLOAD_RULES } from "@/lib/files";
 export type UploadTarget =
   | { kind: "memoria"; projectId: string; pointId: string; esquema: string; direccion: string }
   | { kind: "foto"; projectId: string; pointId: string }
+  | { kind: "meteo"; projectId: string }
   | { kind: "plantilla" };
 
 const MAX_PHOTO_SIDE = 1600;

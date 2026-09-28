@@ -12,7 +12,8 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
- * Almacenamiento de archivos (memorias, fotos, plantillas e informes).
+ * Almacenamiento de archivos (memorias, fotos, plantillas, datos
+ * meteorológicos e informes).
  *  - El bucket es privado: todo se sirve con URLs firmadas de corta duración.
  *  - El navegador sube los archivos directamente al bucket con una URL
  *    firmada de subida (PUT), sin pasar por el servidor: así no aplica el
@@ -22,12 +23,13 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  *    firmadas apuntan entonces a /api/local-files, protegidas con HMAC.
  */
 
-export type FileKind = "memoria" | "foto" | "plantilla" | "informe";
+export type FileKind = "memoria" | "foto" | "plantilla" | "meteo" | "informe";
 
 const PREFIX: Record<FileKind, string> = {
   memoria: "memorias",
   foto: "fotos",
   plantilla: "plantillas",
+  meteo: "meteorologia",
   informe: "informes",
 };
 

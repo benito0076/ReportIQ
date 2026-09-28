@@ -40,6 +40,12 @@ Navegador ──► App web Next.js (Vercel) ──► Motor Python FastAPI (Ren
 
 1. **Proyecto y puntos**: datos del proyecto y puntos de monitoreo (sector de la
    Res. 0627, incertidumbre, coordenadas Origen Nacional, altitud, foto, descripción).
+   Opcionalmente, el **archivo de la estación meteorológica** (.xlsx exportado de
+   WeatherLink u otro, con fecha/hora, temperatura, humedad, presión, viento y
+   lluvia): al generar el Word se usan solo los registros de los días de medición
+   para completar el capítulo de meteorología (tabla de promedios diarios, textos,
+   gráficas y rosa de vientos). Las filas con valores imposibles se descartan con
+   una advertencia.
 2. **Memorias del sonómetro**: una tabla por punto con las 4 jornadas × 5
    direcciones. «Subir las 5» permite elegir varios `.xlsx` a la vez; la dirección
    se reconoce por el nombre del archivo (`RA1_Norte.xlsx`, `RA1_N.xlsx`…).

@@ -13,7 +13,7 @@ import {
   sanitizeFileName,
   uploadUrl,
 } from "@/lib/storage";
-import { getPoint, setMemoryFile, setPointPhoto } from "./projects";
+import { getPoint, getProject, setMemoryFile, setPointPhoto, setProjectMeteo } from "./projects";
 import { updateSettings } from "./settings";
 
 /**
@@ -33,6 +33,7 @@ export const uploadTargetSchema = z.discriminatedUnion("kind", [
     direccion: z.enum(DIRECCIONES),
   }),
   z.object({ kind: z.literal("foto"), projectId: z.uuid(), pointId: z.uuid() }),
+  z.object({ kind: z.literal("meteo"), projectId: z.uuid() }),
   z.object({ kind: z.literal("plantilla") }),
 ]);
 export type UploadTarget = z.infer<typeof uploadTargetSchema>;
@@ -44,6 +45,10 @@ function scopeOf(target: UploadTarget): string {
 async function checkTarget(target: UploadTarget, user: CurrentUser) {
   if (target.kind === "plantilla") {
     if (user.role !== "admin") throw new ForbiddenError();
+    return;
+  }
+  if (target.kind === "meteo") {
+    await getProject(target.projectId);
     return;
   }
   await getPoint(target.projectId, target.pointId);
@@ -84,6 +89,9 @@ export async function confirmUpload(target: UploadTarget, key: string, fileName:
       break;
     case "foto":
       await setPointPhoto(target.projectId, target.pointId, key, name);
+      break;
+    case "meteo":
+      await setProjectMeteo(target.projectId, key, name);
       break;
     case "plantilla":
       await updateSettings({ plantillaKey: key, plantillaNombre: name });

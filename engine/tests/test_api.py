@@ -164,6 +164,46 @@ class TestApiMotor(unittest.TestCase):
                 self.assertEqual(len(satelital), 1, avisos)
                 self.assertIn("sin acceso a server.arcgisonline.com", satelital[0])
 
+    def test_word_y_anexos_con_datos_meteorologicos(self):
+        from datetime import date
+
+        from tests.test_meteorologia import crear_archivo
+
+        # Las memorias de prueba son del 10/03/2026: solo ese dia debe usarse.
+        crear_archivo(os.path.join(self.tmp.name, "meteo.xlsx"), dias=(date(2026, 3, 9), date(2026, 3, 10)))
+        proyecto = self._proyecto()
+        proyecto["meteorologia"] = {"url": f"{self.base}/meteo.xlsx", "nombre": "meteo.xlsx"}
+
+        r = self.client.post("/v1/generar", json={"proyecto": proyecto, "tipo": "word"}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        import docx
+        doc = docx.Document(io.BytesIO(r.content))
+        tabla = next(t for t in doc.tables if "Fecha de Monitoreo" in t.rows[0].cells[0].text)
+        self.assertEqual([row.cells[0].text for row in tabla.rows[1:]], ["2026-03-10", "Promedio", "Máximo", "Mínimo"])
+        texto = "\n".join(p.text for p in doc.paragraphs)
+        self.assertIn("10 de marzo de 2026, único día de monitoreo", texto)
+        self.assertNotIn("WRPLOT", texto)
+        avisos = json.loads(unquote(r.headers["x-advertencias"]))
+        self.assertTrue(any("se descartaron 5 fila(s)" in a for a in avisos), avisos)
+
+        r = self.client.post("/v1/generar", json={"proyecto": proyecto, "tipo": "anexos"}, headers=AUTH)
+        nombres = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
+        self.assertIn("meteorologia/meteo_rosa_vientos.png", nombres)
+        self.assertIn("meteorologia/meteo_temperatura.png", nombres)
+
+    def test_meteorologia_sin_datos_de_los_dias_de_medicion(self):
+        from datetime import date
+
+        from tests.test_meteorologia import crear_archivo
+
+        crear_archivo(os.path.join(self.tmp.name, "meteo_otro.xlsx"), dias=(date(2025, 1, 1),))
+        proyecto = self._proyecto()
+        proyecto["meteorologia"] = {"url": f"{self.base}/meteo_otro.xlsx", "nombre": "meteo_otro.xlsx"}
+        r = self.client.post("/v1/generar", json={"proyecto": proyecto, "tipo": "word"}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        avisos = json.loads(unquote(r.headers["x-advertencias"]))
+        self.assertTrue(any("no tiene registros validos para los dias de medicion" in a for a in avisos), avisos)
+
 
 if __name__ == "__main__":
     unittest.main()

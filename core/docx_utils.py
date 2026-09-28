@@ -227,3 +227,49 @@ def insertar_imagen_despues_de(doc, texto_heading, ruta_imagen, ancho_emu=None):
                 run.add_picture(ruta_imagen)
             return True
     return False
+
+
+def set_paragraph_text(parrafo, texto):
+    """Reemplaza el texto de un parrafo conservando el formato de su primer run."""
+    runs = parrafo.runs
+    if runs:
+        runs[0].text = texto
+        for r in runs[1:]:
+            r._element.getparent().remove(r._element)
+    else:
+        parrafo.add_run(texto)
+
+
+_A = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+_R = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+_WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
+
+
+def reemplazar_imagen(doc, blip, ruta_imagen):
+    """Cambia la imagen de un <a:blip> existente por `ruta_imagen`,
+    conservando el ancho y la posicion del dibujo y ajustando el alto a la
+    proporcion de la nueva imagen."""
+    rid, imagen = doc.part.get_or_add_image(ruta_imagen)
+    blip.set(f"{_R}embed", rid)
+    ancho_px, alto_px = imagen.px_width, imagen.px_height
+    if not ancho_px or not alto_px:
+        return
+    dibujo = blip
+    while dibujo is not None and dibujo.tag not in (f"{_WP}inline", f"{_WP}anchor"):
+        dibujo = dibujo.getparent()
+    if dibujo is None:
+        return
+    extent = dibujo.find(f"{_WP}extent")
+    if extent is None:
+        return
+    cx = int(extent.get("cx"))
+    cy = int(cx * alto_px / ancho_px)
+    extent.set("cy", str(cy))
+    for ext in dibujo.iter(f"{_A}ext"):
+        if ext.get("cx") is not None and ext.getparent().tag == f"{_A}xfrm":
+            ext.set("cx", str(cx))
+            ext.set("cy", str(cy))
+
+
+def blips(elemento):
+    return list(elemento.iter(f"{_A}blip"))

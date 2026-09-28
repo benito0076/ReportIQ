@@ -67,7 +67,8 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
     ? await db.select({ key: memoryFiles.fileKey }).from(memoryFiles).where(inArray(memoryFiles.pointId, ids))
     : [];
   const reps = await db.select({ key: reports.fileKey }).from(reports).where(eq(reports.projectId, projectId));
-  return [...pts.map((p) => p.foto), ...mems.map((m) => m.key), ...reps.map((r) => r.key)].filter(
+  const [proj] = await db.select({ meteo: projects.meteoKey }).from(projects).where(eq(projects.id, projectId));
+  return [proj?.meteo, ...pts.map((p) => p.foto), ...mems.map((m) => m.key), ...reps.map((r) => r.key)].filter(
     (k): k is string => !!k,
   );
 }
@@ -75,6 +76,16 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
 /** Los resultados guardados dejan de ser válidos cuando cambian los datos. */
 export async function invalidateResults(projectId: string, tx: DbOrTx = db) {
   await tx.update(projects).set({ resultados: null, procesadoAt: null }).where(eq(projects.id, projectId));
+}
+
+/**
+ * Asigna (o quita, con key = null) el archivo de la estación meteorológica.
+ * No afecta los niveles de ruido, así que los resultados se conservan.
+ */
+export async function setProjectMeteo(projectId: string, key: string | null, fileName: string | null) {
+  const project = await getProject(projectId);
+  await db.update(projects).set({ meteoKey: key, meteoNombre: fileName }).where(eq(projects.id, projectId));
+  if (project.meteoKey && project.meteoKey !== key) await deleteObject(project.meteoKey);
 }
 
 // ----------------------------------------------------------------- puntos

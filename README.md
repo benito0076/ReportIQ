@@ -88,6 +88,14 @@ resultados y rellena automaticamente el informe final en Word.
 > conserve los mismos encabezados de tabla** (la app ubica las tablas por
 > su encabezado, no por posicion fija).
 
+9. **Completa el capitulo de meteorologia** (opcional) a partir del archivo
+   exportado de la estacion meteorologica (.xlsx): toma solo los registros de
+   los dias de medicion (segun las horas de las memorias), llena la tabla de
+   promedios diarios, redacta los textos de temperatura, humedad, presion,
+   precipitacion y viento, y reemplaza las graficas y la rosa de vientos
+   (16 direcciones, clases de velocidad como WRPLOT). En la app de escritorio
+   se carga en *Datos generales > Datos meteorologicos*.
+
 ## Requisitos de las memorias del sonometro
 
 - Un archivo `.xlsx` por punto, direccion (Vertical/Norte/Sur/Este/Oeste) y

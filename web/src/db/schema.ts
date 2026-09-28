@@ -43,6 +43,9 @@ export const projects = pgTable(
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     /** Últimos resultados devueltos por el motor (se invalidan al modificar datos). */
     resultados: jsonb("resultados").$type<ResultadosProyecto>(),
+    /** Archivo de la estación meteorológica (capítulo de meteorología del informe). */
+    meteoKey: text("meteo_key"),
+    meteoNombre: varchar("meteo_nombre", { length: 255 }),
     procesadoAt: timestamp("procesado_at", { withTimezone: true }),
     ...timestamps,
   },

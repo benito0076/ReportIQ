@@ -53,6 +53,9 @@ export async function buildPayload(projectId: string): Promise<engine.ProyectoPa
     codigo_informe: project.codigoInforme,
     cliente: project.cliente,
     puntos,
+    meteorologia: project.meteoKey
+      ? { url: await downloadUrl(project.meteoKey, { ttl: ENGINE_URL_TTL }), nombre: project.meteoNombre ?? "meteorologia.xlsx" }
+      : null,
   };
 }
 

@@ -12,6 +12,7 @@ import {
   movePoint,
   removeMemoryFile,
   setPointPhoto,
+  setProjectMeteo,
   updatePoint,
   updateProject,
 } from "@/server/projects";
@@ -109,6 +110,12 @@ export async function removePhotoAction(projectId: string, pointId: string) {
   await assertUser();
   await setPointPhoto(projectId, pointId, null, null);
   revalidatePath(`/proyectos/${projectId}/puntos/${pointId}`);
+}
+
+export async function removeMeteoAction(projectId: string) {
+  await assertUser();
+  await setProjectMeteo(projectId, null, null);
+  revalidatePath(`/proyectos/${projectId}`);
 }
 
 export async function removeMemoryAction(projectId: string, fileId: string) {
