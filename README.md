@@ -7,6 +7,11 @@ sonometro, aplica la metodologia de ajustes de la Resolucion 0627 de 2006
 lo compara contra los estandares maximos permisibles, genera las graficas de
 resultados y rellena automaticamente el informe final en Word.
 
+> **Version web**: la misma aplicacion tambien funciona en linea, con usuarios,
+> proyectos guardados en la nube y generacion de informes desde el navegador.
+> Ver [`web/README.md`](web/README.md) (interfaz Next.js en `web/` y motor de
+> calculo Python en `engine/`, que reutiliza el paquete `core/`).
+
 ## Que hace exactamente
 
 1. **Lee las memorias del sonometro** (exportadas como `.xlsx` desde el
