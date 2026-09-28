@@ -57,7 +57,8 @@ COLORES_PUNTOS = [
 
 COLOR_TITULO_CAJA = "#1F3864"
 COMPANIA_DEFECTO = "AMBIENCIQ INGENIEROS S.A.S."
-# Logo de la empresa para el cuadro "ELABORO" (se omite si el archivo no existe).
+# Logo de la empresa (con su nombre) para el cuadro "ELABORO"; si el archivo
+# no existe se escribe el texto de `elaborado_por`.
 LOGO_DEFECTO = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                             "templates", "logo_empresa.png")
 
@@ -185,25 +186,32 @@ def _dibujar_info_proyecto(fig, rect, lineas):
 
 
 def _dibujar_elaborado(fig, rect, texto, logo_ruta=None):
+    """Cuadro ELABORO: el logo de la empresa (que ya incluye su nombre)
+    centrado; si no hay logo disponible, el texto `texto`."""
     alto_titulo = 0.30
     ax = _caja(fig, rect, "ELABORO", alto_titulo=alto_titulo)
-    x_texto = 0.5
     if logo_ruta and os.path.exists(logo_ruta):
         try:
             imagen = plt.imread(logo_ruta)
-            # Logo a la izquierda, ocupando el alto disponible bajo el titulo;
-            # el ancho se ajusta a la proporcion real de la caja en la figura.
+            # El logo ocupa el espacio bajo el titulo sin deformarse: se ajusta
+            # al alto o al ancho disponible segun la proporcion real de la caja.
             ancho_fig, alto_fig = fig.get_size_inches()
-            alto_rel = (1 - alto_titulo) * 0.8
-            alto_in = alto_rel * rect[3] * alto_fig
-            ancho_rel = alto_in * imagen.shape[1] / imagen.shape[0] / (rect[2] * ancho_fig)
-            sub = ax.inset_axes([0.04, (1 - alto_titulo - alto_rel) / 2, ancho_rel, alto_rel])
+            caja_w_in = rect[2] * ancho_fig * 0.9
+            caja_h_in = rect[3] * alto_fig * (1 - alto_titulo) * 0.78
+            proporcion = imagen.shape[1] / imagen.shape[0]
+            if caja_w_in / caja_h_in > proporcion:
+                h_in, w_in = caja_h_in, caja_h_in * proporcion
+            else:
+                w_in, h_in = caja_w_in, caja_w_in / proporcion
+            w_rel = w_in / (rect[2] * ancho_fig)
+            h_rel = h_in / (rect[3] * alto_fig)
+            sub = ax.inset_axes([(1 - w_rel) / 2, (1 - alto_titulo - h_rel) / 2, w_rel, h_rel])
             sub.imshow(imagen)
             sub.axis("off")
-            x_texto = 0.04 + ancho_rel + (1 - 0.04 - ancho_rel) / 2
-        except Exception:  # noqa: BLE001  (logo danado: se deja solo el texto)
-            x_texto = 0.5
-    ax.text(x_texto, (1 - alto_titulo) / 2, texto, ha="center", va="center", fontsize=7.5,
+            return
+        except Exception:  # noqa: BLE001  (logo danado: se usa el texto)
+            pass
+    ax.text(0.5, (1 - alto_titulo) / 2, texto, ha="center", va="center", fontsize=7.5,
             fontweight="bold", transform=ax.transAxes, wrap=True)
 
 

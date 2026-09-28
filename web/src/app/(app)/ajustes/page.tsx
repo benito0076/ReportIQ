@@ -53,7 +53,10 @@ export default async function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Mapas de isófonas</CardTitle>
-            <CardDescription>Texto del cuadro «Elaboró» de los planos.</CardDescription>
+            <CardDescription>
+              El cuadro «Elaboró» de los planos muestra el logo de Ambienciq Ingenieros. Este texto solo se usa si el
+              logo no está disponible.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <SettingsForm elaboradoPor={s.elaboradoPor} />
