@@ -273,3 +273,51 @@ def reemplazar_imagen(doc, blip, ruta_imagen):
 
 def blips(elemento):
     return list(elemento.iter(f"{_A}blip"))
+
+
+def set_cell_lines(cell, lineas):
+    """Escribe varias lineas en una celda, una por parrafo, copiando en todas
+    el formato del primer parrafo (estilo, alineacion, fuente y tamano), para
+    que el texto no quede con tamanos distintos."""
+    lineas = list(lineas) or [""]
+    set_cell_text(cell, lineas[0])
+    modelo = cell.paragraphs[0]._element
+    anterior = modelo
+    for linea in lineas[1:]:
+        nuevo = copy.deepcopy(modelo)
+        anterior.addnext(nuevo)
+        anterior = nuevo
+        from docx.text.paragraph import Paragraph
+
+        set_paragraph_text(Paragraph(nuevo, cell), linea)
+
+
+def reconstruir_filas(tabla, filas_encabezado: int, filas_valores, es_resumen):
+    """Como escribir_filas, pero cada fila nueva copia el formato de la fila
+    de la plantilla que le corresponde: las filas de datos copian la primera
+    fila de datos y las de resumen (`es_resumen(valores)` verdadero) la fila
+    de resumen con la misma etiqueta, o la ultima de resumen. Asi las filas
+    de datos no heredan el color de fondo de las filas de totales."""
+    datos = list(tabla.rows)[filas_encabezado:]
+    if not datos:
+        return
+    modelo_dato = next((r._tr for r in datos if not es_resumen([r.cells[0].text])), datos[0]._tr)
+    modelos_resumen = {r.cells[0].text.strip(): r._tr for r in datos if es_resumen([r.cells[0].text])}
+    ultimo_resumen = list(modelos_resumen.values())[-1] if modelos_resumen else modelo_dato
+
+    ancla = datos[0]._tr.getprevious()
+    nuevas = []
+    for valores in filas_valores:
+        if es_resumen(valores):
+            modelo = modelos_resumen.get(str(valores[0]).strip(), ultimo_resumen)
+        else:
+            modelo = modelo_dato
+        nuevas.append(copy.deepcopy(modelo))
+    for r in datos:
+        r._tr.getparent().remove(r._tr)
+    for tr in nuevas:
+        ancla.addnext(tr)
+        ancla = tr
+    for fila, valores in zip(list(tabla.rows)[filas_encabezado:], filas_valores):
+        for cell, valor in zip(fila.cells, valores):
+            set_cell_text(cell, valor)

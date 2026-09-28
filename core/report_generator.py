@@ -18,6 +18,7 @@ from .docx_utils import (
     insertar_imagen_despues_de,
     insertar_texto_despues_de,
     set_cell_image,
+    set_cell_lines,
     set_cell_text,
 )
 from .equipos import buscar_por_serial, cargar_equipos
@@ -213,10 +214,7 @@ def _escribir_tarjeta(tabla, indice_bloque: int, punto):
     descripcion = punto.descripcion or ""
     if punto.altitud:
         descripcion = f"{descripcion}\n\nAltitud: {punto.altitud} m.s.n.m."
-    celda_texto = tabla.cell(base + 6, 1)
-    set_cell_text(celda_texto, descripcion.split("\n")[0])
-    for linea in descripcion.split("\n")[1:]:
-        celda_texto.add_paragraph(linea)
+    set_cell_lines(tabla.cell(base + 6, 1), descripcion.split("\n"))
 
 
 def _filas_equipos(resultados_proyecto, ruta_equipos=None):
