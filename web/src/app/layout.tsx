@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Ruido Ambiental", template: "%s · Ruido Ambiental" },
+  title: { default: "Ruido Ambiental · Ambienciq Ingenieros", template: "%s · Ruido Ambiental" },
   description: "Procesamiento de monitoreos de ruido ambiental (Res. 0627 de 2006) e informes automáticos.",
 };
 

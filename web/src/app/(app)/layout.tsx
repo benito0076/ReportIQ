@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { AudioWaveform, LogOut } from "lucide-react";
+import Image from "next/image";
+import { LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { AppNav } from "@/components/app-nav";
 import { Button } from "@/components/ui/button";
@@ -21,9 +22,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-full flex-1 flex-col bg-muted/30">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
-          <Link href="/proyectos" className="flex items-center gap-2 font-semibold">
-            <AudioWaveform className="size-5" />
-            <span className="hidden sm:inline">Ruido Ambiental</span>
+          <Link href="/proyectos" className="flex items-center gap-2" aria-label="Ruido Ambiental - Ambienciq Ingenieros">
+            <Image src="/logo-icono.png" alt="" width={285} height={256} priority className="h-8 w-auto" />
+            <span className="hidden flex-col leading-tight sm:flex">
+              <span className="font-semibold">Ruido Ambiental</span>
+              <span className="text-[11px] text-muted-foreground">Ambienciq Ingenieros S.A.S.</span>
+            </span>
           </Link>
           <AppNav links={links} />
           <div className="ml-auto flex items-center gap-2">
