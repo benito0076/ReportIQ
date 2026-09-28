@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from docx.text.paragraph import Paragraph
 
-from .docx_utils import _sin_tildes, blips, encontrar_tabla, escribir_filas, reemplazar_imagen, set_paragraph_text
+from .docx_utils import _sin_tildes, blips, encontrar_tabla, reconstruir_filas, reemplazar_imagen, set_paragraph_text
 from .meteorologia import filas_tabla_diaria
 
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -63,7 +63,8 @@ def aplicar_meteorologia(doc, analisis, graficas: dict) -> list:
 
     _, tabla = encontrar_tabla(doc, ["fecha de monitoreo", "temperatura", "humedad"], filas_encabezado=1)
     if tabla is not None:
-        escribir_filas(tabla, 1, filas_tabla_diaria(analisis))
+        reconstruir_filas(tabla, 1, filas_tabla_diaria(analisis),
+                          es_resumen=lambda v: _sin_tildes(str(v[0]).strip()) in ("promedio", "maximo", "minimo"))
     else:
         faltantes.append("Tabla de datos meteorologicos")
 
