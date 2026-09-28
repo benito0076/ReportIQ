@@ -12,6 +12,7 @@ def proyecto_a_dict(proyecto: Proyecto) -> dict:
         "nombre_proyecto": proyecto.nombre_proyecto,
         "codigo_informe": proyecto.codigo_informe,
         "cliente": proyecto.cliente,
+        "meteo_ruta": proyecto.meteo_ruta,
         "puntos": [
             {
                 "no_punto": p.no_punto,
@@ -42,6 +43,7 @@ def dict_a_proyecto(data: dict) -> Proyecto:
         nombre_proyecto=data.get("nombre_proyecto", ""),
         codigo_informe=data.get("codigo_informe", ""),
         cliente=data.get("cliente", ""),
+        meteo_ruta=data.get("meteo_ruta", ""),
     )
     for pd in data.get("puntos", []):
         punto = Punto(

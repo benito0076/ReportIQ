@@ -23,6 +23,7 @@ from core.charts import generar_graficas
 from core.excel_export import exportar_resultados
 from core import isophones
 from core.isophones import SinCoordenadasError, generar_mapa_isofonas_esquema
+from core import meteorologia
 from core.models import ESQUEMA_LABELS, ESQUEMAS, ArchivoMemoria, Proyecto, Punto
 from core.pipeline import ResultadosProyecto, procesar_proyecto
 from core.report_generator import ErrorPlantilla, generar_informe
@@ -61,6 +62,7 @@ class Contexto:
     # ruta local -> nombre original, para que los mensajes muestren el nombre
     # del archivo que subio el usuario y no la ruta temporal.
     nombres: dict = field(default_factory=dict)
+    ruta_meteo: Optional[str] = None
 
 
 @dataclass
@@ -122,6 +124,10 @@ def preparar(proyecto_in: ProyectoIn, carpeta: str, plantilla: Optional[ArchivoR
         for c in pin.correcciones_manuales:
             punto.correcciones_manuales[(c.esquema, c.direccion)] = {"KS": c.KS, "pantalla": c.pantalla}
         proyecto.puntos.append(punto)
+
+    if proyecto_in.meteorologia is not None:
+        ctx.ruta_meteo = os.path.join(carpeta, "meteorologia.xlsx")
+        descargas.append((proyecto_in.meteorologia, ctx.ruta_meteo))
 
     ruta_plantilla = None
     if plantilla is not None:
@@ -240,6 +246,30 @@ def generar_excel(ctx: Contexto) -> Entregable:
                       [a.mensaje for a in resultados.advertencias])
 
 
+def _meteorologia(ctx: Contexto, resultados, carpeta: str):
+    """Analisis meteorologico de los dias de medicion. Devuelve
+    ((analisis, graficas) | None, advertencias). Debe llamarse con
+    _LOCK_GRAFICOS tomado (genera graficas con matplotlib)."""
+    if not ctx.ruta_meteo:
+        return None, []
+    try:
+        registros, advertencias = meteorologia.leer_datos_meteorologicos(ctx.ruta_meteo)
+    except meteorologia.ErrorMeteorologia as exc:
+        return None, [str(exc)]
+    dias, intervalos = meteorologia.fechas_de_medicion(resultados)
+    if not dias:
+        return None, advertencias + [
+            "Datos meteorologicos: no se pudieron determinar las fechas de medicion a partir de las memorias."]
+    analisis = meteorologia.analizar(registros, dias, intervalos)
+    if analisis is None:
+        fechas = ", ".join(d.strftime("%d/%m/%Y") for d in sorted(dias))
+        return None, advertencias + [
+            f"Datos meteorologicos: el archivo no tiene registros validos para los dias de medicion ({fechas}); "
+            "el capitulo de meteorologia de la plantilla no se modifico."]
+    graficas = meteorologia.generar_graficas_meteo(analisis, carpeta)
+    return (analisis, graficas), advertencias + analisis.advertencias
+
+
 def generar_anexos(ctx: Contexto, elaborado_por: str = "") -> Entregable:
     resultados = procesar(ctx)
     carpeta = os.path.join(ctx.carpeta, "anexos")
@@ -247,6 +277,8 @@ def generar_anexos(ctx: Contexto, elaborado_por: str = "") -> Entregable:
     with _LOCK_GRAFICOS:
         graficas = generar_graficas(resultados, carpeta)
         isofonas, errores = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=True)
+        meteo, avisos_meteo = _meteorologia(ctx, resultados, os.path.join(carpeta, "meteorologia"))
+    errores += avisos_meteo
 
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -258,6 +290,9 @@ def generar_anexos(ctx: Contexto, elaborado_por: str = "") -> Entregable:
             pdf = os.path.splitext(ruta)[0] + ".pdf"
             if os.path.exists(pdf):
                 zf.write(pdf, f"isofonas/{os.path.basename(pdf)}")
+        if meteo:
+            for ruta in meteo[1].values():
+                zf.write(ruta, f"meteorologia/{os.path.basename(ruta)}")
     if not any(graficas.values()) and not isofonas:
         errores.append("No hay resultados suficientes para generar graficas ni mapas de isofonas.")
     return Entregable(buffer.getvalue(), f"{_nombre_base(ctx)} - Graficas e isofonas.zip",
@@ -272,6 +307,7 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
     with _LOCK_GRAFICOS:
         graficas = generar_graficas(resultados, carpeta)
         isofonas, errores_isofonas = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=False)
+        meteo, avisos_meteo = _meteorologia(ctx, resultados, os.path.join(carpeta, "meteorologia"))
 
     ruta_equipos = None
     if equipos:
@@ -283,7 +319,7 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
     try:
         _, faltantes = generar_informe(
             resultados, ruta_plantilla or PLANTILLA_DEFECTO, salida,
-            graficas=graficas, isofonas=isofonas, ruta_equipos=ruta_equipos,
+            graficas=graficas, isofonas=isofonas, ruta_equipos=ruta_equipos, meteo=meteo,
         )
     except ErrorPlantilla as exc:
         raise ErrorEntrada(str(exc)) from exc
@@ -292,4 +328,5 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
     advertencias = [a.mensaje for a in resultados.advertencias]
     advertencias += [f"Tabla no encontrada en la plantilla: {t}" for t in faltantes]
     advertencias += errores_isofonas
+    advertencias += avisos_meteo
     return Entregable(contenido, f"{_nombre_base(ctx)} - Informe.docx", MIME_DOCX, advertencias)

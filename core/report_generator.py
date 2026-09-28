@@ -240,7 +240,10 @@ def _filas_equipos(resultados_proyecto, ruta_equipos=None):
 def generar_informe(
     resultados_proyecto, ruta_plantilla: str, ruta_salida: str,
     graficas: dict | None = None, isofonas: dict | None = None, ruta_equipos: str | None = None,
+    meteo=None,
 ):
+    """`meteo` = (analisis, graficas_meteo) de core/meteorologia.py; si se
+    indica, reemplaza el contenido del capitulo de meteorologia."""
     _validar_plantilla(ruta_plantilla)
     try:
         doc = docx.Document(ruta_plantilla)
@@ -365,6 +368,13 @@ def generar_informe(
             insertar_imagen_despues_de(doc, "Mapas de Isofonas", isofonas[esquema], ancho_emu=5400000)
             insertar_texto_despues_de(doc, "Mapas de Isofonas", ESQUEMA_LABELS[esquema], negrita=True)
 
+    faltantes_meteo = []
+    if meteo is not None:
+        from .meteo_informe import aplicar_meteorologia
+
+        analisis_meteo, graficas_meteo = meteo
+        faltantes_meteo = aplicar_meteorologia(doc, analisis_meteo, graficas_meteo)
+
     doc.save(ruta_salida)
 
     if len(faltantes) == total_verificaciones:
@@ -375,4 +385,4 @@ def generar_informe(
             "'templates/informe_template.docx', y no un documento en blanco."
         )
 
-    return ruta_salida, faltantes
+    return ruta_salida, faltantes + faltantes_meteo

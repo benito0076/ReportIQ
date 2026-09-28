@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowDown, ArrowUp, ImageIcon, Pencil, Plus, Trash2 } from "lucide-react";
-import { deletePointAction, deleteProjectAction, movePointAction } from "@/app/actions/projects";
+import { ArrowDown, ArrowUp, Download, ImageIcon, Pencil, Plus, Trash2 } from "lucide-react";
+import { deletePointAction, deleteProjectAction, movePointAction, removeMeteoAction } from "@/app/actions/projects";
 import { ConfirmButton } from "@/components/confirm-button";
+import { UploadButton } from "@/components/upload";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -28,6 +29,37 @@ export default async function ProjectPage({ params }: PageProps<"/proyectos/[id]
         </CardHeader>
         <CardContent>
           <ProjectForm project={project} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos meteorológicos</CardTitle>
+          <CardDescription>
+            Archivo exportado de la estación meteorológica (.xlsx con fecha/hora, temperatura, humedad, presión,
+            viento y lluvia). Al generar el informe Word se usan solo los registros de los días de medición para
+            completar el capítulo de meteorología: tabla, textos, gráficas y rosa de vientos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center gap-2">
+          {project.meteoKey ? (
+            <>
+              <span className="text-sm font-medium">{project.meteoNombre}</span>
+              <a href={`/api/proyectos/${id}/meteorologia`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+                <Download /> Descargar
+              </a>
+              <UploadButton target={{ kind: "meteo", projectId: id }} label="Reemplazar" />
+              <ConfirmButton
+                action={removeMeteoAction.bind(null, id)}
+                confirm="¿Quitar el archivo de datos meteorológicos? El capítulo de meteorología quedará como en la plantilla."
+                variant="ghost"
+              >
+                <Trash2 /> Quitar
+              </ConfirmButton>
+            </>
+          ) : (
+            <UploadButton target={{ kind: "meteo", projectId: id }} label="Subir archivo meteorológico" />
+          )}
         </CardContent>
       </Card>
 

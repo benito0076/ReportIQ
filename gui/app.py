@@ -11,7 +11,7 @@ from tkinter import ttk, filedialog, messagebox, simpledialog
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core import norms
+from core import meteorologia, norms
 from core.charts import generar_graficas
 from core.excel_export import exportar_resultados
 from core.models import ArchivoMemoria, DIRECCIONES, ESQUEMAS, ESQUEMA_LABELS, Proyecto
@@ -199,6 +199,7 @@ class App(tk.Tk):
         self.proyecto = Proyecto()
         self.resultados = None
         self.ruta_proyecto = None
+        self._refrescar_meteo()
         self._refrescar_puntos()
         self._refrescar_combo_puntos()
 
@@ -215,6 +216,7 @@ class App(tk.Tk):
         self.var_nombre_proyecto.set(self.proyecto.nombre_proyecto)
         self.var_cliente.set(self.proyecto.cliente)
         self.var_codigo.set(self.proyecto.codigo_informe)
+        self._refrescar_meteo()
         self._refrescar_puntos()
         self._refrescar_combo_puntos()
         messagebox.showinfo("Proyecto cargado", f"Proyecto cargado desde:\n{ruta}")
@@ -257,6 +259,14 @@ class App(tk.Tk):
         ttk.Label(datos, text="Codigo de informe:").grid(row=1, column=0, sticky="w", pady=(6, 0))
         ttk.Entry(datos, textvariable=self.var_codigo, width=25).grid(row=1, column=1, sticky="w", padx=6, pady=(6, 0))
 
+        ttk.Label(datos, text="Datos meteorologicos:").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        meteo_frame = ttk.Frame(datos)
+        meteo_frame.grid(row=2, column=1, columnspan=3, sticky="w", padx=6, pady=(6, 0))
+        self.lbl_meteo = ttk.Label(meteo_frame, text="(sin archivo)", foreground="#555555")
+        self.lbl_meteo.pack(side="left", padx=(0, 6))
+        ttk.Button(meteo_frame, text="Cargar archivo...", command=self._elegir_meteo).pack(side="left", padx=2)
+        ttk.Button(meteo_frame, text="Quitar", command=self._quitar_meteo).pack(side="left", padx=2)
+
         puntos_frame = ttk.LabelFrame(frm, text="Puntos de monitoreo", padding=10)
         puntos_frame.pack(fill="both", expand=True)
 
@@ -281,6 +291,23 @@ class App(tk.Tk):
         ttk.Button(botones, text="Agregar punto", command=self._agregar_punto).pack(side="left", padx=4)
         ttk.Button(botones, text="Editar punto", command=self._editar_punto).pack(side="left", padx=4)
         ttk.Button(botones, text="Eliminar punto", command=self._eliminar_punto).pack(side="left", padx=4)
+
+    def _elegir_meteo(self):
+        ruta = filedialog.askopenfilename(
+            title="Archivo de la estacion meteorologica",
+            filetypes=[("Excel", "*.xlsx"), ("Todos los archivos", "*.*")],
+        )
+        if ruta:
+            self.proyecto.meteo_ruta = ruta
+            self._refrescar_meteo()
+
+    def _quitar_meteo(self):
+        self.proyecto.meteo_ruta = ""
+        self._refrescar_meteo()
+
+    def _refrescar_meteo(self):
+        ruta = self.proyecto.meteo_ruta
+        self.lbl_meteo.config(text=os.path.basename(ruta) if ruta else "(sin archivo)")
 
     def _refrescar_puntos(self):
         for item in self.tree_puntos.get_children():
@@ -605,11 +632,16 @@ class App(tk.Tk):
                 except Exception:  # noqa: BLE001
                     pass  # sin coordenadas/resultados suficientes: se omite, no es un error fatal
 
+        meteo = None
+        if self.proyecto.meteo_ruta:
+            meteo = self._analizar_meteo(os.path.join(os.path.dirname(salida), "meteorologia_informe"))
+
         try:
             _, faltantes = generar_informe(
                 self.resultados, plantilla, salida,
                 graficas=self.rutas_graficas, isofonas=self.rutas_isofonas,
                 ruta_equipos=RUTA_EQUIPOS if os.path.exists(RUTA_EQUIPOS) else None,
+                meteo=meteo,
             )
             self._log(f"Informe Word generado en: {salida}")
             if faltantes:
@@ -627,6 +659,24 @@ class App(tk.Tk):
         except Exception as exc:  # noqa: BLE001
             traceback.print_exc()
             messagebox.showerror("Error al generar el informe", str(exc))
+
+    def _analizar_meteo(self, carpeta):
+        """Analisis meteorologico de los dias de medicion para el informe
+        (None si no se puede); los avisos se muestran en el registro."""
+        try:
+            registros, avisos = meteorologia.leer_datos_meteorologicos(self.proyecto.meteo_ruta)
+        except meteorologia.ErrorMeteorologia as exc:
+            self._log(f"Datos meteorologicos no usados: {exc}")
+            return None
+        dias, intervalos = meteorologia.fechas_de_medicion(self.resultados)
+        analisis = meteorologia.analizar(registros, dias, intervalos) if dias else None
+        for aviso in avisos + (analisis.advertencias if analisis else []):
+            self._log(aviso)
+        if analisis is None:
+            self._log("Datos meteorologicos: no hay registros para los dias de medicion; "
+                      "el capitulo de meteorologia de la plantilla no se modifico.")
+            return None
+        return analisis, meteorologia.generar_graficas_meteo(analisis, carpeta)
 
     def _verificar_procesado(self):
         if self.resultados is None:

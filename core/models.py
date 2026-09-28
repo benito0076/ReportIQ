@@ -56,6 +56,7 @@ class Proyecto:
     codigo_informe: str = ""
     cliente: str = ""
     puntos: list = field(default_factory=list)
+    meteo_ruta: str = ""  # archivo de la estacion meteorologica (.xlsx), opcional
 
     def agregar_punto(self, nombre: str, sector: str = "") -> Punto:
         no = len(self.puntos) + 1

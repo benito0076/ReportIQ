@@ -31,6 +31,7 @@ export interface ProyectoPayload {
   codigo_informe: string;
   cliente: string;
   puntos: PuntoPayload[];
+  meteorologia: ArchivoRemoto | null;
 }
 
 export interface GenerarPayload {
