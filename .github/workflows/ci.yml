@@ -36,3 +36,13 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+
+  docker:
+    name: Imagen Docker del motor
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t ruido-engine .
+      # Verifica dentro de la imagen las librerias nativas del mapa satelital
+      # (un fallo aqui significa isofonas sin fondo en produccion).
+      - run: docker run --rm ruido-engine python -c "import rasterio, contextily, engine.app; print('ok', rasterio.__version__)"
