@@ -144,6 +144,26 @@ class TestApiMotor(unittest.TestCase):
         self.assertIn("isofonas/isofonas_DH.png", nombres)
         self.assertIn("isofonas/isofonas_DH.pdf", nombres)
 
+    def test_fallo_del_mapa_satelital_se_informa(self):
+        from unittest import mock
+
+        import contextily
+
+        from engine import service
+
+        def falla(*_a, **_k):
+            raise ConnectionError("sin acceso a server.arcgisonline.com")
+
+        with mock.patch.object(service, "CON_MAPA_BASE", True), \
+                mock.patch.object(contextily, "add_basemap", falla):
+            for tipo in ("anexos", "word"):
+                r = self.client.post("/v1/generar", json={"proyecto": self._proyecto(), "tipo": tipo}, headers=AUTH)
+                self.assertEqual(r.status_code, 200, r.text)
+                avisos = json.loads(unquote(r.headers["x-advertencias"]))
+                satelital = [a for a in avisos if a.startswith("Mapa satelital no disponible")]
+                self.assertEqual(len(satelital), 1, avisos)
+                self.assertIn("sin acceso a server.arcgisonline.com", satelital[0])
+
 
 if __name__ == "__main__":
     unittest.main()

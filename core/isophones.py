@@ -14,6 +14,7 @@ de niveles LAeq dB(A), cuadro con el nombre del proyecto, cuadro de
 "elaboro" y escala grafica."""
 from __future__ import annotations
 
+import logging
 import os
 
 import matplotlib
@@ -88,22 +89,30 @@ def puntos_con_coordenadas(proyecto):
     return salida
 
 
+_log = logging.getLogger(__name__)
+
+# Motivo del ultimo fallo al descargar el mapa base (None si no hubo fallo):
+# permite informar al usuario por que un mapa salio sin fondo satelital.
+ultimo_error_mapa_base = None
+
+
 def _agregar_mapa_base(ax, zoom=None) -> bool:
     """Intenta superponer un mapa satelital real (Esri World Imagery) via
     contextily. Devuelve True si lo logro, False si no hay libreria o
-    conexion a internet (en ese caso el mapa queda con fondo simple)."""
+    conexion a internet (en ese caso el mapa queda con fondo simple y el
+    motivo queda en `ultimo_error_mapa_base` y en el log)."""
+    global ultimo_error_mapa_base
     try:
         import contextily as cx
-    except ImportError:
-        return False
-    try:
         kwargs = {"crs": "EPSG:3857", "source": cx.providers.Esri.WorldImagery, "attribution_size": 5}
         if zoom is not None:
             kwargs["zoom"] = zoom
         cx.add_basemap(ax, **kwargs)
         return True
-    except Exception:  # noqa: BLE001
-        return False  # sin internet, servidor no disponible, etc.
+    except Exception as exc:  # noqa: BLE001  (sin internet, libreria ausente, servidor caido...)
+        ultimo_error_mapa_base = f"{type(exc).__name__}: {exc}"[:500]
+        _log.warning("No se pudo agregar el mapa base satelital", exc_info=True)
+        return False
 
 
 def _redondear_bonito(valor):
