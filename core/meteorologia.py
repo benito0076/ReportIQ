@@ -79,11 +79,15 @@ def _columnas(encabezado) -> dict:
     cols = {}
     for i, celda in enumerate(encabezado):
         h = _norm(celda)
-        if not h:
+        if not h or h.startswith(("indoor", "interior")):
             continue
-        if "fecha" not in cols and (h.startswith("date") or h.startswith("fecha")):
+        # Estaciones tipo Ecowitt/EasyWeather: "Outdoor Temperature(℃)", "Outdoor Humidity(%)".
+        h = re.sub(r"^(outdoor|exterior)\s*", "", h)
+        if "fecha" not in cols and (h.startswith("date") or h.startswith("fecha") or h == "time"
+                                     or h.startswith("time(") or h.startswith("time (")):
             cols["fecha"] = (i, 1.0)
-        elif "presion" not in cols and (h.startswith("barometer") or h.startswith("presion") or h.startswith("bar ")) \
+        elif "presion" not in cols and (h.startswith("barometer") or h.startswith("presion") or h.startswith("bar ")
+                                         or h.startswith(("abs pressure", "rel pressure", "pressure"))) \
                 and not _es_extremo(h):
             factor = 1.0
             if "hpa" in h or "mb" in h:
@@ -97,7 +101,8 @@ def _columnas(encabezado) -> dict:
             cols["temperatura"] = (i, factor)
         elif "humedad" not in cols and (h.startswith("hum") or h.startswith("humedad")) and not _es_extremo(h):
             cols["humedad"] = (i, 1.0)
-        elif "viento" not in cols and (h.startswith("wind speed") or h.startswith("velocidad")) and not _es_extremo(h):
+        elif "viento" not in cols and (h.startswith("wind speed") or h.startswith("velocidad") or h == "wind"
+                                        or h.startswith("wind(") or h.startswith("wind (")) and not _es_extremo(h):
             factor = 1 / 3.6 if "km/h" in h else (0.44704 if "mph" in h else 1.0)
             cols["viento"] = (i, factor)
         elif "direccion" not in cols and (h.startswith("wind direction") or h.startswith("wind dir")
@@ -108,6 +113,9 @@ def _columnas(encabezado) -> dict:
                 and "rate" not in h and "intensidad" not in h:
             factor = 25.4 if re.search(r"\bin\b", h) else 1.0
             cols["lluvia"] = (i, factor)
+        elif "lluvia" not in cols and h.startswith(("hourly rain", "lluvia horaria")):
+            # Estaciones tipo Ecowitt/EasyWeather: se suma igual que en los informes (valor por registro).
+            cols["lluvia"] = (i, 1.0)
     return cols
 
 

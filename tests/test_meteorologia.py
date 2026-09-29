@@ -44,6 +44,25 @@ class TestMeteorologia(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_formato_estacion_ecowitt(self):
+        """Exportacion tipo EasyWeather/Ecowitt: 'Time', 'Outdoor Temperature(℃)', 'Wind(m/s)',
+        direccion en grados, 'ABS Pressure(mmhg)' y 'Hourly Rain(mm)' (se suma por registro)."""
+        ruta = os.path.join(self.tmp.name, "ecowitt.xlsx")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Time", "Indoor Temperature(℃)", "Outdoor Temperature(â„ƒ)", "Outdoor Humidity(%)", "Wind(m/s)",
+                   "Wind Direction(Â°)", "ABS Pressure(mmhg)", "Hourly Rain(mm)", None])
+        for k, lluvia in enumerate((0, 0.2, 1.1, 0)):
+            ws.append([datetime(2025, 12, 16, 5) + timedelta(minutes=30 * k), 30, 28.0, 82, 0.6, 250, 749.5, lluvia, None])
+        wb.save(ruta)
+        registros, advertencias = leer_datos_meteorologicos(ruta)
+        self.assertEqual(advertencias, [])
+        self.assertEqual(len(registros), 4)
+        r = registros[1]
+        self.assertEqual((r.temperatura, r.humedad, r.viento, r.direccion, r.presion), (28.0, 82.0, 0.6, "WSW", 749.5))
+        analisis = analizar(registros, {date(2025, 12, 16)}, [])
+        self.assertAlmostEqual(analisis.dias[0].lluvia, 1.3)
+
     def test_lectura_descarta_filas_desplazadas(self):
         registros, advertencias = leer_datos_meteorologicos(self.ruta)
         self.assertEqual(len(registros), 48)
