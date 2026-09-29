@@ -546,6 +546,12 @@ def generar_graficas_meteo(a: AnalisisMeteo, carpeta: str) -> dict:
     columnas("humedad", "Humedad Relativa Diaria", "Humedad relativa (%)", "meteo_humedad.png", y_max=100, paso=10)
     columnas("presion", "Presión Atmosférica Diaria", "Presión atmosférica (mm Hg)", "meteo_presion.png",
              y_max=1000, paso=100)
+    lluvias = [d.lluvia for d in a.dias if d.lluvia is not None]
+    if lluvias:
+        # Precipitacion acumulada por dia (grafica del informe de emision); con dias
+        # sin lluvia el eje queda de 0 a 5 mm para que las columnas en cero se lean.
+        columnas("lluvia", "Precipitación Acumulada Diaria", "Precipitación (mm)", "meteo_precipitacion.png",
+                 y_max=None if max(lluvias) > 0 else 5, paso=None if max(lluvias) > 0 else 1)
 
     if a.frecuencias:
         # Distribucion de clases (incluye calmas).

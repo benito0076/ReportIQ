@@ -8,10 +8,19 @@ import { Field, FormError, SubmitButton, selectClass } from "@/components/form";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { ProjectType } from "@/db/enums";
 import type { Point } from "@/db/schema";
 import { SECTORES } from "@/lib/validation";
 
-export function PointForm({ projectId, point }: { projectId: string; point?: Point }) {
+export function PointForm({
+  projectId,
+  point,
+  tipo = "ambiental",
+}: {
+  projectId: string;
+  point?: Point;
+  tipo?: ProjectType;
+}) {
   const action = point ? updatePointAction.bind(null, projectId, point.id) : createPointAction.bind(null, projectId);
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
   const fe = state.fieldErrors ?? {};
@@ -38,12 +47,14 @@ export function PointForm({ projectId, point }: { projectId: string; point?: Poi
       <Field label="Incertidumbre de la técnica (± dB)" htmlFor="incertidumbre" error={fe.incertidumbre}>
         <Input id="incertidumbre" name="incertidumbre" inputMode="decimal" defaultValue={v.incertidumbre} />
       </Field>
-      <Field label="Sector (Res. 0627, Anexo 3)" htmlFor="sector" error={fe.sector} className="sm:col-span-2">
+      <Field
+        label={tipo === "emision" ? "Sector (Res. 0627, Art. 9 – emisión)" : "Sector (Res. 0627, Art. 17 – ambiental)"}
+        htmlFor="sector" error={fe.sector} className="sm:col-span-2">
         <select id="sector" name="sector" defaultValue={v.sector} className={selectClass}>
           <option value="">— Sin asignar (no se compara con la norma) —</option>
           {SECTORES.map((s) => (
             <option key={s.etiqueta} value={s.etiqueta}>
-              {s.dia}/{s.noche} dB(A) · {s.etiqueta}
+              {tipo === "emision" ? `${s.emisionDia}/${s.emisionNoche}` : `${s.dia}/${s.noche}`} dB(A) · {s.etiqueta}
             </option>
           ))}
         </select>

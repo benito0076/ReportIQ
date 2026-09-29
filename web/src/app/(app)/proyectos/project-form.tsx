@@ -3,7 +3,8 @@
 import { useActionState } from "react";
 import { createProjectAction, updateProjectAction } from "@/app/actions/projects";
 import type { ActionState } from "@/app/actions/state";
-import { Field, FormError, SubmitButton } from "@/components/form";
+import { Field, FormError, SubmitButton, selectClass } from "@/components/form";
+import { PROJECT_TYPES, PROJECT_TYPE_LABELS } from "@/db/enums";
 import { Notice } from "@/components/notice";
 import { Input } from "@/components/ui/input";
 
@@ -29,6 +30,17 @@ export function ProjectForm({
       <Field label="Código de informe" htmlFor="codigoInforme" error={fe.codigoInforme} hint="Ej.: ER-731-26">
         <Input id="codigoInforme" name="codigoInforme" defaultValue={v.codigoInforme} />
       </Field>
+      {!project && (
+        <Field label="Tipo de estudio" htmlFor="tipo" hint="No se puede cambiar después de crear el proyecto.">
+          <select id="tipo" name="tipo" defaultValue={state.values?.tipo ?? "ambiental"} className={selectClass}>
+            {PROJECT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {PROJECT_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <div className={project ? "sm:col-span-3" : ""}>
         <SubmitButton>{project ? "Guardar datos" : "Crear proyecto"}</SubmitButton>
       </div>

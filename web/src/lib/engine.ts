@@ -27,13 +27,22 @@ export interface PuntoPayload {
   memorias: Record<string, Record<string, ArchivoRemoto>>;
 }
 
+export interface BarridoPayload {
+  nombre: string;
+  condicion: "Encendido" | "Apagado";
+  seleccionado: boolean;
+  archivo: ArchivoRemoto;
+}
+
 export interface ProyectoPayload {
+  tipo: "ambiental" | "emision";
   nombre_proyecto: string;
   codigo_informe: string;
   cliente: string;
   puntos: PuntoPayload[];
   /** Datos de redacción del informe (claves de engine/schemas.py InformeIn). */
   informe: Record<string, string>;
+  barrido: BarridoPayload[];
   meteorologia: ArchivoRemoto | null;
 }
 

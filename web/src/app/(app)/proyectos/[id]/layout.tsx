@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { ProjectTabs } from "./project-tabs";
+import { PROJECT_TYPE_LABELS } from "@/db/enums";
 import { isUuid } from "@/server/projects";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
@@ -11,7 +12,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<"/
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const [project] = await db
-    .select({ nombre: projects.nombre, cliente: projects.cliente, codigo: projects.codigoInforme })
+    .select({ nombre: projects.nombre, tipo: projects.tipo, cliente: projects.cliente, codigo: projects.codigoInforme })
     .from(projects)
     .where(eq(projects.id, id))
     .limit(1);
@@ -24,7 +25,7 @@ export default async function ProjectLayout({ children, params }: LayoutProps<"/
       <div className="mb-4">
         <h1 className="text-2xl font-semibold tracking-tight">{project.nombre}</h1>
         <p className="text-sm text-muted-foreground">
-          {[project.codigo, project.cliente].filter(Boolean).join(" · ") || "Sin cliente ni código de informe"}
+          {[PROJECT_TYPE_LABELS[project.tipo], project.codigo, project.cliente].filter(Boolean).join(" · ")}
         </p>
       </div>
       <ProjectTabs projectId={id} />

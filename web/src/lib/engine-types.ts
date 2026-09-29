@@ -42,8 +42,46 @@ export interface ResultadoPunto {
   esquemas: Partial<Record<Esquema, ResultadoEsquema>>;
 }
 
-export interface ResultadosProyecto {
-  puntos: ResultadoPunto[];
+interface Comunes {
   advertencias: { punto: string; esquema: string; direccion: string; mensaje: string }[];
   equipos_detectados: { serial: string; modelo: string | null }[];
 }
+
+/** Resultados de ruido ambiental (los guardados antes de emisión no traen `tipo`). */
+export interface ResultadosAmbiental extends Comunes {
+  tipo?: "ambiental";
+  puntos: ResultadoPunto[];
+}
+
+export interface ResultadoEmisionEsquema {
+  inicio: string | null;
+  fin: string | null;
+  emision: number | null;
+  residual: number | null;
+  /** "medido" (fuente apagada) o "L90" (L90 corregido de la propia medición). */
+  residual_origen: "medido" | "L90";
+  diferencia: number | null;
+  estandar: number | null;
+  cumple: "Si" | "No" | null;
+  del_orden_del_residual: boolean;
+  medicion: ResultadoDireccion;
+  residual_medicion: ResultadoDireccion | null;
+}
+
+export interface ResultadoPuntoEmision {
+  no_punto: number;
+  nombre: string;
+  sector: string;
+  incertidumbre: number;
+  estandar_diurno: number | null;
+  estandar_nocturno: number | null;
+  esquemas: Partial<Record<Esquema, ResultadoEmisionEsquema>>;
+}
+
+export interface ResultadosEmision extends Comunes {
+  tipo: "emision";
+  puntos: ResultadoPuntoEmision[];
+  barrido: { nombre: string; condicion: string; inicio: string | null; fin: string | null; leq: number | null; seleccionado: boolean }[];
+}
+
+export type ResultadosProyecto = ResultadosAmbiental | ResultadosEmision;

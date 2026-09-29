@@ -164,13 +164,13 @@ def _filas_relacion_puntos(proyecto):
     return filas
 
 
-def _llenar_tarjetas_puntos(doc):
+def _llenar_tarjetas_puntos(doc, requeridos=("nombre del punto", "longitud/este", "latitud/norte")):
     """Llena las 'tarjetas' de descripcion por punto (Nombre, coordenadas,
     foto y descripcion), replicando la estructura de 7 filas por punto de
     la plantilla (encabezado propio + Coordenadas Geograficas + Coordenadas
     Origen Nacional + Descripcion del punto + foto/texto)."""
     coincidencias = encontrar_tablas(
-        doc, requeridos=["nombre del punto", "longitud/este", "latitud/norte"], filas_encabezado=1
+        doc, requeridos=list(requeridos), filas_encabezado=1
     )
     if not coincidencias:
         return False
@@ -185,19 +185,22 @@ def _llenar_tarjetas_puntos(doc):
     return tabla_principal
 
 
-def _escribir_tarjeta(tabla, indice_bloque: int, punto):
+def _escribir_tarjeta(tabla, indice_bloque: int, punto, latitud_primero: bool = False):
+    """`latitud_primero`: la plantilla pone Latitud/Norte en la 2a columna y
+    Longitud/Este en la 3a (informe de emision); si no, al reves (ambiental)."""
     base = indice_bloque * 7
     x = parsear_coordenada(punto.longitud)
     y = parsear_coordenada(punto.latitud)
+    c_lon, c_lat = (2, 1) if latitud_primero else (1, 2)
 
     set_cell_text(tabla.cell(base + 2, 0), punto.nombre)
     if x is not None and y is not None:
         lon_dms, lat_dms, _, _ = geograficas_desde_origen_nacional(x, y)
-        set_cell_text(tabla.cell(base + 2, 1), lon_dms)
-        set_cell_text(tabla.cell(base + 2, 2), lat_dms)
+        set_cell_text(tabla.cell(base + 2, c_lon), lon_dms)
+        set_cell_text(tabla.cell(base + 2, c_lat), lat_dms)
         if es_origen_nacional(x, y):
-            set_cell_text(tabla.cell(base + 4, 1), _fmt_coordenada_plana(x))
-            set_cell_text(tabla.cell(base + 4, 2), _fmt_coordenada_plana(y))
+            set_cell_text(tabla.cell(base + 4, c_lon), _fmt_coordenada_plana(x))
+            set_cell_text(tabla.cell(base + 4, c_lat), _fmt_coordenada_plana(y))
         else:
             set_cell_text(tabla.cell(base + 4, 1), "")
             set_cell_text(tabla.cell(base + 4, 2), "")
@@ -205,11 +208,16 @@ def _escribir_tarjeta(tabla, indice_bloque: int, punto):
         for r, c in ((2, 1), (2, 2), (4, 1), (4, 2)):
             set_cell_text(tabla.cell(base + r, c), "")
 
+    celda_foto = tabla.cell(base + 6, 0)
     if punto.foto_ruta and os.path.exists(punto.foto_ruta):
         try:
-            set_cell_image(tabla.cell(base + 6, 0), punto.foto_ruta, ancho_emu=1500000)
+            set_cell_image(celda_foto, punto.foto_ruta, ancho_emu=1500000)
         except Exception:  # noqa: BLE001
             pass  # imagen invalida/no soportada: se deja el contenido previo de la celda
+    else:
+        # Sin foto: se quita la de la plantilla (es de otro proyecto).
+        for dibujo in list(celda_foto._tc.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}drawing")):
+            dibujo.getparent().remove(dibujo)
 
     descripcion = punto.descripcion or ""
     if punto.altitud:

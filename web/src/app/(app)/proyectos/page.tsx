@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDate } from "@/lib/format";
 import { listProjects } from "@/server/projects";
 import { ProjectForm } from "./project-form";
+import { PROJECT_TYPE_LABELS } from "@/db/enums";
 
 export const metadata: Metadata = { title: "Proyectos" };
 
@@ -42,7 +43,9 @@ export default async function ProjectsPage() {
                         <Link href={`/proyectos/${p.id}`} className="font-medium hover:underline">
                           {p.nombre}
                         </Link>
-                        {p.codigoInforme && <div className="text-xs text-muted-foreground">{p.codigoInforme}</div>}
+                        <div className="text-xs text-muted-foreground">
+                          {[PROJECT_TYPE_LABELS[p.tipo], p.codigoInforme].filter(Boolean).join(" · ")}
+                        </div>
                       </TableCell>
                       <TableCell className="max-w-48 truncate">{p.cliente}</TableCell>
                       <TableCell className="text-center">{p.puntos ?? 0}</TableCell>

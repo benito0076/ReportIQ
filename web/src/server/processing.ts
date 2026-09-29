@@ -8,7 +8,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { deleteObject, downloadUrl, newKey, putObject } from "@/lib/storage";
 import type { ResultadosProyecto } from "@/lib/engine-types";
 import { informePayload } from "@/lib/informe";
-import { getProject, isUuid, listMemoryFiles, listPoints, saveResults } from "./projects";
+import { getProject, isUuid, listBarrido, listMemoryFiles, listPoints, saveResults } from "./projects";
 import { getSettings } from "./settings";
 
 // Las URLs firmadas que recibe el motor deben durar lo que dure el trabajo.
@@ -16,11 +16,12 @@ const ENGINE_URL_TTL = 15 * 60;
 
 /** Arma el proyecto para el motor, con URLs firmadas para memorias y fotos. */
 export async function buildPayload(projectId: string): Promise<engine.ProyectoPayload> {
-  const [project, pts, mems, settings] = await Promise.all([
+  const [project, pts, mems, settings, barrido] = await Promise.all([
     getProject(projectId),
     listPoints(projectId),
     listMemoryFiles(projectId),
     getSettings(),
+    listBarrido(projectId),
   ]);
   if (pts.length === 0) throw new ValidationError("Agregue al menos un punto de monitoreo.");
   if (mems.length === 0) throw new ValidationError("Suba al menos una memoria del sonómetro.");
@@ -52,6 +53,17 @@ export async function buildPayload(projectId: string): Promise<engine.ProyectoPa
     }),
   );
   return {
+    tipo: project.tipo,
+    barrido: await Promise.all(
+      project.tipo === "emision"
+        ? barrido.map(async (b) => ({
+            nombre: b.nombre,
+            condicion: b.condicion,
+            seleccionado: b.seleccionado,
+            archivo: { url: await downloadUrl(b.fileKey, { ttl: ENGINE_URL_TTL }), nombre: b.fileName },
+          }))
+        : [],
+    ),
     nombre_proyecto: project.nombre,
     codigo_informe: project.codigoInforme,
     cliente: project.cliente,
@@ -80,8 +92,9 @@ export async function generateReport(projectId: string, kind: ReportKind, userId
     getSettings(),
     db.select({ nombre: equipment.nombre, codigo: equipment.codigo, serial: equipment.serial }).from(equipment),
   ]);
+  // La plantilla propia de Ajustes es la de ruido ambiental; emisión usa la incluida.
   const plantilla =
-    kind === "word" && settings.plantillaKey
+    kind === "word" && proyecto.tipo === "ambiental" && settings.plantillaKey
       ? { url: await downloadUrl(settings.plantillaKey, { ttl: ENGINE_URL_TTL }), nombre: settings.plantillaNombre ?? "plantilla.docx" }
       : null;
 

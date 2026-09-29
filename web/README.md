@@ -61,6 +61,18 @@ Navegador ──► App web Next.js (Vercel) ──► Motor Python FastAPI (Ren
    Luego se generan el **Informe Word**, el **Excel de resultados** y el **ZIP de
    gráficas e isófonas** (PNG + PDF); quedan en un historial descargable.
 
+**Emisión de ruido.** Al crear el proyecto se elige el tipo: *Ruido ambiental* o
+*Emisión de ruido* (Res. 0627, Anexo 3 Cap. I y Art. 9). En emisión cada punto
+tiene, por jornada (diurna/nocturna, día hábil/no hábil), una memoria de 1 hora con
+la fuente en operación y, opcional, la del ruido residual (fuente apagada); si no
+hay residual se usa el L90 corregido. El cálculo replica la plantilla FP-007:
+corrección K = máx(KI, KT, KR, KS, pantalla), emisión =
+10·log(10^(LRAeq/10) − 10^(Residual/10)) y, si la diferencia es ≤ 3 dB(A), la
+emisión es del orden del residual. Las memorias de 2 minutos del **barrido
+perimetral** se suben en la misma pantalla y se marcan las que quedaron como
+puntos de medición. El Word usa la plantilla del informe ER-753-25
+(`templates/informe_emision_template.docx`).
+
 Además: **Equipos** (inventario de sonómetros por serial), **Usuarios** y
 **Ajustes** (plantilla Word propia, firmas del cuadro de control y texto «Elaboró» de los planos) para los
 administradores. Solo los administradores pueden eliminar proyectos y equipos.

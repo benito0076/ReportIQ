@@ -24,14 +24,19 @@ from core.excel_export import exportar_resultados
 from core import isophones
 from core.isophones import SinCoordenadasError, generar_mapa_isofonas_esquema, generar_mapa_localizacion
 from core import meteorologia
+from core.emision import ItemBarrido, ResultadosEmision, procesar_emision
+from core.excel_export import exportar_resultados_emision
+from core.informe_emision import generar_informe_emision
+from core.charts import generar_graficas_emision
 from core.models import ESQUEMA_LABELS, ESQUEMAS, ArchivoMemoria, DatosInforme, Proyecto, Punto
-from core.pipeline import ResultadosProyecto, procesar_proyecto
+from core.pipeline import procesar_proyecto
 from core.report_generator import ErrorPlantilla, generar_informe
 
 from .schemas import ArchivoRemoto, EquipoIn, ProyectoIn
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLANTILLA_DEFECTO = os.path.join(RAIZ, "templates", "informe_template.docx")
+PLANTILLA_EMISION = os.path.join(RAIZ, "templates", "informe_emision_template.docx")
 
 MAX_BYTES_ARCHIVO = int(os.environ.get("ENGINE_MAX_FILE_MB", "40")) * 1024 * 1024
 DESCARGAS_SIMULTANEAS = 8
@@ -98,6 +103,7 @@ def preparar(proyecto_in: ProyectoIn, carpeta: str, plantilla: Optional[ArchivoR
     """Descarga memorias, fotos y plantilla, y construye el Proyecto de `core`.
     Devuelve (contexto, ruta_plantilla_descargada|None)."""
     proyecto = Proyecto(
+        tipo=proyecto_in.tipo,
         nombre_proyecto=proyecto_in.nombre_proyecto,
         codigo_informe=proyecto_in.codigo_informe,
         cliente=proyecto_in.cliente,
@@ -126,6 +132,12 @@ def preparar(proyecto_in: ProyectoIn, carpeta: str, plantilla: Optional[ArchivoR
             punto.correcciones_manuales[(c.esquema, c.direccion)] = {"KS": c.KS, "pantalla": c.pantalla}
         proyecto.puntos.append(punto)
 
+    for i, b in enumerate(proyecto_in.barrido):
+        ruta = os.path.join(carpeta, f"barrido_{i}{_extension(b.archivo.nombre, '.xlsx')}")
+        ctx.nombres[ruta] = b.archivo.nombre or b.nombre
+        proyecto.barrido.append(ItemBarrido(b.nombre, b.condicion, ruta, b.seleccionado))
+        descargas.append((b.archivo, ruta))
+
     if proyecto_in.meteorologia is not None:
         ctx.ruta_meteo = os.path.join(carpeta, "meteorologia.xlsx")
         descargas.append((proyecto_in.meteorologia, ctx.ruta_meteo))
@@ -143,8 +155,12 @@ def preparar(proyecto_in: ProyectoIn, carpeta: str, plantilla: Optional[ArchivoR
     return ctx, ruta_plantilla
 
 
-def procesar(ctx: Contexto) -> ResultadosProyecto:
-    resultados = procesar_proyecto(ctx.proyecto)
+def es_emision(ctx: Contexto) -> bool:
+    return ctx.proyecto.tipo == "emision"
+
+
+def procesar(ctx: Contexto):
+    resultados = procesar_emision(ctx.proyecto) if es_emision(ctx) else procesar_proyecto(ctx.proyecto)
     for adv in resultados.advertencias:
         for ruta, nombre in ctx.nombres.items():
             adv.mensaje = adv.mensaje.replace(ruta, nombre)
@@ -167,7 +183,54 @@ _CAMPOS_DIRECCION = [
 ]
 
 
-def resultados_a_dict(resultados: ResultadosProyecto) -> dict:
+def _emision_a_dict(resultados: ResultadosEmision) -> dict:
+    from core.emision import estandares_emision
+
+    puntos = []
+    for punto in resultados.proyecto.puntos:
+        dia, noche = estandares_emision(punto.sector) if punto.sector else (None, None)
+        esquemas = {}
+        for esquema, r in resultados.por_punto.get(punto.no_punto, {}).items():
+            esquemas[esquema] = {
+                "inicio": _valor(r.inicio),
+                "fin": _valor(r.fin),
+                "emision": _valor(r.emision),
+                "residual": _valor(r.residual),
+                "residual_origen": "L90" if r.residual_es_l90 else "medido",
+                "diferencia": _valor(r.diferencia),
+                "estandar": r.estandar,
+                "cumple": r.cumple,
+                "del_orden_del_residual": r.del_orden_del_residual,
+                "medicion": {c: _valor(getattr(r.medicion, c)) for c in _CAMPOS_DIRECCION},
+                "residual_medicion": ({c: _valor(getattr(r.residual_medido, c)) for c in _CAMPOS_DIRECCION}
+                                      if r.residual_medido else None),
+            }
+        puntos.append({
+            "no_punto": punto.no_punto, "nombre": punto.nombre, "sector": punto.sector,
+            "incertidumbre": punto.incertidumbre, "estandar_diurno": dia, "estandar_nocturno": noche,
+            "esquemas": esquemas,
+        })
+    return {
+        "tipo": "emision",
+        "puntos": puntos,
+        "barrido": [
+            {"nombre": b.nombre, "condicion": b.condicion, "inicio": _valor(b.inicio), "fin": _valor(b.fin),
+             "leq": _valor(b.leq), "seleccionado": b.seleccionado}
+            for b in resultados.barrido
+        ],
+        "advertencias": [
+            {"punto": a.punto, "esquema": a.esquema, "direccion": a.direccion, "mensaje": a.mensaje}
+            for a in resultados.advertencias
+        ],
+        "equipos_detectados": [
+            {"serial": str(s), "modelo": m} for s, m in resultados.equipos_detectados.items()
+        ],
+    }
+
+
+def resultados_a_dict(resultados) -> dict:
+    if isinstance(resultados, ResultadosEmision):
+        return _emision_a_dict(resultados)
     puntos = []
     for punto in resultados.proyecto.puntos:
         rc = resultados.comparacion.get(punto.no_punto)
@@ -196,6 +259,7 @@ def resultados_a_dict(resultados: ResultadosProyecto) -> dict:
             "esquemas": esquemas,
         })
     return {
+        "tipo": "ambiental",
         "puntos": puntos,
         "advertencias": [
             {"punto": a.punto, "esquema": a.esquema, "direccion": a.direccion, "mensaje": a.mensaje}
@@ -255,7 +319,7 @@ def _generar_localizacion(ctx: Contexto, carpeta: str, elaborado_por: str, gener
 def generar_excel(ctx: Contexto) -> Entregable:
     resultados = procesar(ctx)
     ruta = os.path.join(ctx.carpeta, "resultados.xlsx")
-    exportar_resultados(resultados, ruta)
+    (exportar_resultados_emision if es_emision(ctx) else exportar_resultados)(resultados, ruta)
     with open(ruta, "rb") as f:
         contenido = f.read()
     return Entregable(contenido, f"{_nombre_base(ctx)} - Resultados.xlsx", MIME_XLSX,
@@ -291,8 +355,12 @@ def generar_anexos(ctx: Contexto, elaborado_por: str = "") -> Entregable:
     carpeta = os.path.join(ctx.carpeta, "anexos")
     os.makedirs(carpeta, exist_ok=True)
     with _LOCK_GRAFICOS:
-        graficas = generar_graficas(resultados, carpeta)
-        isofonas, errores = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=True)
+        if es_emision(ctx):
+            # Emision: graficas por jornada; no lleva mapas de isofonas.
+            graficas, isofonas, errores = generar_graficas_emision(resultados, carpeta), {}, []
+        else:
+            graficas = generar_graficas(resultados, carpeta)
+            isofonas, errores = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=True)
         localizacion, errores_loc = _generar_localizacion(ctx, carpeta, elaborado_por, generar_pdf=True)
         meteo, avisos_meteo = _meteorologia(ctx, resultados, os.path.join(carpeta, "meteorologia"))
     errores += [e for e in errores_loc if e not in errores] + avisos_meteo
@@ -316,8 +384,10 @@ def generar_anexos(ctx: Contexto, elaborado_por: str = "") -> Entregable:
             for ruta in meteo[1].values():
                 zf.write(ruta, f"meteorologia/{os.path.basename(ruta)}")
     if not any(graficas.values()) and not isofonas:
-        errores.append("No hay resultados suficientes para generar graficas ni mapas de isofonas.")
-    return Entregable(buffer.getvalue(), f"{_nombre_base(ctx)} - Graficas e isofonas.zip",
+        errores.append("No hay resultados suficientes para generar graficas." if es_emision(ctx)
+                       else "No hay resultados suficientes para generar graficas ni mapas de isofonas.")
+    sufijo = "Graficas" if es_emision(ctx) else "Graficas e isofonas"
+    return Entregable(buffer.getvalue(), f"{_nombre_base(ctx)} - {sufijo}.zip",
                       "application/zip", errores)
 
 
@@ -327,8 +397,11 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
     carpeta = os.path.join(ctx.carpeta, "informe")
     os.makedirs(carpeta, exist_ok=True)
     with _LOCK_GRAFICOS:
-        graficas = generar_graficas(resultados, carpeta)
-        isofonas, errores_isofonas = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=False)
+        if es_emision(ctx):
+            graficas, isofonas, errores_isofonas = generar_graficas_emision(resultados, carpeta), {}, []
+        else:
+            graficas = generar_graficas(resultados, carpeta)
+            isofonas, errores_isofonas = _generar_isofonas(ctx, resultados, carpeta, elaborado_por, con_titulo=False)
         localizacion, errores_loc = _generar_localizacion(ctx, carpeta, elaborado_por, generar_pdf=False)
         if localizacion:
             graficas["localizacion"] = localizacion
@@ -343,10 +416,16 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
 
     salida = os.path.join(ctx.carpeta, "informe.docx")
     try:
-        _, faltantes = generar_informe(
-            resultados, ruta_plantilla or PLANTILLA_DEFECTO, salida,
-            graficas=graficas, isofonas=isofonas, ruta_equipos=ruta_equipos, meteo=meteo,
-        )
+        if es_emision(ctx):
+            _, faltantes = generar_informe_emision(
+                resultados, ruta_plantilla or PLANTILLA_EMISION, salida,
+                graficas=graficas, ruta_equipos=ruta_equipos, meteo=meteo,
+            )
+        else:
+            _, faltantes = generar_informe(
+                resultados, ruta_plantilla or PLANTILLA_DEFECTO, salida,
+                graficas=graficas, isofonas=isofonas, ruta_equipos=ruta_equipos, meteo=meteo,
+            )
     except ErrorPlantilla as exc:
         raise ErrorEntrada(str(exc)) from exc
     with open(salida, "rb") as f:

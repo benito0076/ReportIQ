@@ -44,11 +44,7 @@ class Punto:
     correcciones_manuales: dict = field(default_factory=dict)
 
     def esquemas_activos(self):
-        activos = []
-        for esquema in ESQUEMAS:
-            if any(self.archivos[esquema][d].ruta for d in DIRECCIONES):
-                activos.append(esquema)
-        return activos
+        return [e for e in ESQUEMAS if any(a.ruta for a in self.archivos.get(e, {}).values())]
 
 
 @dataclass
@@ -84,8 +80,12 @@ class Proyecto:
     codigo_informe: str = ""
     cliente: str = ""
     puntos: list = field(default_factory=list)
+    # "ambiental" (5 direcciones por punto y jornada) o "emision" (medicion
+    # con la fuente en operacion y, opcional, ruido residual; ver core/emision.py).
+    tipo: str = "ambiental"
     meteo_ruta: str = ""  # archivo de la estacion meteorologica (.xlsx), opcional
     informe: DatosInforme = field(default_factory=DatosInforme)
+    barrido: list = field(default_factory=list)  # [core.emision.ItemBarrido], solo emision
 
     def agregar_punto(self, nombre: str, sector: str = "") -> Punto:
         no = len(self.puntos) + 1

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { FileArchive, FileSpreadsheet, FileText, Loader2, Play } from "lucide-react";
 import { Notice } from "@/components/notice";
 import { Button } from "@/components/ui/button";
-import { REPORT_LABELS, type ReportKind } from "@/db/enums";
+import { reportLabel, type ProjectType, type ReportKind } from "@/db/enums";
 
 async function post(url: string, body?: unknown): Promise<{ error?: string; advertencias?: unknown }> {
   try {
@@ -51,7 +51,15 @@ export function ProcessButton({ projectId, disabled }: { projectId: string; disa
 
 const ICONS: Record<ReportKind, typeof FileText> = { word: FileText, excel: FileSpreadsheet, anexos: FileArchive };
 
-export function GenerateButtons({ projectId, disabled }: { projectId: string; disabled?: boolean }) {
+export function GenerateButtons({
+  projectId,
+  tipo,
+  disabled,
+}: {
+  projectId: string;
+  tipo: ProjectType;
+  disabled?: boolean;
+}) {
   const router = useRouter();
   const [pending, setPending] = useState<ReportKind | null>(null);
   const [result, setResult] = useState<{ tone: "error" | "success" | "warning"; text: string; items?: string[] } | null>(null);
@@ -67,7 +75,7 @@ export function GenerateButtons({ projectId, disabled }: { projectId: string; di
       const adv = Array.isArray(res.advertencias) ? (res.advertencias as string[]) : [];
       setResult({
         tone: adv.length ? "warning" : "success",
-        text: `${REPORT_LABELS[kind]} generado. Descárguelo en el historial de abajo.`,
+        text: `${reportLabel(kind, tipo)} generado. Descárguelo en el historial de abajo.`,
         items: adv,
       });
     }
@@ -82,15 +90,16 @@ export function GenerateButtons({ projectId, disabled }: { projectId: string; di
           return (
             <Button key={k} variant={k === "word" ? "default" : "outline"} disabled={pending !== null || disabled} onClick={() => generate(k)}>
               {pending === k ? <Loader2 className="animate-spin" /> : <Icon />}
-              {REPORT_LABELS[k]}
+              {reportLabel(k, tipo)}
             </Button>
           );
         })}
       </div>
       {pending && (
         <p className="text-sm text-muted-foreground">
-          Generando… El informe Word y los mapas de isófonas pueden tardar uno o dos minutos (se descargan las
-          imágenes satelitales).
+          Generando…{" "}
+          {tipo === "ambiental" ? "El informe Word y los mapas de isófonas pueden" : "El informe Word puede"} tardar uno
+          o dos minutos (se descargan las imágenes satelitales).
         </p>
       )}
       {result && (

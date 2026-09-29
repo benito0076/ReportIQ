@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { DIRECCIONES, ESQUEMAS } from "@/db/enums";
+import { DIRECCIONES, DIRECCIONES_Y_RANURAS, ESQUEMAS, RANURAS_EMISION } from "@/db/enums";
 import { CONTENT_TYPES, UPLOAD_RULES, extensionFor, matchesRule, sniff } from "@/lib/files";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import type { CurrentUser } from "@/lib/session";
@@ -13,7 +13,7 @@ import {
   sanitizeFileName,
   uploadUrl,
 } from "@/lib/storage";
-import { getPoint, getProject, setMemoryFile, setPointPhoto, setProjectMeteo } from "./projects";
+import { addBarrido, getPoint, getProject, setMemoryFile, setPointPhoto, setProjectMeteo } from "./projects";
 import { updateSettings } from "./settings";
 
 /**
@@ -30,8 +30,9 @@ export const uploadTargetSchema = z.discriminatedUnion("kind", [
     projectId: z.uuid(),
     pointId: z.uuid(),
     esquema: z.enum(ESQUEMAS),
-    direccion: z.enum(DIRECCIONES),
+    direccion: z.enum(DIRECCIONES_Y_RANURAS),
   }),
+  z.object({ kind: z.literal("barrido"), projectId: z.uuid() }),
   z.object({ kind: z.literal("foto"), projectId: z.uuid(), pointId: z.uuid() }),
   z.object({ kind: z.literal("meteo"), projectId: z.uuid() }),
   z.object({ kind: z.literal("plantilla") }),
@@ -51,7 +52,18 @@ async function checkTarget(target: UploadTarget, user: CurrentUser) {
     await getProject(target.projectId);
     return;
   }
+  if (target.kind === "barrido") {
+    const project = await getProject(target.projectId);
+    if (project.tipo !== "emision") throw new ValidationError("El barrido solo aplica a proyectos de emisión.");
+    return;
+  }
   await getPoint(target.projectId, target.pointId);
+  if (target.kind === "memoria") {
+    // Ambiental usa las 5 direcciones; emisión, la medición y el residual.
+    const project = await getProject(target.projectId);
+    const validas: readonly string[] = project.tipo === "emision" ? RANURAS_EMISION : DIRECCIONES;
+    if (!validas.includes(target.direccion)) throw new ValidationError("Casilla de memoria inválida para este proyecto.");
+  }
 }
 
 export async function prepareUpload(target: UploadTarget, fileName: string, size: number, user: CurrentUser) {
@@ -92,6 +104,9 @@ export async function confirmUpload(target: UploadTarget, key: string, fileName:
       break;
     case "meteo":
       await setProjectMeteo(target.projectId, key, name);
+      break;
+    case "barrido":
+      await addBarrido(target.projectId, { key, fileName: name, size });
       break;
     case "plantilla":
       await updateSettings({ plantillaKey: key, plantillaNombre: name });
