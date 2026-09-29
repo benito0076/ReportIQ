@@ -8,7 +8,7 @@ import re
 from docx.text.paragraph import Paragraph
 
 from .docx_utils import _sin_tildes, blips, encontrar_tabla, reconstruir_filas, reemplazar_imagen, set_paragraph_text
-from .meteorologia import filas_tabla_diaria
+from .meteorologia import filas_frecuencia_direcciones, filas_tabla_diaria
 
 _W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
@@ -26,7 +26,7 @@ _GRAFICAS = [
     ("humedad", ["humedad"]),
     ("presion", ["presion"]),
     ("precipitacion", ["lluvia"]),  # solo en algunas plantillas (emision)
-    ("viento", ["clases_viento", "rosa_vientos"]),
+    ("viento", ["viento_combinado"]),
 ]
 _GRAFICAS_OPCIONALES = {"precipitacion"}
 
@@ -56,6 +56,49 @@ def _capitulo(doc):
     if inicio is None:
         return []
     return elementos[inicio:fin]
+
+
+_WP = "{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}"
+
+
+def _grafica_viento(doc, elementos, blips_encontrados, graficas, analisis):
+    """La grafica de viento de las plantillas es un grupo flotante con dos
+    imagenes (rosa y clases): se cambia el grupo completo por una imagen en
+    linea con ambas, del mismo ancho, y se llena la tabla de porcentajes por
+    direccion que la acompana."""
+    from docx.shared import Emu
+    from docx.table import Table
+
+    from .docx_utils import escribir_filas
+
+    ruta = graficas.get("viento_combinado")
+    if ruta and blips_encontrados:
+        dibujo = blips_encontrados[0]
+        while dibujo is not None and dibujo.tag != f"{_W}drawing":
+            dibujo = dibujo.getparent()
+        if dibujo is not None:
+            extent = next(dibujo.iter(f"{_WP}extent"), None)
+            ancho = int(extent.get("cx")) if extent is not None else None
+            # El dibujo suele estar dentro de mc:AlternateContent (con una version
+            # VML de respaldo): se quita todo el contenido alternativo del run.
+            hijo, run_el = dibujo, dibujo.getparent()
+            while run_el is not None and run_el.tag != f"{_W}r":
+                hijo, run_el = run_el, run_el.getparent()
+            if run_el is not None:
+                parrafo_el = run_el.getparent()
+                run_el.remove(hijo)
+                Paragraph(parrafo_el, doc).add_run().add_picture(ruta, width=Emu(ancho) if ancho else None)
+    for el in elementos:
+        if el.tag != f"{_W}tbl":
+            continue
+        for anidada in el.iter(f"{_W}tbl"):
+            if anidada is el:
+                continue
+            tabla = Table(anidada, doc)
+            encabezado = _sin_tildes(" ".join(c.text for c in tabla.rows[0].cells))
+            if "direccion" in encabezado and "porcentaje" in encabezado:
+                escribir_filas(tabla, 1, filas_frecuencia_direcciones(analisis))
+                return
 
 
 def _numero_grafica(doc, capitulo, palabra):
@@ -145,6 +188,9 @@ def aplicar_meteorologia(doc, analisis, graficas: dict) -> list:
             encontrados.extend(blips(el))
             if len(encontrados) >= len(claves):
                 break
+        if palabra == "viento":
+            _grafica_viento(doc, capitulo[idx + 1: idx + 5], encontrados, graficas, analisis)
+            continue
         for blip, clave in zip(encontrados, claves):
             if graficas.get(clave):
                 reemplazar_imagen(doc, blip, graficas[clave])

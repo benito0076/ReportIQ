@@ -606,7 +606,29 @@ def generar_graficas_meteo(a: AnalisisMeteo, carpeta: str) -> dict:
         fig.savefig(ruta)
         plt.close(fig)
         rutas["rosa_vientos"] = ruta
+
+        # Rosa y distribucion de clases lado a lado, en una sola imagen: la
+        # Grafica de viento del informe es un unico dibujo de ~13 x 6 cm.
+        rosa, clases = plt.imread(rutas["rosa_vientos"]), plt.imread(rutas["clases_viento"])
+        proporciones = [rosa.shape[1] / rosa.shape[0], clases.shape[1] / clases.shape[0]]
+        fig = plt.figure(figsize=(5 * sum(proporciones), 5), dpi=150)
+        izquierda = proporciones[0] / sum(proporciones)
+        for img, (x0, ancho_rel) in zip((rosa, clases), ((0, izquierda), (izquierda, 1 - izquierda))):
+            ax = fig.add_axes([x0, 0, ancho_rel, 1])
+            ax.imshow(img)
+            ax.axis("off")
+        ruta = os.path.join(carpeta, "meteo_viento.png")
+        fig.savefig(ruta)
+        plt.close(fig)
+        rutas["viento_combinado"] = ruta
     return rutas
+
+
+def filas_frecuencia_direcciones(a: AnalisisMeteo) -> list:
+    """Filas [direccion, %] de las direcciones con registros (orden de la rosa) y las calmas,
+    para la tabla que acompana la grafica de viento."""
+    filas = [[d, fmt(sum(a.frecuencias[d]))] for d in DIRECCIONES_16 if sum(a.frecuencias.get(d, [])) > 0]
+    return filas + [["Calms", fmt(a.calmas_pct)]]
 
 
 def filas_tabla_diaria(a: AnalisisMeteo) -> list:

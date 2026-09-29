@@ -235,6 +235,14 @@ class TestApiMotor(unittest.TestCase):
         texto = "\n".join(p.text for p in doc.paragraphs)
         self.assertIn("10 de marzo de 2026, único día de monitoreo", texto)
         self.assertNotIn("WRPLOT", texto)
+        # Grafica de viento: una sola imagen en linea (la rosa y las clases) y la tabla por direccion llena.
+        viento = next(t for t in doc.tables if "Porcentaje (%)" in t._tbl.xml)
+        xml = viento._tbl.xml
+        self.assertNotIn("<wp:anchor", xml)
+        self.assertIn("<wp:inline", xml)
+        anidada = next(t for row in viento.rows for c in row.cells for t in c.tables)
+        self.assertEqual(anidada.rows[-1].cells[0].text, "Calms")
+        self.assertNotEqual(anidada.rows[1].cells[1].text, "2,67")  # ya no es el valor de la plantilla
         avisos = json.loads(unquote(r.headers["x-advertencias"]))
         self.assertTrue(any("se descartaron 5 fila(s)" in a for a in avisos), avisos)
 
