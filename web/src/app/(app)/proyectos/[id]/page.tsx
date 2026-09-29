@@ -83,8 +83,9 @@ export default async function ProjectPage({ params }: PageProps<"/proyectos/[id]
         <CardHeader className="border-b">
           <CardTitle>Puntos de monitoreo</CardTitle>
           <CardDescription>
-            El orden define el número de cada punto en el informe. Con al menos 3 puntos con coordenadas se generan
-            los mapas de isófonas.
+            {project.tipo === "emision"
+              ? "El orden define el ID de cada punto en el informe (P1, P2…). Con coordenadas se genera el mapa de localización."
+              : "El orden define el número de cada punto en el informe. Con al menos 3 puntos con coordenadas se generan los mapas de isófonas."}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">

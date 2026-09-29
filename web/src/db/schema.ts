@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   doublePrecision,
   index,
   integer,
@@ -11,7 +12,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import type { Direccion, Esquema, ReportKind, UserRole } from "./enums";
+import type { CondicionBarrido, Direccion, Esquema, ProjectType, ReportKind, UserRole } from "./enums";
 import type { ResultadosProyecto } from "@/lib/engine-types";
 import type { DatosInforme } from "@/lib/validation";
 
@@ -39,6 +40,8 @@ export const projects = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     nombre: varchar("nombre", { length: 255 }).notNull(),
+    /** "ambiental" o "emision"; se elige al crear el proyecto. */
+    tipo: varchar("tipo", { length: 12 }).$type<ProjectType>().notNull().default("ambiental"),
     cliente: varchar("cliente", { length: 255 }).notNull().default(""),
     codigoInforme: varchar("codigo_informe", { length: 100 }).notNull().default(""),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
@@ -97,6 +100,26 @@ export const memoryFiles = pgTable(
   (t) => [uniqueIndex("memory_files_slot_uq").on(t.pointId, t.esquema, t.direccion)],
 );
 
+/** Memorias de 2 minutos del barrido perimetral (proyectos de emisión). */
+export const barridoFiles = pgTable(
+  "barrido_files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    nombre: varchar("nombre", { length: 100 }).notNull(),
+    condicion: varchar("condicion", { length: 10 }).$type<CondicionBarrido>().notNull().default("Encendido"),
+    /** Barrido elegido como punto de medición (se sombrea en la tabla del informe). */
+    seleccionado: boolean("seleccionado").notNull().default(false),
+    fileKey: text("file_key").notNull(),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    size: integer("size").notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("barrido_files_project_idx").on(t.projectId)],
+);
+
 /** Informes / entregables generados (historial descargable). */
 export const reports = pgTable(
   "reports",
@@ -146,5 +169,6 @@ export type Project = typeof projects.$inferSelect;
 export type Point = typeof points.$inferSelect;
 export type MemoryFile = typeof memoryFiles.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type BarridoFile = typeof barridoFiles.$inferSelect;
 export type Equipment = typeof equipment.$inferSelect;
 export type User = typeof users.$inferSelect;

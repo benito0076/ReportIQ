@@ -6,7 +6,9 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 Esquema = Literal["DH", "DNH", "NDH", "NDNH"]
-Direccion = Literal["Vertical", "Norte", "Sur", "Este", "Oeste"]
+# Ambiental: 5 direcciones. Emision: la medicion con la fuente en operacion y,
+# opcional, el ruido residual (fuente apagada).
+Direccion = Literal["Vertical", "Norte", "Sur", "Este", "Oeste", "Emision", "Residual"]
 
 
 class ArchivoRemoto(BaseModel):
@@ -59,12 +61,22 @@ class InformeIn(BaseModel):
     autorizo_cargo: str = ""
 
 
+class BarridoIn(BaseModel):
+    """Memoria de 2 minutos del barrido perimetral (solo emision)."""
+    nombre: str
+    condicion: Literal["Encendido", "Apagado"] = "Encendido"
+    seleccionado: bool = False
+    archivo: ArchivoRemoto
+
+
 class ProyectoIn(BaseModel):
+    tipo: Literal["ambiental", "emision"] = "ambiental"
     nombre_proyecto: str = ""
     codigo_informe: str = ""
     cliente: str = ""
     puntos: list[PuntoIn] = Field(default_factory=list)
     informe: InformeIn = Field(default_factory=InformeIn)
+    barrido: list[BarridoIn] = Field(default_factory=list)
     # Archivo de la estacion meteorologica (.xlsx); opcional.
     meteorologia: Optional[ArchivoRemoto] = None
 

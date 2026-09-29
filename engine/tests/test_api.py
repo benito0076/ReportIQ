@@ -136,6 +136,50 @@ class TestApiMotor(unittest.TestCase):
         self.assertIn("En el punto P1 se percibió el tránsito de camiones.", parrafos)
         self.assertIsInstance(json.loads(unquote(r.headers["x-advertencias"])), list)
 
+    def _proyecto_emision(self):
+        from datetime import datetime
+
+        puntos = []
+        for i in range(2):
+            memorias = {}
+            for esquema, hora in (("DH", 10), ("NDH", 22)):
+                nombre = f"E{i + 1}_{esquema}.xlsx"
+                crear_memoria(os.path.join(self.tmp.name, nombre), laeq=70.0 + i, laieq=71.0 + i,
+                              inicio=datetime(2026, 3, 10, hora))
+                memorias[esquema] = {"Emision": {"url": f"{self.base}/{nombre}", "nombre": nombre}}
+            este, norte = COORDENADAS[i]
+            puntos.append({"no_punto": i + 1, "nombre": f"Porteria {i + 1}", "sector": SECTOR_B,
+                           "este": str(este), "norte": str(norte), "incertidumbre": 0.0043, "memorias": memorias})
+        crear_memoria(os.path.join(self.tmp.name, "residual.xlsx"), laeq=69.0, laieq=70.0,
+                      inicio=datetime(2026, 3, 10, 12))
+        puntos[0]["memorias"]["DH"]["Residual"] = {"url": f"{self.base}/residual.xlsx", "nombre": "residual.xlsx"}
+        crear_memoria(os.path.join(self.tmp.name, "barrido1.xlsx"), laeq=66.0, laieq=67.0)
+        return {"tipo": "emision", "nombre_proyecto": "Emision", "codigo_informe": "ER-002-26", "cliente": "Cliente",
+                "puntos": puntos,
+                "barrido": [{"nombre": "Barrido 1", "seleccionado": True,
+                             "archivo": {"url": f"{self.base}/barrido1.xlsx", "nombre": "barrido1.xlsx"}}]}
+
+    def test_emision_procesar_y_generar(self):
+        proyecto = self._proyecto_emision()
+        r = self.client.post("/v1/procesar", json={"proyecto": proyecto}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        datos = r.json()
+        self.assertEqual(datos["tipo"], "emision")
+        dh = datos["puntos"][0]["esquemas"]["DH"]
+        self.assertEqual(dh["residual_origen"], "medido")
+        self.assertTrue(dh["del_orden_del_residual"])  # 70 - 69 = 1 dB
+        self.assertEqual(datos["puntos"][1]["esquemas"]["DH"]["residual_origen"], "L90")
+        self.assertEqual(datos["puntos"][0]["estandar_diurno"], 65)  # emision, sector B residencial
+        self.assertEqual(datos["barrido"][0]["nombre"], "Barrido 1")
+
+        for tipo, ext in (("word", "docx"), ("excel", "xlsx"), ("anexos", "zip")):
+            r = self.client.post("/v1/generar", json={"proyecto": proyecto, "tipo": tipo}, headers=AUTH)
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertTrue(unquote(r.headers["x-nombre-archivo"]).endswith(f".{ext}"))
+        nombres = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
+        self.assertIn("graficas/emision_DH.png", nombres)
+        self.assertFalse(any(n.startswith("isofonas/") for n in nombres))
+
     def test_generar_word_plantilla_invalida(self):
         with open(os.path.join(self.tmp.name, "plantilla_mala.docx"), "wb") as f:
             f.write(b"")

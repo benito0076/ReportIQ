@@ -31,6 +31,12 @@ export const UPLOAD_RULES: Record<Exclude<FileKind, "informe">, UploadRule> = {
     signature: "zip",
     label: "archivo de datos meteorológicos (.xlsx)",
   },
+  barrido: {
+    maxBytes: 40 * MB,
+    accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    signature: "zip",
+    label: "memoria del barrido (.xlsx)",
+  },
   plantilla: {
     maxBytes: 40 * MB,
     accept: ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -65,7 +71,7 @@ export function matchesRule(type: SniffedType | null, rule: UploadRule): boolean
 
 /** Extensión para la clave de almacenamiento según el tipo de archivo. */
 export function extensionFor(kind: Exclude<FileKind, "informe">, fileName: string): string {
-  if (kind === "memoria" || kind === "meteo") return "xlsx";
+  if (kind === "memoria" || kind === "meteo" || kind === "barrido") return "xlsx";
   if (kind === "plantilla") return "docx";
   return /\.png$/i.test(fileName) ? "png" : "jpg";
 }

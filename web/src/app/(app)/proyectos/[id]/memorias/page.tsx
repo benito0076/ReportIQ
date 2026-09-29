@@ -9,14 +9,20 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DIRECCIONES, ESQUEMAS, ESQUEMA_LABELS } from "@/db/enums";
 import { formatBytes } from "@/lib/files";
-import { listMemoryFiles, listPoints } from "@/server/projects";
+import { getProject, listBarrido, listMemoryFiles, listPoints } from "@/server/projects";
 import { BulkUpload } from "./bulk-upload";
+import { EmisionMemorias } from "./emision-memorias";
 
 export const metadata: Metadata = { title: "Memorias del sonómetro" };
 
 export default async function MemoriesPage({ params }: PageProps<"/proyectos/[id]/memorias">) {
   const { id } = await params;
-  const [pts, files] = await Promise.all([listPoints(id), listMemoryFiles(id)]);
+  const [project, pts, files, barrido] = await Promise.all([
+    getProject(id),
+    listPoints(id),
+    listMemoryFiles(id),
+    listBarrido(id),
+  ]);
 
   if (pts.length === 0) {
     return (
@@ -26,6 +32,10 @@ export default async function MemoriesPage({ params }: PageProps<"/proyectos/[id
         </Link>
       </Notice>
     );
+  }
+
+  if (project.tipo === "emision") {
+    return <EmisionMemorias projectId={id} points={pts} files={files} barrido={barrido} />;
   }
 
   return (

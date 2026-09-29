@@ -131,7 +131,15 @@ def describir_sector(etiqueta: str):
 
 
 class Contexto:
-    """Datos del proyecto y de los resultados que se reutilizan en los textos."""
+    """Datos del proyecto y de los resultados que se reutilizan en los textos.
+    Sirve para ruido ambiental y, con ContextoEmision, para emision de ruido."""
+
+    magnitud = "ruido ambiental"
+
+    def limites(self, etiqueta: str):
+        """(dia, noche) del estandar que aplica a un sector."""
+        s = norms.buscar_sector(etiqueta)
+        return (s.dia, s.noche) if s else (None, None)
 
     def __init__(self, resultados, filas_equipos=None, hoy: dt.date | None = None):
         self.res = resultados
@@ -143,9 +151,11 @@ class Contexto:
         self.fecha = _fecha_iso(self.datos.fecha) or hoy or dt.date.today()
         self.esquemas = [e for e in ESQUEMAS
                          if any(e in self.res.por_punto.get(p.no_punto, {}) for p in self.puntos)]
+        from .meteorologia import _fecha
+
         self.fechas_medicion = sorted({
             f.date() for por_esquema in self.res.por_punto.values() for rp in por_esquema.values()
-            for f in (rp.inicio, rp.fin) if isinstance(f, dt.datetime)
+            for f in (_fecha(rp.inicio), _fecha(rp.fin)) if f is not None
         })
         grupos = {}
         for p in self.puntos:
@@ -161,6 +171,12 @@ class Contexto:
             return area
         nombre = self.proyecto.nombre_proyecto.strip()
         return f"el área del proyecto {nombre}" if nombre else "el área de estudio"
+
+    @property
+    def del_area(self) -> str:
+        """'de' + area sin 'de el': 'del área de influencia…'."""
+        area = self.area
+        return f"del {area[3:]}" if area.lower().startswith("el ") else f"de {area}"
 
     @property
     def cliente(self) -> str:
@@ -189,13 +205,14 @@ class Contexto:
         """Sector(es) y estandares con que se comparan los resultados."""
         partes = []
         for etiqueta, nombres in self.sectores.items():
-            texto, s = describir_sector(etiqueta)
+            texto, _ = describir_sector(etiqueta)
+            dia, noche = self.limites(etiqueta)
             if limites == "límite":
-                lim = (f"con un límite máximo de ruido ambiental de {s.dia} dB(A) para jornada diurna "
-                       f"y {s.noche} dB(A) para jornada nocturna")
+                lim = (f"con un límite máximo de {self.magnitud} de {dia} dB(A) para jornada diurna "
+                       f"y {noche} dB(A) para jornada nocturna")
             else:
-                lim = (f"con un estándar máximo permisible de nivel de ruido ambiental de {s.dia} dB(A) "
-                       f"en periodo diurno y {s.noche} dB(A) en periodo nocturno")
+                lim = (f"con un estándar máximo permisible de nivel de {self.magnitud} de {dia} dB(A) "
+                       f"en periodo diurno y {noche} dB(A) en periodo nocturno")
             if len(self.sectores) > 1:
                 texto += f" ({'punto' if len(nombres) == 1 else 'puntos'} {lista(nombres)})"
             partes.append(f"{texto}, {lim}")
@@ -594,6 +611,10 @@ def _cliente(doc, ctx: Contexto, faltantes):
         faltantes.append(f"Información del cliente incompleta (falta: {', '.join(incompletos)})")
     # "Fuente: <cliente>, <anio>." justo despues de la tabla.
     siguiente = t._element.getnext()
+    # Salta marcadores y parrafos vacios entre la tabla y la linea de fuente.
+    while siguiente is not None and (siguiente.tag not in (f"{_W}p", f"{_W}tbl")
+                                     or (siguiente.tag == f"{_W}p" and not Paragraph(siguiente, doc).text.strip())):
+        siguiente = siguiente.getnext()
     if siguiente is not None and siguiente.tag == f"{_W}p":
         fp = Paragraph(siguiente, doc)
         if _sin_tildes(fp.text.strip()).startswith("fuente"):
@@ -663,7 +684,7 @@ def _tabla_estandares(doc, ctx: Contexto, faltantes):
                       if " ".join(_sin_tildes(s.subsector.split(" - ", 1)[-1]).split())[:30] == sub[:30]), None)
         marcadas.append(norma is not None and norma.subsector in usados)
         if norma is not None:
-            for col, valor in ((2, norma.dia), (3, norma.noche)):
+            for col, valor in zip((2, 3), ctx.limites(norma.etiqueta)):
                 if _vmerge(tcs[col]) != "continue" and fila.cells[col].text.strip() != str(valor):
                     set_cell_text(fila.cells[col], str(valor))
     if not ctx.sectores:
@@ -819,7 +840,14 @@ def _portada_y_encabezado(doc, ctx: Contexto):
         texto = _sin_tildes(" ".join(p.text for p in ps)).strip()
         if not texto or not titulo:
             continue
-        if re.search(r"semestre", texto) and len(texto) < 40:
+        mes = next((m for m in MESES if m in texto.split()), None) if len(texto) < 40 else None
+        if mes and re.search(r"20\d\d", texto):
+            # Portada con mes y año (p. ej. "DICIEMBRE | 2025"): mes de las mediciones.
+            ref = ctx.fechas_medicion[-1] if ctx.fechas_medicion else ctx.fecha
+            con_texto = [p for p in ps if p.text.strip()]
+            valores = [MESES[ref.month - 1].upper(), str(ref.year)]
+            _escribir_parrafos(con_texto, valores if len(con_texto) > 1 else [" ".join(valores)])
+        elif re.search(r"semestre", texto) and len(texto) < 40:
             _escribir_parrafos([p for p in ps if p.text.strip()], [semestre, str(anio)]
                                if len([p for p in ps if p.text.strip()]) > 1 else [f"{semestre} {anio}"])
         elif len(texto) > 25 and "informe tecnico" not in texto and not texto.startswith("fp-") \
@@ -857,7 +885,7 @@ def _encabezado_celda(parrafos, titulo, ctx: Contexto, fecha_txt, version):
             set_paragraph_text(siguiente, " - ".join(titulo))
         elif t == "expediente" and siguiente is not None:
             set_paragraph_text(siguiente, ctx.datos.expediente.strip() or "No aplica")
-        elif t == "elaborado" and siguiente is not None:
+        elif t.rstrip(": ") == "elaborado" and siguiente is not None:
             set_paragraph_text(siguiente, fecha_txt)
         elif t.startswith("version:"):
             set_paragraph_text(p, f"Versión:  {version}")

@@ -3,6 +3,8 @@ core/meteorologia.py: tabla de datos diarios, parrafos de cada variable y
 graficas (temperatura, humedad, presion y viento)."""
 from __future__ import annotations
 
+import re
+
 from docx.text.paragraph import Paragraph
 
 from .docx_utils import _sin_tildes, blips, encontrar_tabla, reconstruir_filas, reemplazar_imagen, set_paragraph_text
@@ -23,8 +25,10 @@ _GRAFICAS = [
     ("temperatura", ["temperatura"]),
     ("humedad", ["humedad"]),
     ("presion", ["presion"]),
+    ("precipitacion", ["lluvia"]),  # solo en algunas plantillas (emision)
     ("viento", ["clases_viento", "rosa_vientos"]),
 ]
+_GRAFICAS_OPCIONALES = {"precipitacion"}
 
 
 def _estilo(p: Paragraph) -> str:
@@ -52,6 +56,18 @@ def _capitulo(doc):
     if inicio is None:
         return []
     return elementos[inicio:fin]
+
+
+def _numero_grafica(doc, capitulo, palabra):
+    for el in capitulo:
+        if el.tag != f"{_W}p":
+            continue
+        p = Paragraph(el, doc)
+        texto = _sin_tildes(p.text)
+        if _estilo(p).startswith("Caption") and texto.startswith("grafica") and palabra in texto:
+            m = re.match(r"\s*gr[aá]fica\s+(\d+)", texto)
+            return m.group(1) if m else None
+    return None
 
 
 def aplicar_meteorologia(doc, analisis, graficas: dict) -> list:
@@ -92,7 +108,23 @@ def aplicar_meteorologia(doc, analisis, graficas: dict) -> list:
         if destino is None or _estilo(destino).startswith("Heading"):
             faltantes.append(f"Parrafo de '{titulo}' en meteorologia")
             continue
-        set_paragraph_text(destino, analisis.textos[clave])
+        texto = analisis.textos[clave]
+        if clave == "viento":
+            # El numero de la grafica de viento cambia segun la plantilla (4 en
+            # ambiental, 5 en emision, que tiene grafica de precipitacion).
+            numero = _numero_grafica(doc, capitulo, "viento")
+            if numero:
+                texto = re.sub(r"Gráfica \d+", f"Gráfica {numero}", texto)
+        set_paragraph_text(destino, texto)
+        if clave == "precipitacion":
+            # Parrafos adicionales de la plantilla sobre la lluvia: el texto generado ya lo cubre.
+            fin = next((k for k, (_, p) in enumerate(parrafos) if k > pos and _estilo(p).startswith("Heading")),
+                       len(parrafos))
+            for _, extra in parrafos[pos + 1:fin]:
+                if extra is not destino and extra.text.strip() and len(extra.text.strip()) > 1 \
+                        and not _estilo(extra).startswith("Caption") \
+                        and not _sin_tildes(extra.text).strip().startswith("fuente"):
+                    extra._element.getparent().remove(extra._element)
         if clave == "viento" and analisis.textos.get("viento_mediciones"):
             # Segundo parrafo: condicion de viento < 3 m/s durante las mediciones.
             siguiente = next((p for _, p in parrafos[pos + 1:] if p is not destino and "3 m/s" in p.text), None)
@@ -105,7 +137,8 @@ def aplicar_meteorologia(doc, analisis, graficas: dict) -> list:
                     and _sin_tildes(Paragraph(el, doc).text).startswith("grafica")
                     and palabra in _sin_tildes(Paragraph(el, doc).text)), None)
         if idx is None:
-            faltantes.append(f"Grafica de {palabra} en meteorologia")
+            if palabra not in _GRAFICAS_OPCIONALES:
+                faltantes.append(f"Grafica de {palabra} en meteorologia")
             continue
         encontrados = []
         for el in capitulo[idx + 1: idx + 5]:

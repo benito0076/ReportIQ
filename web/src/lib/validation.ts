@@ -3,7 +3,14 @@ import { USER_ROLES } from "@/db/enums";
 import { ValidationError } from "./errors";
 import sectores from "./sectores.json";
 
-export const SECTORES: { etiqueta: string; sector: string; dia: number; noche: number }[] = sectores;
+export const SECTORES: {
+  etiqueta: string;
+  sector: string;
+  dia: number;
+  noche: number;
+  emisionDia: number;
+  emisionNoche: number;
+}[] = sectores;
 
 const text = (max: number) => z.string().trim().max(max, `Máximo ${max} caracteres.`);
 const optionalText = (max: number) =>

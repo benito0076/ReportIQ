@@ -16,7 +16,10 @@ import {
   updatePoint,
   updateProject,
   updateProjectInforme,
+  removeBarrido,
+  updateBarrido,
 } from "@/server/projects";
+import type { CondicionBarrido } from "@/db/enums";
 import { deleteReport } from "@/server/processing";
 import { str, toActionState, type ActionState } from "./state";
 
@@ -45,7 +48,8 @@ export async function createProjectAction(_prev: ActionState, form: FormData): P
   let id: string;
   try {
     const user = await assertUser();
-    id = await createProject(projectInput(form), user.id);
+    const tipo = str(form, "tipo") === "emision" ? "emision" : "ambiental";
+    id = await createProject(projectInput(form), tipo, user.id);
   } catch (e) {
     return toActionState(e, form);
   }
@@ -136,6 +140,25 @@ export async function removeMeteoAction(projectId: string) {
 export async function removeMemoryAction(projectId: string, fileId: string) {
   await assertUser();
   await removeMemoryFile(projectId, fileId);
+  revalidatePath(`/proyectos/${projectId}/memorias`);
+}
+
+export async function updateBarridoAction(
+  projectId: string,
+  barridoId: string,
+  values: { condicion?: CondicionBarrido; seleccionado?: boolean },
+) {
+  await assertUser();
+  const limpio: { condicion?: CondicionBarrido; seleccionado?: boolean } = {};
+  if (values.condicion === "Encendido" || values.condicion === "Apagado") limpio.condicion = values.condicion;
+  if (typeof values.seleccionado === "boolean") limpio.seleccionado = values.seleccionado;
+  await updateBarrido(projectId, barridoId, limpio);
+  revalidatePath(`/proyectos/${projectId}/memorias`);
+}
+
+export async function removeBarridoAction(projectId: string, barridoId: string) {
+  await assertUser();
+  await removeBarrido(projectId, barridoId);
   revalidatePath(`/proyectos/${projectId}/memorias`);
 }
 

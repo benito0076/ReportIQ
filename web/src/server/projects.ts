@@ -1,8 +1,8 @@
 import "server-only";
 import { and, asc, count, desc, eq, inArray, max } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
-import type { Direccion, Esquema } from "@/db/enums";
-import { memoryFiles, points, projects, reports, users } from "@/db/schema";
+import type { CondicionBarrido, Direccion, Esquema, ProjectType } from "@/db/enums";
+import { barridoFiles, memoryFiles, points, projects, reports, users } from "@/db/schema";
 import type { DatosInforme, PointInput, ProjectInput } from "@/lib/validation";
 import { NotFoundError } from "@/lib/errors";
 import { deleteObject } from "@/lib/storage";
@@ -17,6 +17,7 @@ export async function listProjects() {
     .select({
       id: projects.id,
       nombre: projects.nombre,
+      tipo: projects.tipo,
       cliente: projects.cliente,
       codigoInforme: projects.codigoInforme,
       updatedAt: projects.updatedAt,
@@ -38,10 +39,10 @@ export async function getProject(id: string) {
   return row;
 }
 
-export async function createProject(input: ProjectInput, userId: string) {
+export async function createProject(input: ProjectInput, tipo: ProjectType, userId: string) {
   const [row] = await db
     .insert(projects)
-    .values({ ...input, createdBy: userId })
+    .values({ ...input, tipo, createdBy: userId })
     .returning({ id: projects.id });
   return row.id;
 }
@@ -74,7 +75,14 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
     : [];
   const reps = await db.select({ key: reports.fileKey }).from(reports).where(eq(reports.projectId, projectId));
   const [proj] = await db.select({ meteo: projects.meteoKey }).from(projects).where(eq(projects.id, projectId));
-  return [proj?.meteo, ...pts.map((p) => p.foto), ...mems.map((m) => m.key), ...reps.map((r) => r.key)].filter(
+  const barr = await db.select({ key: barridoFiles.fileKey }).from(barridoFiles).where(eq(barridoFiles.projectId, projectId));
+  return [
+    proj?.meteo,
+    ...pts.map((p) => p.foto),
+    ...mems.map((m) => m.key),
+    ...reps.map((r) => r.key),
+    ...barr.map((b) => b.key),
+  ].filter(
     (k): k is string => !!k,
   );
 }
@@ -236,6 +244,53 @@ export async function removeMemoryFile(projectId: string, fileId: string) {
     await invalidateResults(projectId, tx);
   });
   await deleteObject(file.fileKey);
+}
+
+// ----------------------------------------------------------------- barrido
+export async function listBarrido(projectId: string) {
+  return db.select().from(barridoFiles).where(eq(barridoFiles.projectId, projectId)).orderBy(asc(barridoFiles.nombre));
+}
+
+/** Agrega una memoria del barrido; el nombre sale del archivo ("Barrido 5.xlsx" → "Barrido 5"). */
+export async function addBarrido(projectId: string, file: { key: string; fileName: string; size: number }) {
+  await getProject(projectId);
+  const nombre = file.fileName.replace(/\.[^.]+$/, "").trim().slice(0, 100) || "Barrido";
+  await db.transaction(async (tx) => {
+    await tx.insert(barridoFiles).values({ projectId, nombre, fileKey: file.key, fileName: file.fileName, size: file.size });
+    await invalidateResults(projectId, tx);
+  });
+}
+
+async function getBarrido(projectId: string, id: string) {
+  if (!isUuid(id)) throw new NotFoundError("El archivo no existe.");
+  const [row] = await db
+    .select()
+    .from(barridoFiles)
+    .where(and(eq(barridoFiles.id, id), eq(barridoFiles.projectId, projectId)))
+    .limit(1);
+  if (!row) throw new NotFoundError("El archivo no existe.");
+  return row;
+}
+
+export async function updateBarrido(
+  projectId: string,
+  id: string,
+  values: Partial<{ nombre: string; condicion: CondicionBarrido; seleccionado: boolean }>,
+) {
+  await getBarrido(projectId, id);
+  await db.transaction(async (tx) => {
+    await tx.update(barridoFiles).set(values).where(eq(barridoFiles.id, id));
+    await invalidateResults(projectId, tx);
+  });
+}
+
+export async function removeBarrido(projectId: string, id: string) {
+  const row = await getBarrido(projectId, id);
+  await db.transaction(async (tx) => {
+    await tx.delete(barridoFiles).where(eq(barridoFiles.id, id));
+    await invalidateResults(projectId, tx);
+  });
+  await deleteObject(row.fileKey);
 }
 
 export async function saveResults(projectId: string, resultados: NonNullable<typeof projects.$inferSelect.resultados>) {

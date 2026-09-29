@@ -7,7 +7,7 @@ import { Notice } from "@/components/notice";
 import { UploadButton } from "@/components/upload";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { isAppError } from "@/lib/errors";
-import { getPoint } from "@/server/projects";
+import { getPoint, getProject } from "@/server/projects";
 import { PointForm } from "../point-form";
 
 export const metadata: Metadata = { title: "Punto de monitoreo" };
@@ -15,10 +15,13 @@ export const metadata: Metadata = { title: "Punto de monitoreo" };
 export default async function PointPage({ params, searchParams }: PageProps<"/proyectos/[id]/puntos/[pointId]">) {
   const { id, pointId } = await params;
   const { creado } = await searchParams;
-  const point = await getPoint(id, pointId).catch((e) => {
-    if (isAppError(e) && e.status === 404) notFound();
-    throw e;
-  });
+  const [point, project] = await Promise.all([
+    getPoint(id, pointId).catch((e) => {
+      if (isAppError(e) && e.status === 404) notFound();
+      throw e;
+    }),
+    getProject(id),
+  ]);
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
       <Card>
@@ -29,7 +32,7 @@ export default async function PointPage({ params, searchParams }: PageProps<"/pr
         </CardHeader>
         <CardContent className="grid gap-4">
           {creado && <Notice tone="success">Punto creado. Puede agregarle una foto a la derecha.</Notice>}
-          <PointForm projectId={id} point={point} />
+          <PointForm projectId={id} point={point} tipo={project.tipo} />
         </CardContent>
       </Card>
       <Card className="self-start">
