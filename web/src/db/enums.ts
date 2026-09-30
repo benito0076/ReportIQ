@@ -28,6 +28,46 @@ export const DIRECCIONES_Y_RANURAS = [...DIRECCIONES, ...RANURAS_EMISION] as con
 export const CONDICIONES_BARRIDO = ["Encendido", "Apagado"] as const;
 export type CondicionBarrido = (typeof CONDICIONES_BARRIDO)[number];
 
+/** Eventos del registro de actividad (menú Actividad, solo administradores). */
+export const ACTIVITY_EVENTS = [
+  "login_ok",
+  "login_fallido",
+  "logout",
+  "proyecto_creado",
+  "proyecto_eliminado",
+  "informe_generado",
+  "informe_descargado",
+  "informe_eliminado",
+  "usuario_creado",
+  "usuario_eliminado",
+  "rol_cambiado",
+  "contrasena_restablecida",
+  "ajustes_cambiados",
+  "plantilla_subida",
+  "plantilla_quitada",
+  "equipo_eliminado",
+] as const;
+export type ActivityEvent = (typeof ACTIVITY_EVENTS)[number];
+
+export const ACTIVITY_LABELS: Record<ActivityEvent, string> = {
+  login_ok: "Inicio de sesión",
+  login_fallido: "Intento de inicio de sesión fallido",
+  logout: "Cierre de sesión",
+  proyecto_creado: "Proyecto creado",
+  proyecto_eliminado: "Proyecto eliminado",
+  informe_generado: "Informe generado",
+  informe_descargado: "Informe descargado",
+  informe_eliminado: "Informe eliminado",
+  usuario_creado: "Usuario creado",
+  usuario_eliminado: "Usuario eliminado",
+  rol_cambiado: "Rol cambiado",
+  contrasena_restablecida: "Contraseña restablecida",
+  ajustes_cambiados: "Ajustes modificados",
+  plantilla_subida: "Plantilla Word subida",
+  plantilla_quitada: "Plantilla Word quitada",
+  equipo_eliminado: "Equipo eliminado",
+};
+
 export const REPORT_KINDS = ["word", "excel", "anexos"] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 

@@ -76,6 +76,11 @@ puntos de medición. El Word usa la plantilla del informe ER-753-25
 Además: **Equipos** (inventario de sonómetros por serial), **Usuarios** y
 **Ajustes** (plantilla Word propia, firmas del cuadro de control y texto «Elaboró» de los planos) para los
 administradores. Solo los administradores pueden eliminar proyectos y equipos.
+**Actividad** (solo administradores): inicios de sesión (exitosos y fallidos, con IP
+y navegador), cierres de sesión y acciones importantes (proyectos creados y
+eliminados, informes generados, descargados y eliminados, cambios de usuarios,
+ajustes, plantilla y equipos), con filtros y descarga para Excel. Se conservan
+365 días.
 El primer acceso abre `/setup` para crear el administrador.
 
 ## Desarrollo local

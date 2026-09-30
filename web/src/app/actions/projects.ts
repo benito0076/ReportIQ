@@ -21,6 +21,8 @@ import {
 } from "@/server/projects";
 import type { CondicionBarrido } from "@/db/enums";
 import { deleteReport } from "@/server/processing";
+import { logActivity } from "@/server/activity";
+import { getProject } from "@/server/projects";
 import { str, toActionState, type ActionState } from "./state";
 
 function projectInput(form: FormData) {
@@ -49,7 +51,9 @@ export async function createProjectAction(_prev: ActionState, form: FormData): P
   try {
     const user = await assertUser();
     const tipo = str(form, "tipo") === "emision" ? "emision" : "ambiental";
-    id = await createProject(projectInput(form), tipo, user.id);
+    const input = projectInput(form);
+    id = await createProject(input, tipo, user.id);
+    await logActivity("proyecto_creado", user, `${input.nombre} (${tipo === "emision" ? "emisión" : "ambiental"})`);
   } catch (e) {
     return toActionState(e, form);
   }
@@ -81,8 +85,10 @@ export async function updateInformeAction(projectId: string, _prev: ActionState,
 
 /** Solo los administradores eliminan proyectos (se borran también memorias e informes). */
 export async function deleteProjectAction(projectId: string) {
-  await assertAdmin();
+  const admin = await assertAdmin();
+  const project = await getProject(projectId);
   await deleteProject(projectId);
+  await logActivity("proyecto_eliminado", admin, [project.nombre, project.codigoInforme].filter(Boolean).join(" · "));
   redirect("/proyectos");
 }
 
@@ -163,7 +169,8 @@ export async function removeBarridoAction(projectId: string, barridoId: string) 
 }
 
 export async function deleteReportAction(projectId: string, reportId: string) {
-  await assertUser();
-  await deleteReport(projectId, reportId);
+  const user = await assertUser();
+  const nombre = await deleteReport(projectId, reportId);
+  await logActivity("informe_eliminado", user, nombre);
   revalidatePath(`/proyectos/${projectId}/resultados`);
 }

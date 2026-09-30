@@ -141,11 +141,13 @@ async function getReport(projectId: string, reportId: string) {
 
 export async function reportDownloadUrl(projectId: string, reportId: string) {
   const row = await getReport(projectId, reportId);
-  return downloadUrl(row.fileKey, { fileName: row.fileName });
+  return { url: await downloadUrl(row.fileKey, { fileName: row.fileName }), fileName: row.fileName };
 }
 
+/** Elimina un entregable del historial; devuelve su nombre de archivo. */
 export async function deleteReport(projectId: string, reportId: string) {
   const row = await getReport(projectId, reportId);
   await db.delete(reports).where(eq(reports.id, reportId));
   await deleteObject(row.fileKey);
+  return row.fileName;
 }

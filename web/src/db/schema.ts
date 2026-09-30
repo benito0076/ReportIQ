@@ -12,7 +12,15 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
-import type { CondicionBarrido, Direccion, Esquema, ProjectType, ReportKind, UserRole } from "./enums";
+import type {
+  ActivityEvent,
+  CondicionBarrido,
+  Direccion,
+  Esquema,
+  ProjectType,
+  ReportKind,
+  UserRole,
+} from "./enums";
 import type { ResultadosProyecto } from "@/lib/engine-types";
 import type { DatosInforme } from "@/lib/validation";
 
@@ -164,6 +172,23 @@ export const settings = pgTable("settings", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+/** Registro de actividad: inicios de sesión y acciones importantes (se conserva 12 meses). */
+export const activityLog = pgTable(
+  "activity_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    /** Correo en el momento del evento (o el intentado, en un inicio fallido). */
+    email: varchar("email", { length: 255 }).notNull().default(""),
+    event: varchar("event", { length: 40 }).$type<ActivityEvent>().notNull(),
+    detail: text("detail").notNull().default(""),
+    ip: varchar("ip", { length: 64 }).notNull().default(""),
+    userAgent: text("user_agent").notNull().default(""),
+  },
+  (t) => [index("activity_log_created_idx").on(t.createdAt), index("activity_log_user_idx").on(t.userId)],
+);
 
 export type Project = typeof projects.$inferSelect;
 export type Point = typeof points.$inferSelect;

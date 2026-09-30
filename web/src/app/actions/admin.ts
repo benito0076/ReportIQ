@@ -12,7 +12,8 @@ import {
 } from "@/lib/validation";
 import { createEquipment, deleteEquipment, updateEquipment } from "@/server/equipment";
 import { updateSettings } from "@/server/settings";
-import { createUser, deleteUser, setPassword, setRole } from "@/server/users";
+import { logActivity } from "@/server/activity";
+import { createUser, deleteUser, setPassword, setRole, userEmail } from "@/server/users";
 import { str, toActionState, type ActionState } from "./state";
 
 // --------------------------------------------------------------- equipos
@@ -48,23 +49,24 @@ export async function updateEquipmentAction(id: string, _prev: ActionState, form
 
 /** Solo los administradores eliminan equipos del inventario. */
 export async function deleteEquipmentAction(id: string) {
-  await assertAdmin();
-  await deleteEquipment(id);
+  const admin = await assertAdmin();
+  const eliminado = await deleteEquipment(id);
+  await logActivity("equipo_eliminado", admin, eliminado ?? "");
   revalidatePath("/equipos");
 }
 
 // -------------------------------------------------------------- usuarios
 export async function createUserAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertAdmin();
-    await createUser(
-      parseOrThrow(newUserSchema, {
-        fullName: str(form, "fullName"),
-        email: str(form, "email"),
-        password: str(form, "password"),
-        role: str(form, "role"),
-      }),
-    );
+    const admin = await assertAdmin();
+    const input = parseOrThrow(newUserSchema, {
+      fullName: str(form, "fullName"),
+      email: str(form, "email"),
+      password: str(form, "password"),
+      role: str(form, "role"),
+    });
+    await createUser(input);
+    await logActivity("usuario_creado", admin, `${input.email} (${input.role === "admin" ? "administrador" : "usuario"})`);
   } catch (e) {
     return toActionState(e, form);
   }
@@ -74,9 +76,10 @@ export async function createUserAction(_prev: ActionState, form: FormData): Prom
 
 export async function resetPasswordAction(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertAdmin();
+    const admin = await assertAdmin();
     const { password } = parseOrThrow(passwordSchema, { password: str(form, "password") });
     await setPassword(id, password);
+    await logActivity("contrasena_restablecida", admin, await userEmail(id));
   } catch (e) {
     return toActionState(e);
   }
@@ -88,6 +91,7 @@ export async function setRoleAction(id: string, role: UserRole): Promise<ActionS
     const admin = await assertAdmin();
     if (!USER_ROLES.includes(role)) return { error: "Rol inválido." };
     await setRole(id, role, admin.id);
+    await logActivity("rol_cambiado", admin, `${await userEmail(id)} → ${role === "admin" ? "administrador" : "usuario"}`);
   } catch (e) {
     return toActionState(e);
   }
@@ -98,7 +102,9 @@ export async function setRoleAction(id: string, role: UserRole): Promise<ActionS
 export async function deleteUserAction(id: string): Promise<ActionState> {
   try {
     const admin = await assertAdmin();
+    const email = await userEmail(id);
     await deleteUser(id, admin.id);
+    await logActivity("usuario_eliminado", admin, email);
   } catch (e) {
     return toActionState(e);
   }
@@ -109,7 +115,7 @@ export async function deleteUserAction(id: string): Promise<ActionState> {
 // ---------------------------------------------------------------- ajustes
 export async function updateSettingsAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertAdmin();
+    const admin = await assertAdmin();
     await updateSettings(
       parseOrThrow(settingsSchema, {
         elaboradoPor: str(form, "elaboradoPor"),
@@ -119,6 +125,7 @@ export async function updateSettingsAction(_prev: ActionState, form: FormData): 
         autorizoCargo: str(form, "autorizoCargo"),
       }),
     );
+    await logActivity("ajustes_cambiados", admin, "Firmas del informe y texto «Elaboró» de los planos");
   } catch (e) {
     return toActionState(e, form);
   }
@@ -127,7 +134,8 @@ export async function updateSettingsAction(_prev: ActionState, form: FormData): 
 }
 
 export async function removeTemplateAction() {
-  await assertAdmin();
+  const admin = await assertAdmin();
   await updateSettings({ plantillaKey: null, plantillaNombre: null });
+  await logActivity("plantilla_quitada", admin);
   revalidatePath("/ajustes");
 }
