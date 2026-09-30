@@ -15,6 +15,14 @@ import { activityEmails, listActivity, RETENCION_DIAS } from "@/server/activity"
 
 export const metadata: Metadata = { title: "Actividad" };
 
+const DIAS_POR_DEFECTO = 10;
+
+/** Fecha AAAA-MM-DD en Colombia, `delta` días desde hoy. */
+function diaColombia(delta: number): string {
+  const d = new Date(Date.now() + delta * 24 * 60 * 60 * 1000);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(d);
+}
+
 const ALERTA: ActivityEvent[] = ["login_fallido", "proyecto_eliminado", "usuario_eliminado"];
 
 /** Navegador y sistema resumidos a partir del user-agent. */
@@ -34,15 +42,17 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activid
   const filtros = {
     email: uno(sp.usuario),
     event: uno(sp.evento),
-    desde: uno(sp.desde),
-    hasta: uno(sp.hasta),
+    // Sin fechas en la dirección (al entrar o con «Limpiar»): últimos 10 días hasta hoy.
+    desde: sp.desde === undefined ? diaColombia(-DIAS_POR_DEFECTO) : uno(sp.desde),
+    hasta: sp.hasta === undefined ? diaColombia(0) : uno(sp.hasta),
     pagina: Number(uno(sp.pagina)) || 1,
   };
   const [{ filas, hayMas, pagina }, emails] = await Promise.all([listActivity(filtros), activityEmails()]);
   const query = (extra: Record<string, string | number>) => {
     const q = new URLSearchParams();
     const base = { usuario: filtros.email, evento: filtros.event, desde: filtros.desde, hasta: filtros.hasta };
-    for (const [k, v] of Object.entries({ ...base, ...extra })) if (v) q.set(k, String(v));
+    // Las fechas vacías se conservan: sin rango de fechas es distinto del rango por defecto.
+    for (const [k, v] of Object.entries({ ...base, ...extra })) if (v || k === "desde" || k === "hasta") q.set(k, String(v));
     return q.toString();
   };
 
@@ -50,7 +60,7 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activid
     <>
       <PageHeader
         title="Actividad"
-        description={`Inicios de sesión y acciones importantes de todos los usuarios. Se conservan los últimos ${RETENCION_DIAS} días.`}
+        description={`Inicios de sesión y acciones importantes de todos los usuarios. Por defecto se muestran los últimos ${DIAS_POR_DEFECTO} días; se conservan ${RETENCION_DIAS} días.`}
       >
         <a href={`/api/actividad?${query({})}`} className={buttonVariants({ variant: "outline" })}>
           <Download /> Descargar para Excel
@@ -59,7 +69,8 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activid
 
       <Card className="mb-4">
         <CardContent>
-          <form className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto_auto_auto]">
+          {/* key: al cambiar los filtros por navegación, los campos muestran los valores nuevos. */}
+          <form key={query({})} className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto_auto_auto]">
             <label className="grid gap-1.5 text-sm">
               Usuario
               <select name="usuario" defaultValue={filtros.email} className={selectClass}>
