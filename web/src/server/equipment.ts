@@ -25,9 +25,14 @@ export async function updateEquipment(id: string, input: EquipmentInput) {
   if (res.length === 0) throw new NotFoundError();
 }
 
-export async function deleteEquipment(id: string) {
+/** Elimina el equipo; devuelve "nombre (código, serial)" para el registro de actividad. */
+export async function deleteEquipment(id: string): Promise<string | null> {
   if (!isUuid(id)) throw new NotFoundError();
-  await db.delete(equipment).where(eq(equipment.id, id));
+  const [row] = await db
+    .delete(equipment)
+    .where(eq(equipment.id, id))
+    .returning({ nombre: equipment.nombre, codigo: equipment.codigo, serial: equipment.serial });
+  return row ? `${row.nombre} (${[row.codigo, row.serial].filter(Boolean).join(", ")})` : null;
 }
 
 /**

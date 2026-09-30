@@ -14,6 +14,7 @@ import {
   uploadUrl,
 } from "@/lib/storage";
 import { addBarrido, getPoint, getProject, setMemoryFile, setPointPhoto, setProjectMeteo } from "./projects";
+import { logActivity } from "./activity";
 import { updateSettings } from "./settings";
 
 /**
@@ -110,6 +111,7 @@ export async function confirmUpload(target: UploadTarget, key: string, fileName:
       break;
     case "plantilla":
       await updateSettings({ plantillaKey: key, plantillaNombre: name });
+      await logActivity("plantilla_subida", user, name);
       break;
   }
 }

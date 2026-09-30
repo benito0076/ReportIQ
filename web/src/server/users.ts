@@ -86,3 +86,9 @@ export async function deleteUser(id: string, actingUserId: string) {
   if (id === actingUserId) throw new ValidationError("No puede eliminar su propia cuenta.");
   await db.delete(users).where(eq(users.id, id));
 }
+
+/** Correo de un usuario (para el registro de actividad); "" si no existe. */
+export async function userEmail(id: string): Promise<string> {
+  const [row] = await db.select({ email: users.email }).from(users).where(eq(users.id, id)).limit(1);
+  return row?.email ?? "";
+}

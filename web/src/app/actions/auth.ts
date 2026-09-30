@@ -3,6 +3,8 @@
 import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { parseOrThrow, setupSchema } from "@/lib/validation";
+import { getCurrentUser } from "@/lib/session";
+import { logActivity } from "@/server/activity";
 import { setupFirstAdmin } from "@/server/users";
 import { str, toActionState, type ActionState } from "./state";
 
@@ -44,5 +46,7 @@ export async function setupAction(_prev: ActionState, form: FormData): Promise<A
 }
 
 export async function logoutAction() {
+  const user = await getCurrentUser();
+  if (user) await logActivity("logout", user);
   await signOut({ redirectTo: "/login" });
 }

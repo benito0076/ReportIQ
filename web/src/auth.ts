@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { logActivity } from "@/server/activity";
 
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email()),
@@ -27,14 +28,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: { email: {}, password: {} },
       async authorize(raw) {
         const parsed = credentialsSchema.safeParse(raw);
-        if (!parsed.success) throw new InvalidCredentials();
+        if (!parsed.success) {
+          const intento = typeof raw?.email === "string" ? raw.email.trim().toLowerCase() : "";
+          await logActivity("login_fallido", { email: intento }, "Datos incompletos o correo inválido");
+          throw new InvalidCredentials();
+        }
         const [user] = await db
           .select({ id: users.id, email: users.email, name: users.fullName, hash: users.passwordHash })
           .from(users)
           .where(eq(users.email, parsed.data.email))
           .limit(1);
         const ok = await bcrypt.compare(parsed.data.password, user?.hash ?? DUMMY_HASH);
-        if (!user || !ok) throw new InvalidCredentials();
+        if (!user || !ok) {
+          await logActivity("login_fallido", { id: user?.id, email: parsed.data.email },
+            user ? "Contraseña incorrecta" : "El usuario no existe");
+          throw new InvalidCredentials();
+        }
+        await logActivity("login_ok", { id: user.id, email: user.email });
         return { id: user.id, email: user.email, name: user.name };
       },
     }),
