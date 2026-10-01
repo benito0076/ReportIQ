@@ -32,7 +32,7 @@ from core.models import ESQUEMA_LABELS, ESQUEMAS, ArchivoMemoria, DatosInforme, 
 from core.pipeline import procesar_proyecto
 from core.report_generator import ErrorPlantilla, generar_informe
 
-from .schemas import ArchivoRemoto, EquipoIn, ProyectoIn
+from .schemas import ArchivoRemoto, EquipoIn, ProyectoAireIn, ProyectoIn
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLANTILLA_DEFECTO = os.path.join(RAIZ, "templates", "informe_template.docx")
@@ -435,3 +435,121 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
     advertencias += errores_isofonas
     advertencias += avisos_meteo
     return Entregable(contenido, f"{_nombre_base(ctx)} - Informe.docx", MIME_DOCX, advertencias)
+
+
+# ------------------------------------------------------------ calidad del aire
+@dataclass
+class ContextoAire:
+    carpeta: str
+    proyecto: object  # core.aire.ProyectoAire
+    nombres: dict = field(default_factory=dict)
+    ruta_meteo: Optional[str] = None
+
+
+def preparar_aire(proyecto_in: ProyectoAireIn, carpeta: str) -> ContextoAire:
+    from core.aire import EstacionAire, ProyectoAire
+
+    proyecto = ProyectoAire(
+        nombre_proyecto=proyecto_in.nombre_proyecto, codigo=proyecto_in.codigo, cliente=proyecto_in.cliente,
+        estaciones=[EstacionAire(**e.model_dump()) for e in proyecto_in.estaciones],
+        limites_cuantificacion=dict(proyecto_in.limites_cuantificacion),
+    )
+    ctx = ContextoAire(carpeta=carpeta, proyecto=proyecto)
+    descargas = []
+    for clave, archivo in proyecto_in.plantillas.items():
+        ruta = os.path.join(carpeta, f"fp_{re.sub(r'[^A-Za-z0-9]', '', clave)}{_extension(archivo.nombre, '.xlsx')}")
+        proyecto.plantillas[clave] = ruta
+        ctx.nombres[ruta] = archivo.nombre or clave
+        descargas.append((archivo, ruta))
+    if proyecto_in.meteorologia is not None:
+        ctx.ruta_meteo = os.path.join(carpeta, "meteorologia.xlsx")
+        descargas.append((proyecto_in.meteorologia, ctx.ruta_meteo))
+    if descargas:
+        with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0), follow_redirects=True) as cliente:
+            with ThreadPoolExecutor(max_workers=DESCARGAS_SIMULTANEAS) as pool:
+                list(pool.map(lambda d: _descargar(cliente, d[0], d[1]), descargas))
+    return ctx
+
+
+def procesar_aire(ctx: ContextoAire):
+    from core.aire import procesar_aire as _procesar
+
+    res = _procesar(ctx.proyecto)
+    for i, adv in enumerate(res.advertencias):
+        for ruta, nombre in ctx.nombres.items():
+            adv = adv.replace(ruta, nombre)
+        res.advertencias[i] = adv
+    return res
+
+
+def _estadistica_dict(est) -> Optional[dict]:
+    if est is None:
+        return None
+    return {k: _valor(v) for k, v in est.__dict__.items()}
+
+
+def aire_a_dict(res) -> dict:
+    from core.aire import LIMITES
+
+    def muestra(m) -> dict:
+        return {
+            "fecha": _valor(m.fecha), "inicio": _valor(m.inicio), "fin": _valor(m.fin), "codigo": m.codigo,
+            "minutos": _valor(m.minutos), "temperatura": _valor(m.temperatura), "presion": _valor(m.presion),
+            "caudal": _valor(m.caudal), "masa": _valor(m.masa), "volumen": _valor(m.volumen),
+            "concentracion": _valor(m.concentracion), "valida": m.valida, "bajo_lc": m.bajo_lc,
+        }
+
+    return {
+        "tipo": "aire",
+        "estaciones": [{"numero": e.numero, "nombre": e.nombre, "codigo": e.codigo} for e in res.estaciones()],
+        "contaminantes": res.contaminantes(),
+        "limites": LIMITES,
+        "manuales": [
+            {
+                "contaminante": c, "estacion": n, "nombre_estacion": s.nombre_estacion, "bajo_lc": s.bajo_lc,
+                "pct_validas": _valor(s.pct_validas), "muestras": [muestra(m) for m in s.muestras],
+                "estadistica": _estadistica_dict(s.estadistica()),
+            }
+            for (c, n), s in sorted(res.manuales.items())
+        ],
+        "automaticos": [
+            {
+                "contaminante": c, "estacion": n, "nombre_estacion": s.nombre_estacion, "datos": len(s.horas),
+                "dias": [{"fecha": _valor(d.fecha), "max_horario": _valor(d.max_horario), "max_8h": _valor(d.max_8h),
+                          "horas": d.horas} for d in s.dias],
+                "estadistica_1h": _estadistica_dict(s.estadistica_1h()),
+                "estadistica_8h": _estadistica_dict(s.estadistica_8h()),
+            }
+            for (c, n), s in sorted(res.automaticos.items())
+        ],
+        "cov": [
+            {
+                "compuesto": k, "estacion": n, "bajo_lc": s.bajo_lc,
+                "muestras": [{"fecha": _valor(m.fecha), "concentracion": _valor(m.concentracion), "bajo_lc": m.bajo_lc}
+                             for m in s.muestras],
+                "estadistica": _estadistica_dict(s.estadistica()),
+            }
+            for (k, n), s in sorted(res.cov.items())
+        ],
+        "ica": {
+            str(e.numero): {
+                c: [{"fecha": _valor(f), "concentracion": _valor(v), "ica": _valor(i), "categoria": cat}
+                    for f, v, i, cat in filas]
+                for c, filas in res.dias_ica(e.numero).items()
+            }
+            for e in res.estaciones()
+        },
+        "advertencias": list(res.advertencias),
+    }
+
+
+def generar_excel_aire(ctx: ContextoAire) -> Entregable:
+    from core.aire_excel import exportar_resultados_aire
+
+    res = procesar_aire(ctx)
+    ruta = os.path.join(ctx.carpeta, "resultados_aire.xlsx")
+    exportar_resultados_aire(res, ruta)
+    with open(ruta, "rb") as f:
+        contenido = f.read()
+    base = re.sub(r"[^\w\-. ]+", "_", ctx.proyecto.codigo or ctx.proyecto.nombre_proyecto or "proyecto").strip()
+    return Entregable(contenido, f"Resultados calidad del aire {base[:80]}.xlsx", MIME_XLSX, list(res.advertencias))

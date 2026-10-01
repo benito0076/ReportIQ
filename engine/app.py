@@ -10,6 +10,8 @@ cabecera `Authorization: Bearer <ENGINE_API_KEY>`.
     POST /v1/generar    genera un entregable (excel | word | anexos) y lo
                         devuelve como archivo; las advertencias van en la
                         cabecera X-Advertencias (JSON codificado como URL)
+    POST /v1/aire/procesar  calidad del aire (Res. 2254): resultados (JSON)
+    POST /v1/aire/generar   calidad del aire: entregable (excel)
 """
 from __future__ import annotations
 
@@ -26,7 +28,7 @@ from fastapi.responses import Response
 from core import norms
 
 from . import service
-from .schemas import GenerarIn, ProcesarIn
+from .schemas import GenerarAireIn, GenerarIn, ProcesarAireIn, ProcesarIn
 
 # Los avisos de core/ (p.ej. fallo del mapa satelital) salen en los logs del servicio.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -68,6 +70,38 @@ def procesar(body: ProcesarIn):
         return service.resultados_a_dict(resultados)
 
 
+def _respuesta_archivo(entregable) -> Response:
+    return Response(
+        content=entregable.contenido,
+        media_type=entregable.content_type,
+        headers={
+            "X-Nombre-Archivo": quote(entregable.nombre_archivo),
+            "X-Advertencias": quote(json.dumps(entregable.advertencias, ensure_ascii=False)),
+        },
+    )
+
+
+@app.post("/v1/aire/procesar", dependencies=[Depends(verificar_clave)])
+def procesar_aire(body: ProcesarAireIn):
+    with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
+        try:
+            ctx = service.preparar_aire(body.proyecto, carpeta)
+        except service.ErrorDescarga as exc:
+            raise HTTPException(502, str(exc)) from exc
+        return service.aire_a_dict(service.procesar_aire(ctx))
+
+
+@app.post("/v1/aire/generar", dependencies=[Depends(verificar_clave)])
+def generar_aire(body: GenerarAireIn):
+    with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
+        try:
+            ctx = service.preparar_aire(body.proyecto, carpeta)
+            entregable = service.generar_excel_aire(ctx)
+        except service.ErrorDescarga as exc:
+            raise HTTPException(502, str(exc)) from exc
+    return _respuesta_archivo(entregable)
+
+
 @app.post("/v1/generar", dependencies=[Depends(verificar_clave)])
 def generar(body: GenerarIn):
     with tempfile.TemporaryDirectory(prefix="ruido_") as carpeta:
@@ -83,12 +117,4 @@ def generar(body: GenerarIn):
             raise HTTPException(502, str(exc)) from exc
         except service.ErrorEntrada as exc:
             raise HTTPException(422, str(exc)) from exc
-
-    return Response(
-        content=entregable.contenido,
-        media_type=entregable.content_type,
-        headers={
-            "X-Nombre-Archivo": quote(entregable.nombre_archivo),
-            "X-Advertencias": quote(json.dumps(entregable.advertencias, ensure_ascii=False)),
-        },
-    )
+    return _respuesta_archivo(entregable)

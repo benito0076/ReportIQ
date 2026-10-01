@@ -265,5 +265,37 @@ class TestApiMotor(unittest.TestCase):
         self.assertTrue(any("no tiene registros validos para los dias de medicion" in a for a in avisos), avisos)
 
 
+    def test_calidad_del_aire(self):
+        from tests import plantillas_aire as fp
+
+        fp.fp031_pm10(os.path.join(self.tmp.name, "FP031.xlsx"))
+        fp.fp033_so2(os.path.join(self.tmp.name, "FP033.xlsx"))
+        proyecto = {
+            "codigo": "EC-042-26",
+            "estaciones": [{"numero": 1, "nombre": "Finca Los Camachos", "codigo": "E1_Lis_Tmpst"}],
+            "plantillas": {"PM10": {"url": f"{self.base}/FP031.xlsx", "nombre": "FP031.xlsx"},
+                           "SO2": {"url": f"{self.base}/FP033.xlsx", "nombre": "FP033.xlsx"}},
+        }
+        r = self.client.post("/v1/aire/procesar", json={"proyecto": proyecto}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        datos = r.json()
+        self.assertEqual(datos["tipo"], "aire")
+        self.assertEqual(datos["contaminantes"], ["PM10", "SO2"])
+        self.assertEqual(datos["estaciones"][0]["nombre"], "Finca Los Camachos")
+        pm10 = datos["manuales"][0]
+        self.assertEqual([m["fecha"] for m in pm10["muestras"]], ["2026-02-08", "2026-02-09"])
+        self.assertAlmostEqual(pm10["muestras"][0]["concentracion"], 48.9217, places=3)
+        self.assertTrue(datos["manuales"][1]["bajo_lc"])
+        self.assertEqual(datos["ica"]["1"]["PM10"][0]["categoria"], "Buena")
+
+        r = self.client.post("/v1/aire/generar", json={"proyecto": proyecto, "tipo": "excel"}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertIn("EC-042-26", unquote(r.headers["X-Nombre-Archivo"]))
+        import openpyxl
+
+        wb = openpyxl.load_workbook(io.BytesIO(r.content))
+        self.assertEqual(wb.sheetnames, ["Resumen", "PM10", "SO2", "ICA"])
+
+
 if __name__ == "__main__":
     unittest.main()
