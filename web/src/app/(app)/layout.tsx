@@ -9,10 +9,12 @@ import { requireUser } from "@/lib/session";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const links = [
+    { href: "/inicio", label: "Inicio" },
     { href: "/proyectos", label: "Proyectos" },
     { href: "/equipos", label: "Equipos" },
     ...(user.role === "admin"
       ? [
+          { href: "/aire", label: "Calidad del aire" },
           { href: "/usuarios", label: "Usuarios" },
           { href: "/ajustes", label: "Ajustes" },
           { href: "/actividad", label: "Actividad" },
@@ -23,7 +25,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-full flex-1 flex-col bg-muted/30">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
-          <Link href="/proyectos" className="flex items-center gap-2" aria-label="Ruido Ambiental - Ambienciq Ingenieros">
+          <Link href="/inicio" className="flex items-center gap-2" aria-label="Ruido Ambiental - Ambienciq Ingenieros">
             <Image src="/logo-icono.png" alt="" width={285} height={256} priority className="h-8 w-auto" />
             <span className="hidden flex-col leading-tight sm:flex">
               <span className="font-semibold">Ruido Ambiental</span>
