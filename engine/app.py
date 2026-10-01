@@ -11,7 +11,7 @@ cabecera `Authorization: Bearer <ENGINE_API_KEY>`.
                         devuelve como archivo; las advertencias van en la
                         cabecera X-Advertencias (JSON codificado como URL)
     POST /v1/aire/procesar  calidad del aire (Res. 2254): resultados (JSON)
-    POST /v1/aire/generar   calidad del aire: entregable (excel)
+    POST /v1/aire/generar   calidad del aire: entregable (excel | word)
 """
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ def generar_aire(body: GenerarAireIn):
     with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
         try:
             ctx = service.preparar_aire(body.proyecto, carpeta)
-            entregable = service.generar_excel_aire(ctx)
+            entregable = service.generar_word_aire(ctx) if body.tipo == "word" else service.generar_excel_aire(ctx)
         except service.ErrorDescarga as exc:
             raise HTTPException(502, str(exc)) from exc
     return _respuesta_archivo(entregable)

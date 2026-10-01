@@ -74,13 +74,15 @@ export async function updateProjectAction(projectId: string, _prev: ActionState,
 
 export async function updateInformeAction(projectId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertUser();
+    const user = await assertUser();
+    assertProjectAccess(await getProject(projectId), user);
     const input = parseOrThrow(informeSchema, Object.fromEntries(INFORME_CAMPOS.map((k) => [k, str(form, k)])));
     await updateProjectInforme(projectId, input);
   } catch (e) {
     return toActionState(e, form);
   }
   revalidatePath(`/proyectos/${projectId}`);
+  revalidatePath(`/aire/${projectId}`);
   return { ok: true, message: "Datos del informe guardados." };
 }
 

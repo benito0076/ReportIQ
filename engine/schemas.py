@@ -47,6 +47,7 @@ class InformeIn(BaseModel):
     departamento: str = ""
     titulo: str = ""
     expediente: str = ""
+    acto_administrativo: str = ""
     version: str = "1.0"
     fecha: str = ""
     cliente_nit: str = ""
@@ -133,4 +134,4 @@ class ProcesarAireIn(BaseModel):
 
 class GenerarAireIn(BaseModel):
     proyecto: ProyectoAireIn
-    tipo: Literal["excel"]
+    tipo: Literal["excel", "word"] = "excel"

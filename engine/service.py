@@ -438,12 +438,16 @@ def generar_word(ctx: Contexto, ruta_plantilla: Optional[str], equipos: list[Equ
 
 
 # ------------------------------------------------------------ calidad del aire
+PLANTILLA_AIRE = os.path.join(RAIZ, "templates", "informe_aire_template.docx")
+
+
 @dataclass
 class ContextoAire:
     carpeta: str
     proyecto: object  # core.aire.ProyectoAire
     nombres: dict = field(default_factory=dict)
     ruta_meteo: Optional[str] = None
+    informe: Optional[DatosInforme] = None
 
 
 def preparar_aire(proyecto_in: ProyectoAireIn, carpeta: str) -> ContextoAire:
@@ -454,7 +458,7 @@ def preparar_aire(proyecto_in: ProyectoAireIn, carpeta: str) -> ContextoAire:
         estaciones=[EstacionAire(**e.model_dump()) for e in proyecto_in.estaciones],
         limites_cuantificacion=dict(proyecto_in.limites_cuantificacion),
     )
-    ctx = ContextoAire(carpeta=carpeta, proyecto=proyecto)
+    ctx = ContextoAire(carpeta=carpeta, proyecto=proyecto, informe=DatosInforme(**proyecto_in.informe.model_dump()))
     descargas = []
     for clave, archivo in proyecto_in.plantillas.items():
         ruta = os.path.join(carpeta, f"fp_{re.sub(r'[^A-Za-z0-9]', '', clave)}{_extension(archivo.nombre, '.xlsx')}")
@@ -553,3 +557,26 @@ def generar_excel_aire(ctx: ContextoAire) -> Entregable:
         contenido = f.read()
     base = re.sub(r"[^\w\-. ]+", "_", ctx.proyecto.codigo or ctx.proyecto.nombre_proyecto or "proyecto").strip()
     return Entregable(contenido, f"Resultados calidad del aire {base[:80]}.xlsx", MIME_XLSX, list(res.advertencias))
+
+
+def generar_word_aire(ctx: ContextoAire) -> Entregable:
+    from core.informe_aire import generar_informe_aire
+
+    res = procesar_aire(ctx)
+    advertencias = list(res.advertencias)
+    registros = None
+    if ctx.ruta_meteo:
+        try:
+            registros, avisos = meteorologia.leer_datos_meteorologicos(ctx.ruta_meteo)
+            advertencias += avisos
+        except meteorologia.ErrorMeteorologia as exc:
+            advertencias.append(str(exc))
+    salida = os.path.join(ctx.carpeta, "informe_aire.docx")
+    with _LOCK_GRAFICOS:
+        _, faltantes = generar_informe_aire(res, PLANTILLA_AIRE, salida, os.path.join(ctx.carpeta, "graficas"),
+                                            ctx.informe or DatosInforme(), registros)
+    with open(salida, "rb") as f:
+        contenido = f.read()
+    advertencias += [f"Revisar en el informe: {t}" for t in faltantes]
+    base = re.sub(r"[^\w\-. ]+", "_", ctx.proyecto.codigo or ctx.proyecto.nombre_proyecto or "proyecto").strip()
+    return Entregable(contenido, f"{base[:80]} - Informe calidad del aire.docx", MIME_DOCX, advertencias)

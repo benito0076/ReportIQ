@@ -62,6 +62,8 @@ export interface ProyectoAirePayload {
   }[];
   plantillas: Partial<Record<string, ArchivoRemoto>>;
   meteorologia: ArchivoRemoto | null;
+  /** Datos de redacción del informe (claves de engine/schemas.py InformeIn). */
+  informe: Record<string, string>;
 }
 
 export interface GenerarPayload {
@@ -137,8 +139,8 @@ export async function procesarAire(proyecto: ProyectoAirePayload): Promise<Resul
   return (await res.json()) as ResultadosAire;
 }
 
-export async function generarAire(proyecto: ProyectoAirePayload): Promise<Entregable> {
-  return entregable(await call("/v1/aire/generar", { proyecto, tipo: "excel" }), "xlsx");
+export async function generarAire(proyecto: ProyectoAirePayload, tipo: "excel" | "word"): Promise<Entregable> {
+  return entregable(await call("/v1/aire/generar", { proyecto, tipo }), tipo === "word" ? "docx" : "xlsx");
 }
 
 export async function generar(payload: GenerarPayload): Promise<Entregable> {

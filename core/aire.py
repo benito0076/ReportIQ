@@ -238,7 +238,8 @@ def estadistica(datos: list, poblacional: bool = False, bajo_lc: bool = False) -
     f_max = next(f for f, v in datos if v == maximo)
     f_min = next(f for f, v in datos if v == minimo)
     lim_inf, lim_sup = med - 3 * iqr, med + 3 * iqr
-    atipicos = sum(1 for v in vals if v > lim_sup or v < lim_inf)
+    # Como las plantillas: atipica la concentracion por encima de m + 3*IQR.
+    atipicos = sum(1 for v in vals if v > lim_sup)
     return Estadistica(
         n=len(vals), promedio=prom, desviacion=desv, cv=desv / prom if prom else 0.0, mediana=med,
         q1=q1, q3=q3, iqr=iqr, lim_inf=lim_inf, lim_sup=lim_sup, maximo=maximo,
@@ -564,6 +565,7 @@ class SerieAutomatica:
     estacion: int
     nombre_estacion: str
     horas: list = field(default_factory=list)  # [(datetime, µg/m3)]
+    filas: int = 0  # registros horarios de la plantilla (con o sin dato)
     medias_8h: list = field(default_factory=list)  # [(datetime de la ultima hora, µg/m3)]
     advertencias: list = field(default_factory=list)
 
@@ -577,6 +579,10 @@ class SerieAutomatica:
         return [DiaGas(d, max(h) if h else None, max(m) if m else None, len(h))
                 for d, (h, m) in sorted(por_dia.items())]
 
+    @property
+    def pct_validos(self) -> Optional[float]:
+        return 100 * len(self.horas) / self.filas if self.filas else None
+
     def estadistica_1h(self) -> Optional[Estadistica]:
         return estadistica(self.horas, poblacional=True)
 
@@ -584,7 +590,8 @@ class SerieAutomatica:
         return estadistica(self.medias_8h, poblacional=True)
 
 
-def serie_automatica(contaminante: str, estacion: int, nombre: str, lecturas: list) -> SerieAutomatica:
+def serie_automatica(contaminante: str, estacion: int, nombre: str, lecturas: list,
+                     filas: Optional[int] = None) -> SerieAutomatica:
     """`lecturas`: [(datetime, valor en ppm (CO) o ppb)]. La media movil de 8 h
     toma las 8 lecturas consecutivas que terminan en cada hora (como la FP-021)."""
     serie = SerieAutomatica(contaminante, estacion, nombre)
@@ -592,6 +599,7 @@ def serie_automatica(contaminante: str, estacion: int, nombre: str, lecturas: li
     serie.horas = [(t, v * factor) for t, v in sorted(lecturas)]
     vals = [v for _, v in serie.horas]
     serie.medias_8h = [(serie.horas[i][0], sum(vals[i - 7:i + 1]) / 8) for i in range(7, len(vals))]
+    serie.filas = max(filas or 0, len(serie.horas))
     return serie
 
 
@@ -625,7 +633,7 @@ def leer_fp021(ruta: str) -> list:
         for r in range(1, r0):
             if "nombre de la estaci" in _texto(ws.cell(r, 2).value).lower():
                 nombre = next((_texto(ws.cell(r, c).value) for c in range(3, 12) if _texto(ws.cell(r, c).value)), "")
-        lecturas, dia = [], None
+        lecturas, dia, filas = [], None, 0
         for r in range(r0 + 1, ws.max_row + 1):
             d = _dia(ws.cell(r, col_f).value)
             dia = d or dia
@@ -635,9 +643,10 @@ def leer_fp021(ruta: str) -> list:
                 if lecturas:
                     break
                 continue
+            filas += 1
             if dia is not None and v is not None:
                 lecturas.append((datetime.combine(dia, h), v))
-        series.append(serie_automatica(gas, n, nombre, lecturas))
+        series.append(serie_automatica(gas, n, nombre, lecturas, filas))
     if not series:
         raise ErrorPlantillaAire("No se encontraron hojas de estación (ESTACION 1_CO, ESTACIÓN 1_NO2, ESTACION 1_O3...) "
                                  "en la plantilla FP-021.")

@@ -1,17 +1,23 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { ValidationError } from "@/lib/errors";
 import { assertAdmin } from "@/lib/session";
 import { logActivity } from "@/server/activity";
-import { generateAireExcel } from "@/server/aire";
+import { generateAireReport } from "@/server/aire";
 import { handleApi } from "@/server/api";
 
 export const maxDuration = 300;
 
-/** Genera el Excel de resultados de calidad del aire (el informe Word llega en una etapa posterior). */
-export async function POST(_req: Request, { params }: RouteContext<"/api/aire/[id]/informes">) {
+const bodySchema = z.object({ kind: z.enum(["excel", "word"]) });
+
+/** Genera el Excel de resultados o el informe Word de calidad del aire. */
+export async function POST(req: Request, { params }: RouteContext<"/api/aire/[id]/informes">) {
   return handleApi(async () => {
     const user = await assertAdmin();
     const { id } = await params;
-    const report = await generateAireExcel(id, user.id);
+    const body = bodySchema.safeParse(await req.json().catch(() => null));
+    if (!body.success) throw new ValidationError("Tipo de informe inválido.");
+    const report = await generateAireReport(id, body.data.kind, user.id);
     await logActivity("informe_generado", user, report.fileName);
     return NextResponse.json({ ok: true, id: report.id, advertencias: report.advertencias });
   });
