@@ -34,6 +34,22 @@ const coordinate = optionalText(50).refine(
   "Debe ser un número (use coma o punto decimal).",
 );
 
+/** Estación de calidad del aire: el número es la hoja CA-n / ESTACION n de las plantillas. */
+export const airStationSchema = z.object({
+  numero: z.coerce
+    .number({ message: "Indique el número de la estación." })
+    .int("Debe ser un número entero.")
+    .min(1, "Mínimo 1.")
+    .max(50, "Máximo 50."),
+  nombre: optionalText(150),
+  codigo: optionalText(60),
+  codigoAnla: optionalText(60),
+  longitud: optionalText(50),
+  latitud: optionalText(50),
+  descripcion: optionalText(2000),
+});
+export type AirStationInput = z.output<typeof airStationSchema>;
+
 export const projectSchema = z.object({
   nombre: text(255).min(1, "El nombre del proyecto es obligatorio."),
   cliente: optionalText(255),

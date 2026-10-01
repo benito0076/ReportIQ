@@ -17,11 +17,12 @@ import type {
   CondicionBarrido,
   Direccion,
   Esquema,
+  PlantillaAire,
   ProjectType,
   ReportKind,
   UserRole,
 } from "./enums";
-import type { ResultadosProyecto } from "@/lib/engine-types";
+import type { ResultadosAire, ResultadosProyecto } from "@/lib/engine-types";
 import type { DatosInforme } from "@/lib/validation";
 
 export type { UserRole };
@@ -61,9 +62,48 @@ export const projects = pgTable(
     /** Datos para redactar el informe Word (área de estudio, portada, cliente…). */
     informe: jsonb("informe").$type<Partial<DatosInforme>>().notNull().default(sql`'{}'::jsonb`),
     procesadoAt: timestamp("procesado_at", { withTimezone: true }),
+    /** Resultados de calidad del aire (tipo "aire"; se invalidan al cambiar estaciones o plantillas). */
+    resultadosAire: jsonb("resultados_aire").$type<ResultadosAire>(),
     ...timestamps,
   },
   (t) => [index("projects_updated_idx").on(t.updatedAt)],
+);
+
+/** Estación de monitoreo de calidad del aire: el número es la hoja CA-n / ESTACION n de las plantillas. */
+export const airStations = pgTable(
+  "air_stations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    numero: integer("numero").notNull(),
+    nombre: varchar("nombre", { length: 150 }).notNull().default(""),
+    codigo: varchar("codigo", { length: 60 }).notNull().default(""),
+    codigoAnla: varchar("codigo_anla", { length: 60 }).notNull().default(""),
+    longitud: varchar("longitud", { length: 50 }).notNull().default(""),
+    latitud: varchar("latitud", { length: 50 }).notNull().default(""),
+    descripcion: text("descripcion").notNull().default(""),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex("air_stations_numero_uq").on(t.projectId, t.numero)],
+);
+
+/** Plantilla FP diligenciada de un proyecto de calidad del aire (una por contaminante). */
+export const airFiles = pgTable(
+  "air_files",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    plantilla: varchar("plantilla", { length: 12 }).$type<PlantillaAire>().notNull(),
+    fileKey: text("file_key").notNull(),
+    fileName: varchar("file_name", { length: 255 }).notNull(),
+    size: integer("size").notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("air_files_plantilla_uq").on(t.projectId, t.plantilla)],
 );
 
 export const points = pgTable(
@@ -197,3 +237,5 @@ export type Report = typeof reports.$inferSelect;
 export type BarridoFile = typeof barridoFiles.$inferSelect;
 export type Equipment = typeof equipment.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type AirStation = typeof airStations.$inferSelect;
+export type AirFile = typeof airFiles.$inferSelect;

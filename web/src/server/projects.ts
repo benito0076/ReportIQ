@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, count, desc, eq, inArray, max } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, ne } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
 import type { CondicionBarrido, Direccion, Esquema, ProjectType } from "@/db/enums";
-import { barridoFiles, memoryFiles, points, projects, reports, users } from "@/db/schema";
+import { airFiles, barridoFiles, memoryFiles, points, projects, reports, users } from "@/db/schema";
 import type { DatosInforme, PointInput, ProjectInput } from "@/lib/validation";
 import { NotFoundError } from "@/lib/errors";
 import { deleteObject } from "@/lib/storage";
@@ -29,6 +29,8 @@ export async function listProjects() {
     .from(projects)
     .leftJoin(nPoints, eq(nPoints.projectId, projects.id))
     .leftJoin(users, eq(users.id, projects.createdBy))
+    // Los de calidad del aire se listan en /aire.
+    .where(ne(projects.tipo, "aire"))
     .orderBy(desc(projects.updatedAt));
 }
 
@@ -76,12 +78,14 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
   const reps = await db.select({ key: reports.fileKey }).from(reports).where(eq(reports.projectId, projectId));
   const [proj] = await db.select({ meteo: projects.meteoKey }).from(projects).where(eq(projects.id, projectId));
   const barr = await db.select({ key: barridoFiles.fileKey }).from(barridoFiles).where(eq(barridoFiles.projectId, projectId));
+  const aire = await db.select({ key: airFiles.fileKey }).from(airFiles).where(eq(airFiles.projectId, projectId));
   return [
     proj?.meteo,
     ...pts.map((p) => p.foto),
     ...mems.map((m) => m.key),
     ...reps.map((r) => r.key),
     ...barr.map((b) => b.key),
+    ...aire.map((a) => a.key),
   ].filter(
     (k): k is string => !!k,
   );

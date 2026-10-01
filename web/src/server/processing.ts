@@ -23,6 +23,7 @@ export async function buildPayload(projectId: string): Promise<engine.ProyectoPa
     getSettings(),
     listBarrido(projectId),
   ]);
+  if (project.tipo === "aire") throw new ValidationError("Los proyectos de calidad del aire se procesan desde su página.");
   if (pts.length === 0) throw new ValidationError("Agregue al menos un punto de monitoreo.");
   if (mems.length === 0) throw new ValidationError("Suba al menos una memoria del sonómetro.");
 
@@ -53,7 +54,7 @@ export async function buildPayload(projectId: string): Promise<engine.ProyectoPa
     }),
   );
   return {
-    tipo: project.tipo,
+    tipo: project.tipo === "emision" ? "emision" : "ambiental",
     barrido: await Promise.all(
       project.tipo === "emision"
         ? barrido.map(async (b) => ({

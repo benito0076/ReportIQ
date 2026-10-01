@@ -23,6 +23,7 @@ import type { CondicionBarrido } from "@/db/enums";
 import { deleteReport } from "@/server/processing";
 import { logActivity } from "@/server/activity";
 import { getProject } from "@/server/projects";
+import { assertProjectAccess } from "@/server/aire";
 import { str, toActionState, type ActionState } from "./state";
 
 function projectInput(form: FormData) {
@@ -138,9 +139,11 @@ export async function removePhotoAction(projectId: string, pointId: string) {
 }
 
 export async function removeMeteoAction(projectId: string) {
-  await assertUser();
+  const user = await assertUser();
+  assertProjectAccess(await getProject(projectId), user);
   await setProjectMeteo(projectId, null, null);
   revalidatePath(`/proyectos/${projectId}`);
+  revalidatePath(`/aire/${projectId}`);
 }
 
 export async function removeMemoryAction(projectId: string, fileId: string) {
@@ -170,7 +173,9 @@ export async function removeBarridoAction(projectId: string, barridoId: string) 
 
 export async function deleteReportAction(projectId: string, reportId: string) {
   const user = await assertUser();
+  assertProjectAccess(await getProject(projectId), user);
   const nombre = await deleteReport(projectId, reportId);
   await logActivity("informe_eliminado", user, nombre);
   revalidatePath(`/proyectos/${projectId}/resultados`);
+  revalidatePath(`/aire/${projectId}`);
 }

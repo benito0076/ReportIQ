@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { ProjectTabs } from "./project-tabs";
 import { PROJECT_TYPE_LABELS } from "@/db/enums";
@@ -17,6 +17,8 @@ export default async function ProjectLayout({ children, params }: LayoutProps<"/
     .where(eq(projects.id, id))
     .limit(1);
   if (!project) notFound();
+  // Calidad del aire tiene su propia página (solo administradores).
+  if (project.tipo === "aire") redirect(`/aire/${id}`);
   return (
     <>
       <Link href="/proyectos" className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
