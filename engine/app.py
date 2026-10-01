@@ -31,7 +31,7 @@ from fastapi.responses import Response
 
 from core import norms
 
-from . import service
+from .errores import ErrorDescarga, ErrorEntrada
 from .schemas import GenerarAireIn, GenerarIn, ProcesarAireIn, ProcesarIn
 
 # Los avisos de core/ (p.ej. fallo del mapa satelital) salen en los logs del servicio.
@@ -67,8 +67,9 @@ def sectores():
 # Cada trabajo pesado (procesar o generar) corre en un proceso hijo que termina
 # al acabar: Python no devuelve al sistema la memoria de openpyxl, matplotlib y
 # python-docx, y en el plan de 512 MB los trabajos sucesivos acababan matando el
-# servicio. El hijo sale de un "forkserver" con los modulos ya importados (rapido
-# y seguro con hilos), y solo corre un trabajo a la vez por proceso del servidor.
+# servicio. El proceso del servidor ni siquiera importa core/ (~90 MB): el hijo
+# sale de un "forkserver" con los modulos ya importados (rapido y seguro con
+# hilos), y solo corre un trabajo a la vez por proceso del servidor.
 _TRABAJOS = threading.Semaphore(int(os.environ.get("ENGINE_TRABAJOS", "1")))
 _MP = multiprocessing.get_context("forkserver")
 _MP.set_forkserver_preload(["engine.service", "core.aire", "core.informe_aire", "core.report_generator"])
@@ -90,19 +91,23 @@ def _aislado(fn, *args):
 def _errores(fn, *args):
     try:
         return _aislado(fn, *args)
-    except service.ErrorDescarga as exc:
+    except ErrorDescarga as exc:
         raise HTTPException(502, str(exc)) from exc
-    except service.ErrorEntrada as exc:
+    except ErrorEntrada as exc:
         raise HTTPException(422, str(exc)) from exc
 
 
 def _trabajo_procesar(proyecto):
+    from . import service  # core/ solo se importa en el proceso de trabajo
+
     with tempfile.TemporaryDirectory(prefix="ruido_") as carpeta:
         ctx, _ = service.preparar(proyecto, carpeta)
         return service.resultados_a_dict(service.procesar(ctx))
 
 
 def _trabajo_generar(body: GenerarIn):
+    from . import service  # core/ solo se importa en el proceso de trabajo
+
     with tempfile.TemporaryDirectory(prefix="ruido_") as carpeta:
         ctx, ruta_plantilla = service.preparar(body.proyecto, carpeta, body.plantilla)
         if body.tipo == "excel":
@@ -113,11 +118,15 @@ def _trabajo_generar(body: GenerarIn):
 
 
 def _trabajo_procesar_aire(proyecto):
+    from . import service  # core/ solo se importa en el proceso de trabajo
+
     with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
         return service.aire_a_dict(service.procesar_aire(service.preparar_aire(proyecto, carpeta)))
 
 
 def _trabajo_generar_aire(body: GenerarAireIn):
+    from . import service  # core/ solo se importa en el proceso de trabajo
+
     with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
         ctx = service.preparar_aire(body.proyecto, carpeta)
         return service.generar_word_aire(ctx) if body.tipo == "word" else service.generar_excel_aire(ctx)
