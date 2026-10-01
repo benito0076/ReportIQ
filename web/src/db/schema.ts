@@ -84,6 +84,8 @@ export const airStations = pgTable(
     longitud: varchar("longitud", { length: 50 }).notNull().default(""),
     latitud: varchar("latitud", { length: 50 }).notNull().default(""),
     descripcion: text("descripcion").notNull().default(""),
+    fotoKey: text("foto_key"),
+    fotoNombre: varchar("foto_nombre", { length: 255 }),
     ...timestamps,
   },
   (t) => [uniqueIndex("air_stations_numero_uq").on(t.projectId, t.numero)],

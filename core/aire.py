@@ -680,6 +680,7 @@ class EstacionAire:
     longitud: str = ""  # grados o Este (Origen Nacional)
     latitud: str = ""  # grados o Norte
     descripcion: str = ""
+    foto_ruta: str = ""  # foto de la estacion (informe Word)
 
 
 @dataclass

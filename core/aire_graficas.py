@@ -9,7 +9,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.dates as mdates  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.ticker import FuncFormatter, MaxNLocator, NullFormatter  # noqa: E402
+from matplotlib.ticker import FuncFormatter, MaxNLocator  # noqa: E402
 
 from .aire import CATEGORIAS_ICA  # noqa: E402
 
@@ -36,24 +36,7 @@ def _fechas_eje(ax, fechas):
         t.set_rotation(90)
 
 
-def _log(ax):
-    ax.set_yscale("log")
-    ax.yaxis.set_minor_formatter(NullFormatter())
-
-
-def _con_cortes(pares: list, horas: float = 2):
-    """Inserta un hueco en la linea cuando faltan datos (p. ej. un dia sin medicion)."""
-    xs, ys = [], []
-    for i, (t, v) in enumerate(pares):
-        if i and (t - pares[i - 1][0]).total_seconds() > horas * 3600:
-            xs.append(t)
-            ys.append(float("nan"))
-        xs.append(t)
-        ys.append(v)
-    return xs, ys
-
-
-def barras_diarias(series: dict, limite: float | None, titulo_y: str, ruta: str, log: bool = False):
+def barras_diarias(series: dict, limite: float | None, titulo_y: str, ruta: str):
     """`series`: {estacion: [(fecha, valor)]}. Barras agrupadas por fecha y linea del limite."""
     fechas = sorted({f for datos in series.values() for f, v in datos if v is not None})
     if not fechas:
@@ -68,9 +51,7 @@ def barras_diarias(series: dict, limite: float | None, titulo_y: str, ruta: str,
         ax.bar(xs, ys, width=ancho, label=nombre, color=PALETA[k % len(PALETA)])
     if limite is not None:
         ax.axhline(limite, color="#C00000", linewidth=2, label=f"Límite máximo permisible ({_NUM(limite, 0)} µg/m³)")
-    maximo = max((v for datos in series.values() for _, v in datos if v is not None), default=0)
-    if log and limite and maximo and limite / maximo > 10:
-        _log(ax)
+    # Escala lineal: las barras parten de cero (como en Excel).
     ax.yaxis.set_major_formatter(_NUM)
     ax.set_ylabel(titulo_y)
     ax.set_xlabel("Fecha final de monitoreo")
@@ -80,30 +61,25 @@ def barras_diarias(series: dict, limite: float | None, titulo_y: str, ruta: str,
     return _guardar(fig, ruta)
 
 
-def serie_horaria(horas: list, medias_8h: list, limite_1h: float | None, limite_8h: float | None,
-                  titulo_y: str, ruta: str, mostrar_1h: bool = True, mostrar_8h: bool = True):
-    """Concentraciones horarias y/o media movil de 8 h de una estacion."""
-    if not horas:
+def barras_horarias(pares: list, titulo_y: str, ruta: str, etiqueta: str):
+    """Concentraciones horarias (u octohorarias) de una estacion en barras. Como en el
+    informe ejemplo, sin el limite: se compara en la grafica de maximos diarios."""
+    pares = [(t, v) for t, v in pares if v is not None]
+    if not pares:
         return None
     fig, ax = plt.subplots(figsize=(10, 4.2))
-    if mostrar_1h:
-        ax.plot(*_con_cortes(horas), color=PALETA[0], linewidth=0.9, label="Concentración horaria")
-    if mostrar_8h and medias_8h:
-        ax.plot(*_con_cortes(medias_8h), color=PALETA[1], linewidth=1.4, label="Media móvil de 8 horas")
-    if mostrar_1h and limite_1h is not None:
-        ax.axhline(limite_1h, color="#C00000", linewidth=1.8, label=f"Límite 1 hora ({_NUM(limite_1h, 0)} µg/m³)")
-    if mostrar_8h and limite_8h is not None:
-        ax.axhline(limite_8h, color="#7F0000", linewidth=1.8, linestyle="--",
-                   label=f"Límite 8 horas ({_NUM(limite_8h, 0)} µg/m³)")
-    _log(ax)
+    ax.bar([mdates.date2num(t) for t, _ in pares], [v for _, v in pares], width=0.8 / 24, color=PALETA[0],
+           label=etiqueta)
     ax.yaxis.set_major_formatter(_NUM)
     ax.set_ylabel(titulo_y)
+    ax.set_xlabel("Fecha de monitoreo")
+    dias = {t.date() for t, _ in pares}
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%d/%m"))
-    ax.xaxis.set_major_locator(mdates.DayLocator(interval=2 if len(horas) > 24 * 20 else 1))
+    ax.xaxis.set_major_locator(mdates.DayLocator(interval=2 if len(dias) > 20 else 1))
     for t in ax.get_xticklabels():
         t.set_rotation(90)
-    ax.grid(alpha=0.3)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.25), ncol=4, fontsize=8, frameon=False)
+    ax.grid(axis="y", alpha=0.3)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.3), ncol=2, fontsize=8, frameon=False)
     return _guardar(fig, ruta)
 
 
@@ -131,8 +107,8 @@ def ica_categorias(conteos: dict, ruta: str):
     return _guardar(fig, ruta)
 
 
-def meteo_diaria(dias: list, valores: list, titulo_y: str, ruta: str, color: str = PALETA[0], barras: bool = False):
-    """Serie diaria de una variable meteorologica."""
+def meteo_diaria(dias: list, valores: list, titulo_y: str, ruta: str, color: str = PALETA[0], barras: bool = True):
+    """Serie diaria de una variable meteorologica (barras)."""
     pares = [(d, v) for d, v in zip(dias, valores) if v is not None]
     if not pares:
         return None
@@ -141,6 +117,12 @@ def meteo_diaria(dias: list, valores: list, titulo_y: str, ruta: str, color: str
     ys = [v for _, v in pares]
     if barras:
         ax.bar(xs, ys, color=color, width=0.7)
+        bajo, alto = min(ys), max(ys)
+        if bajo > 0 and (alto - bajo) < 0.2 * alto:
+            # Variables con poca variacion relativa (presion, temperatura): el eje no
+            # parte de cero para que se aprecien las diferencias, como en Excel.
+            margen = max((alto - bajo) * 0.5, alto * 0.01)
+            ax.set_ylim(bajo - margen, alto + margen * 0.5)
     else:
         ax.plot(xs, ys, marker="o", color=color, linewidth=1.6)
     ax.set_ylabel(titulo_y)
@@ -155,4 +137,4 @@ def nombre_archivo(carpeta: str, *partes) -> str:
     return os.path.join(carpeta, f"{seguro}.png")
 
 
-__all__ = ["barras_diarias", "serie_horaria", "ica_categorias", "meteo_diaria", "nombre_archivo", "date"]
+__all__ = ["barras_diarias", "barras_horarias", "ica_categorias", "meteo_diaria", "nombre_archivo", "date"]

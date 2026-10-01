@@ -108,9 +108,14 @@ class TestInformeWord(unittest.TestCase):
         fp.fp033_so2(r["so2"])
         fp.fp035_cov(r["cov"])
         fp.fp021_automaticos(r["auto"], CO_HORAS, NO2_HORAS)
+        from PIL import Image
+
+        foto = os.path.join(cls.tmp.name, "foto.jpg")
+        Image.new("RGB", (400, 300), "#4a7").save(foto)
         res = procesar_aire(ProyectoAire(
             nombre_proyecto="Planta Norte", codigo="EC-900-26", cliente="Industrias XYZ S.A.S.",
-            estaciones=[EstacionAire(1, "Barrio La Esperanza", "E1_Norte", "", "-74.0721", "4.7110", "Zona residencial")],
+            estaciones=[EstacionAire(1, "Barrio La Esperanza", "E1_Norte", "", "-74.0721", "4.7110", "Zona residencial",
+                                     foto_ruta=foto)],
             plantillas={PM10: r["pm10"], SO2: r["so2"], COV: r["cov"], "AUTOMATICOS": r["auto"]}))
         datos = DatosInforme(area_estudio="el área de influencia de la Planta Norte", fecha="2026-03-15",
                              expediente="ANLA: LAM 0001", acto_administrativo="Resolución 10 del 1/01/2025")
@@ -142,6 +147,16 @@ class TestInformeWord(unittest.TestCase):
         self.assertNotIn("Parámetro: Partículas Menores a 2,5", self.texto)  # sin plantilla de PM2.5
         leyendas = [p.text for p in self.doc.paragraphs if p.style.name == "Caption" and p.text.startswith("Tabla")]
         self.assertEqual([int(t.split()[1].rstrip(".")) for t in leyendas], list(range(1, len(leyendas) + 1)))
+
+    def test_tabla_de_estaciones_como_el_informe_ejemplo(self):
+        t = next(t for t in self.doc.tables if t.cell(0, 0).text == "Ubicación")
+        self.assertEqual(len(t.rows), 5)
+        self.assertEqual(t.cell(2, 0).text, "Barrio La Esperanza")
+        self.assertEqual(t.cell(3, 3).text, "Descripción del punto de monitoreo")
+        self.assertEqual(t.cell(4, 3).text, "Zona residencial")
+        self.assertEqual(len(t.cell(3, 0)._tc.xpath(".//pic:pic")), 1)  # foto de la estacion
+        self.assertIn("Resolución 1004 del 24 de agosto de 2026", self.texto)
+        self.assertNotIn("1096 del 11 de octubre", self.texto)
 
     def test_meteorologia_faltante_se_informa(self):
         self.assertTrue(any("meteorológicos" in f for f in self.faltantes))

@@ -10,6 +10,7 @@ import { UPLOAD_RULES } from "@/lib/files";
 export type UploadTarget =
   | { kind: "memoria"; projectId: string; pointId: string; esquema: string; direccion: string }
   | { kind: "foto"; projectId: string; pointId: string }
+  | { kind: "fotoAire"; projectId: string; stationId: string }
   | { kind: "meteo"; projectId: string }
   | { kind: "barrido"; projectId: string }
   | { kind: "aire"; projectId: string; plantilla: string }
@@ -56,7 +57,7 @@ export async function uploadFile(
   original: File,
   onProgress?: (p: number) => void,
 ): Promise<string | null> {
-  const file = target.kind === "foto" ? await shrinkPhoto(original) : original;
+  const file = target.kind === "foto" || target.kind === "fotoAire" ? await shrinkPhoto(original) : original;
   const rule = UPLOAD_RULES[target.kind];
   if (file.size > rule.maxBytes) return `"${original.name}" supera el tamaño máximo (${rule.maxBytes / 1024 / 1024} MB).`;
   const prepared = await prepareUploadAction(target, file.name, file.size);

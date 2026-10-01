@@ -455,11 +455,15 @@ def preparar_aire(proyecto_in: ProyectoAireIn, carpeta: str) -> ContextoAire:
 
     proyecto = ProyectoAire(
         nombre_proyecto=proyecto_in.nombre_proyecto, codigo=proyecto_in.codigo, cliente=proyecto_in.cliente,
-        estaciones=[EstacionAire(**e.model_dump()) for e in proyecto_in.estaciones],
+        estaciones=[EstacionAire(**e.model_dump(exclude={"foto"})) for e in proyecto_in.estaciones],
         limites_cuantificacion=dict(proyecto_in.limites_cuantificacion),
     )
     ctx = ContextoAire(carpeta=carpeta, proyecto=proyecto, informe=DatosInforme(**proyecto_in.informe.model_dump()))
     descargas = []
+    for est_in, est in zip(proyecto_in.estaciones, proyecto.estaciones):
+        if est_in.foto is not None:
+            est.foto_ruta = os.path.join(carpeta, f"e{est.numero}_foto{_extension(est_in.foto.nombre, '.jpg')}")
+            descargas.append((est_in.foto, est.foto_ruta))
     for clave, archivo in proyecto_in.plantillas.items():
         ruta = os.path.join(carpeta, f"fp_{re.sub(r'[^A-Za-z0-9]', '', clave)}{_extension(archivo.nombre, '.xlsx')}")
         proyecto.plantillas[clave] = ruta

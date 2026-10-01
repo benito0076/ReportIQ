@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Download, Pencil, Trash2 } from "lucide-react";
-import { deleteAireProjectAction, deleteStationAction, removeAirFileAction } from "@/app/actions/aire";
+import {
+  deleteAireProjectAction,
+  deleteStationAction,
+  removeAirFileAction,
+  removeStationPhotoAction,
+} from "@/app/actions/aire";
 import { deleteReportAction, removeMeteoAction } from "@/app/actions/projects";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Notice } from "@/components/notice";
@@ -87,6 +92,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
                     <TableHead>Estación</TableHead>
                     <TableHead>ID / ID ANLA</TableHead>
                     <TableHead>Coordenadas</TableHead>
+                    <TableHead>Foto</TableHead>
                     <TableHead className="pr-4 text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -107,6 +113,35 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
                       </TableCell>
                       <TableCell className="text-xs">{[e.codigo, e.codigoAnla].filter(Boolean).join(" · ") || "—"}</TableCell>
                       <TableCell className="text-xs">{[e.latitud, e.longitud].filter(Boolean).join(" · ") || "—"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col items-start gap-1">
+                          {e.fotoKey && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={`/api/aire/${id}/estaciones/${e.id}/foto?v=${encodeURIComponent(e.fotoKey)}`}
+                              alt={`Foto de la estación ${e.numero}`}
+                              className="h-16 w-24 rounded border object-cover"
+                            />
+                          )}
+                          <div className="flex items-center gap-1">
+                            <UploadButton
+                              target={{ kind: "fotoAire", projectId: id, stationId: e.id }}
+                              label={e.fotoKey ? "Cambiar" : "Subir foto"}
+                            />
+                            {e.fotoKey && (
+                              <ConfirmButton
+                                action={removeStationPhotoAction.bind(null, id, e.id)}
+                                confirm={`¿Quitar la foto de la estación ${e.numero}?`}
+                                size="icon-sm"
+                                variant="ghost"
+                                title="Quitar foto"
+                              >
+                                <Trash2 className="text-red-600" />
+                              </ConfirmButton>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
                       <TableCell className="pr-4 text-right">
                         <ConfirmButton
                           action={deleteStationAction.bind(null, id, e.id)}

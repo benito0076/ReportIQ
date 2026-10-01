@@ -25,6 +25,12 @@ export const UPLOAD_RULES: Record<Exclude<FileKind, "informe">, UploadRule> = {
     signature: "image",
     label: "foto (JPG o PNG)",
   },
+  fotoAire: {
+    maxBytes: 15 * MB,
+    accept: "image/jpeg,image/png",
+    signature: "image",
+    label: "foto (JPG o PNG)",
+  },
   meteo: {
     maxBytes: 40 * MB,
     accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

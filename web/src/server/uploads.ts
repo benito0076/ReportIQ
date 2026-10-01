@@ -14,7 +14,7 @@ import {
   uploadUrl,
 } from "@/lib/storage";
 import { addBarrido, getPoint, getProject, setMemoryFile, setPointPhoto, setProjectMeteo } from "./projects";
-import { getAireProject, setAirFile } from "./aire";
+import { getAireProject, getStation, setAirFile, setStationPhoto } from "./aire";
 import { logActivity } from "./activity";
 import { updateSettings } from "./settings";
 
@@ -38,6 +38,7 @@ export const uploadTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("foto"), projectId: z.uuid(), pointId: z.uuid() }),
   z.object({ kind: z.literal("meteo"), projectId: z.uuid() }),
   z.object({ kind: z.literal("aire"), projectId: z.uuid(), plantilla: z.enum(PLANTILLAS_AIRE) }),
+  z.object({ kind: z.literal("fotoAire"), projectId: z.uuid(), stationId: z.uuid() }),
   z.object({ kind: z.literal("plantilla") }),
 ]);
 export type UploadTarget = z.infer<typeof uploadTargetSchema>;
@@ -60,6 +61,11 @@ async function checkTarget(target: UploadTarget, user: CurrentUser) {
   if (target.kind === "aire") {
     if (user.role !== "admin") throw new ForbiddenError();
     await getAireProject(target.projectId);
+    return;
+  }
+  if (target.kind === "fotoAire") {
+    if (user.role !== "admin") throw new ForbiddenError();
+    await getStation(target.projectId, target.stationId);
     return;
   }
   if (target.kind === "barrido") {
@@ -120,6 +126,9 @@ export async function confirmUpload(target: UploadTarget, key: string, fileName:
       break;
     case "aire":
       await setAirFile(target.projectId, target.plantilla, { key, fileName: name, size });
+      break;
+    case "fotoAire":
+      await setStationPhoto(target.projectId, target.stationId, key, name);
       break;
     case "plantilla":
       await updateSettings({ plantillaKey: key, plantillaNombre: name });

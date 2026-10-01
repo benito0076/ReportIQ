@@ -73,7 +73,7 @@ export async function listStations(projectId: string) {
   return db.select().from(airStations).where(eq(airStations.projectId, projectId)).orderBy(asc(airStations.numero));
 }
 
-async function getStation(projectId: string, stationId: string) {
+export async function getStation(projectId: string, stationId: string) {
   if (!isUuid(stationId)) throw new NotFoundError("La estación no existe.");
   const [row] = await db
     .select()
@@ -116,11 +116,26 @@ export async function updateStation(projectId: string, stationId: string, input:
 }
 
 export async function deleteStation(projectId: string, stationId: string) {
-  await getStation(projectId, stationId);
+  const station = await getStation(projectId, stationId);
   await db.transaction(async (tx) => {
     await tx.delete(airStations).where(eq(airStations.id, stationId));
     await invalidateAire(projectId, tx);
   });
+  if (station.fotoKey) await deleteObject(station.fotoKey);
+}
+
+/** Foto de la estación (registro fotográfico de la tabla de descripción del informe). */
+export async function setStationPhoto(projectId: string, stationId: string, key: string, fileName: string) {
+  const station = await getStation(projectId, stationId);
+  await db.update(airStations).set({ fotoKey: key, fotoNombre: fileName }).where(eq(airStations.id, stationId));
+  if (station.fotoKey && station.fotoKey !== key) await deleteObject(station.fotoKey);
+}
+
+export async function removeStationPhoto(projectId: string, stationId: string) {
+  const station = await getStation(projectId, stationId);
+  if (!station.fotoKey) return;
+  await db.update(airStations).set({ fotoKey: null, fotoNombre: null }).where(eq(airStations.id, stationId));
+  await deleteObject(station.fotoKey);
 }
 
 // ---------------------------------------------------------------- plantillas
@@ -188,7 +203,7 @@ async function buildPayload(projectId: string): Promise<engine.ProyectoAirePaylo
     nombre_proyecto: project.nombre,
     codigo: project.codigoInforme,
     cliente: project.cliente,
-    estaciones: estaciones.map((e) => ({
+    estaciones: await Promise.all(estaciones.map(async (e) => ({
       numero: e.numero,
       nombre: e.nombre,
       codigo: e.codigo,
@@ -196,7 +211,10 @@ async function buildPayload(projectId: string): Promise<engine.ProyectoAirePaylo
       longitud: e.longitud,
       latitud: e.latitud,
       descripcion: e.descripcion,
-    })),
+      foto: e.fotoKey
+        ? { url: await downloadUrl(e.fotoKey, { ttl: ENGINE_URL_TTL }), nombre: e.fotoNombre ?? "foto.jpg" }
+        : null,
+    }))),
     plantillas,
     meteorologia: project.meteoKey
       ? { url: await downloadUrl(project.meteoKey, { ttl: ENGINE_URL_TTL }), nombre: project.meteoNombre ?? "meteorologia.xlsx" }
