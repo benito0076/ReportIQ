@@ -93,6 +93,60 @@ class TestCalculos(unittest.TestCase):
         self.assertTrue(any("FP-031" in a for a in res.advertencias))
 
 
+class TestInformeWord(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        import docx
+
+        from core.aire import EstacionAire
+        from core.informe_aire import generar_informe_aire
+        from core.models import DatosInforme
+
+        cls.tmp = tempfile.TemporaryDirectory()
+        r = {k: os.path.join(cls.tmp.name, f"{k}.xlsx") for k in ("pm10", "so2", "cov", "auto")}
+        fp.fp031_pm10(r["pm10"])
+        fp.fp033_so2(r["so2"])
+        fp.fp035_cov(r["cov"])
+        fp.fp021_automaticos(r["auto"], CO_HORAS, NO2_HORAS)
+        res = procesar_aire(ProyectoAire(
+            nombre_proyecto="Planta Norte", codigo="EC-900-26", cliente="Industrias XYZ S.A.S.",
+            estaciones=[EstacionAire(1, "Barrio La Esperanza", "E1_Norte", "", "-74.0721", "4.7110", "Zona residencial")],
+            plantillas={PM10: r["pm10"], SO2: r["so2"], COV: r["cov"], "AUTOMATICOS": r["auto"]}))
+        datos = DatosInforme(area_estudio="el área de influencia de la Planta Norte", fecha="2026-03-15",
+                             expediente="ANLA: LAM 0001", acto_administrativo="Resolución 10 del 1/01/2025")
+        os.environ["ENGINE_BASEMAP"] = "0"
+        salida = os.path.join(cls.tmp.name, "informe.docx")
+        _, cls.faltantes = generar_informe_aire(res, os.path.join(RAIZ, "templates", "informe_aire_template.docx"),
+                                                salida, os.path.join(cls.tmp.name, "g"), datos)
+        cls.doc = docx.Document(salida)
+        w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        partes = ["".join(t.text or "" for t in p.iter(f"{w}t")) for p in cls.doc.element.body.iter(f"{w}p")]
+        for s_ in cls.doc.sections:
+            partes += ["".join(t.text or "" for t in p.iter(f"{w}t")) for p in s_.header._element.iter(f"{w}p")]
+        cls.texto = "\n".join(partes)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_sin_datos_del_proyecto_de_la_plantilla(self):
+        for viejo in ("Ecopetrol", "ECOPETROL", "Lisama", "Llanito", "Camachos", "Rubí", "LAM 2249", "1653"):
+            self.assertNotIn(viejo, self.texto, viejo)
+
+    def test_resultados_y_textos(self):
+        self.assertIn("Barrio La Esperanza registró niveles de inmisión diarios de PM10 que oscilaron entre 48,92",
+                      self.texto)
+        self.assertIn("Resolución 10 del 1/01/2025", self.texto)
+        self.assertIn("Parámetro: Monóxido de Carbono (CO)", self.texto)
+        self.assertIn("<9,36", self.texto)
+        self.assertNotIn("Parámetro: Partículas Menores a 2,5", self.texto)  # sin plantilla de PM2.5
+        leyendas = [p.text for p in self.doc.paragraphs if p.style.name == "Caption" and p.text.startswith("Tabla")]
+        self.assertEqual([int(t.split()[1].rstrip(".")) for t in leyendas], list(range(1, len(leyendas) + 1)))
+
+    def test_meteorologia_faltante_se_informa(self):
+        self.assertTrue(any("meteorológicos" in f for f in self.faltantes))
+
+
 class TestEstadistica(unittest.TestCase):
     def test_cuartiles_como_excel(self):
         datos = [48.92, 51.39, 47.22, 47.80, 49.39, 45.31, 41.85, 28.44, 26.97, 27.45, 29.79, 23.83, 21.02, 21.40,

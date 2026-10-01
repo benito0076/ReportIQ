@@ -473,7 +473,8 @@ def generar_mapas_isofonas(resultados_proyecto, carpeta_salida: str, con_basemap
 
 def generar_mapa_localizacion(proyecto, ruta_salida: str, con_basemap: bool = True,
                               elaborado_por: str = COMPANIA_DEFECTO, logo_ruta: str = LOGO_DEFECTO,
-                              generar_pdf: bool = False):
+                              generar_pdf: bool = False,
+                              titulo: str = "LOCALIZACIÓN DE PUNTOS - RUIDO AMBIENTAL"):
     """Plano de localizacion de los puntos de monitoreo (Imagen 1 del informe):
     imagen satelital, puntos con su nombre, cuadricula Origen Nacional y la
     misma columna lateral de los mapas de isofonas (localizacion general,
@@ -549,7 +550,7 @@ def generar_mapa_localizacion(proyecto, ruta_salida: str, con_basemap: bool = Tr
     y -= gap + alturas["puntos"]
     _dibujar_leyenda_puntos(fig, [col_x, y, col_w, alturas["puntos"]], nombres, colores)
     y -= gap + alturas["proyecto"]
-    lineas = [l for l in [proyecto.cliente, proyecto.nombre_proyecto, "LOCALIZACIÓN DE PUNTOS - RUIDO AMBIENTAL"] if l]
+    lineas = [l for l in [getattr(proyecto, "cliente", ""), proyecto.nombre_proyecto, titulo] if l]
     _dibujar_info_proyecto(fig, [col_x, y, col_w, alturas["proyecto"]], lineas)
     y -= gap + alturas["elaboro"]
     _dibujar_elaborado(fig, [col_x, y, col_w, alturas["elaboro"]], elaborado_por, logo_ruta)

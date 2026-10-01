@@ -64,6 +64,7 @@ export const INFORME_CAMPOS = [
   "departamento",
   "titulo",
   "expediente",
+  "actoAdministrativo",
   "version",
   "fecha",
   "clienteNit",
@@ -80,6 +81,8 @@ export const informeSchema = z.object({
   departamento: optionalText(120),
   titulo: optionalText(600),
   expediente: optionalText(100),
+  /** Resoluciones del acto administrativo (encabezado del informe de calidad del aire). */
+  actoAdministrativo: optionalText(500),
   version: optionalText(20),
   fecha: optionalText(10).refine((v) => v === "" || /^\d{4}-\d{2}-\d{2}$/.test(v), "Fecha inválida."),
   clienteNit: optionalText(50),

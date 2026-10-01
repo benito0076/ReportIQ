@@ -296,6 +296,14 @@ class TestApiMotor(unittest.TestCase):
         wb = openpyxl.load_workbook(io.BytesIO(r.content))
         self.assertEqual(wb.sheetnames, ["Resumen", "PM10", "SO2", "ICA"])
 
+        r = self.client.post("/v1/aire/generar", json={"proyecto": proyecto, "tipo": "word"}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertTrue(unquote(r.headers["X-Nombre-Archivo"]).endswith("Informe calidad del aire.docx"))
+        import docx
+
+        texto = "\n".join(p.text for p in docx.Document(io.BytesIO(r.content)).paragraphs)
+        self.assertIn("Parámetro: Partículas Menores a 10 Micras (PM10)", texto)
+
 
 if __name__ == "__main__":
     unittest.main()

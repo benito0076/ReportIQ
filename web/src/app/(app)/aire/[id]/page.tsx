@@ -18,6 +18,7 @@ import { requireAdminPage } from "@/lib/session";
 import { getAireProject, listAirFiles, listStations } from "@/server/aire";
 import { listReports } from "@/server/processing";
 import { isUuid } from "@/server/projects";
+import { InformeForm } from "../../proyectos/[id]/informe-form";
 import { AireProjectForm } from "../aire-project-form";
 import { AireButtons } from "./aire-buttons";
 import { AireResultados } from "./aire-results";
@@ -235,10 +236,22 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
 
         <Card>
           <CardHeader className="border-b">
-            <CardTitle>4. Procesamiento y entregables</CardTitle>
+            <CardTitle>4. Datos del informe</CardTitle>
+            <CardDescription>
+              Portada, encabezado y cliente del informe Word. Las firmas del cuadro de control se toman de Ajustes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <InformeForm projectId={id} informe={project.informe} aire />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>5. Procesamiento y entregables</CardTitle>
             <CardDescription>
               Calcula las concentraciones a condiciones de referencia, la estadística y el ICA, y las compara con la
-              Resolución 2254 de 2017. El informe Word llegará en la siguiente etapa.
+              Resolución 2254 de 2017. El informe Word sigue el formato FP-024 (informe técnico de calidad del aire).
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">

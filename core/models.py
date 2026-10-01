@@ -60,6 +60,8 @@ class DatosInforme:
     # Titulo de la portada y del encabezado (una linea por renglon).
     titulo: str = ""
     expediente: str = ""
+    # Resoluciones del acto administrativo (encabezado del informe de calidad del aire).
+    acto_administrativo: str = ""
     version: str = "1.0"
     fecha: str = ""  # AAAA-MM-DD; vacio = fecha en que se genera el informe
     cliente_nit: str = ""

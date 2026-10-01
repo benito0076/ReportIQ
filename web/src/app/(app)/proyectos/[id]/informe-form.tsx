@@ -9,7 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { DatosInforme } from "@/lib/validation";
 
-export function InformeForm({ projectId, informe }: { projectId: string; informe: Partial<DatosInforme> }) {
+export function InformeForm({
+  projectId,
+  informe,
+  aire = false,
+}: {
+  projectId: string;
+  informe: Partial<DatosInforme>;
+  /** Calidad del aire: agrega el acto administrativo del encabezado. */
+  aire?: boolean;
+}) {
   const [state, action] = useActionState<ActionState, FormData>(updateInformeAction.bind(null, projectId), {});
   const fe = state.fieldErrors ?? {};
   const v: Record<string, string | undefined> = state.values ?? { version: "1.0", ...informe };
@@ -37,6 +46,17 @@ export function InformeForm({ projectId, informe }: { projectId: string; informe
         {campo("municipio", "Municipio")}
         {campo("departamento", "Departamento")}
         {campo("expediente", "Expediente", "Encabezado. Vacío = «No aplica».")}
+        {aire && (
+          <Field
+            label="Acto administrativo"
+            htmlFor="actoAdministrativo"
+            error={fe.actoAdministrativo}
+            className="sm:col-span-3"
+            hint="Encabezado del informe. Una resolución por línea. Vacío = «No aplica»."
+          >
+            <Textarea id="actoAdministrativo" name="actoAdministrativo" rows={2} defaultValue={v.actoAdministrativo ?? ""} />
+          </Field>
+        )}
         <Field
           label="Título de la portada y del encabezado"
           htmlFor="titulo"
@@ -53,7 +73,7 @@ export function InformeForm({ projectId, informe }: { projectId: string; informe
       </fieldset>
 
       <fieldset className="grid gap-4 sm:grid-cols-3">
-        <legend className="mb-2 text-sm font-semibold">Información del cliente (Tabla 1)</legend>
+        <legend className="mb-2 text-sm font-semibold">Información del cliente{aire ? "" : " (Tabla 1)"}</legend>
         {campo("clienteNit", "NIT")}
         {campo("clienteCiudad", "Ciudad")}
         {campo("clienteDepartamento", "Departamento")}
