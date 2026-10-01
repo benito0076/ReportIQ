@@ -562,19 +562,43 @@ def _parrafo(doc, *fragmentos, desde=None):
     return None
 
 
-def _coordenadas(e) -> dict:
-    """Longitud/latitud (DMS) y Norte/Este (Origen Nacional) de una estacion."""
-    from .geo_colombia import a_geografica, formatear_dms, geografica_a_origen_nacional
+# Extension aproximada de Colombia (incluye San Andres y el mar territorial).
+_LAT_COLOMBIA = (-5.0, 14.0)
+_LON_COLOMBIA = (-83.0, -66.0)
 
-    salida = {"lon": e.longitud or "---", "lat": e.latitud or "---", "norte": "---", "este": "---", "dd": None}
+
+def _coordenadas(e) -> dict:
+    """Longitud/latitud (DMS) y Norte/Este (Origen Nacional) de una estacion.
+
+    Las coordenadas planas digitadas se conservan tal cual (sin ida y vuelta por
+    la proyeccion). Si el punto cae fuera de Colombia, `fuera` es True y no se
+    calculan las otras: la conversion no es valida lejos del origen."""
+    from .geo_colombia import a_geografica, es_origen_nacional, formatear_dms, geografica_a_origen_nacional
+
+    salida = {"lon": e.longitud or "---", "lat": e.latitud or "---", "norte": "---", "este": "---", "dd": None,
+              "fuera": False}
     x, y = parsear_coordenada(e.longitud), parsear_coordenada(e.latitud)
     if x is None or y is None:
         return salida
+    plana = es_origen_nacional(x, y)
+    if plana:
+        salida.update(este=fmt(x, 3, True), norte=fmt(y, 3, True), lon="---", lat="---")
     lat, lon = a_geografica(x, y)
-    este, norte = geografica_a_origen_nacional(lat, lon)
-    salida.update(lon=formatear_dms(lon, True), lat=formatear_dms(lat, False), este=fmt(este, 3, True),
-                  norte=fmt(norte, 3, True), dd=(lat, lon))
+    if not (_LAT_COLOMBIA[0] <= lat <= _LAT_COLOMBIA[1] and _LON_COLOMBIA[0] <= lon <= _LON_COLOMBIA[1]):
+        salida["fuera"] = True
+        return salida
+    if not plana:
+        x, y = geografica_a_origen_nacional(lat, lon)
+        salida.update(este=fmt(x, 3, True), norte=fmt(y, 3, True))
+    salida.update(lon=formatear_dms(lon, True), lat=formatear_dms(lat, False), dd=(lat, lon))
     return salida
+
+
+def _avisar_coordenadas(ctx, faltantes):
+    fuera = [ctx.nombres[e.numero] for e in ctx.estaciones if _coordenadas(e)["fuera"]]
+    if fuera:
+        faltantes.append("Coordenadas fuera de Colombia (revise Este/Norte en Origen Nacional, p. ej. Este "
+                         "4.000.000–5.700.000 y Norte 1.000.000–3.100.000): " + ", ".join(fuera))
 
 
 def parsear_coordenada(texto) -> Optional[float]:
@@ -736,6 +760,7 @@ def _objetivos(doc, ctx: ContextoAire):
 
 def _svca(doc, ctx: ContextoAire, carpeta: str, faltantes):
     """Descripcion de las estaciones (tabla) y figura de localizacion."""
+    _avisar_coordenadas(ctx, faltantes)
     p = _parrafo(doc, "presenta las coordenadas")
     leyenda = next((el for el in _cuerpo(doc) if _es_leyenda(el)
                     and "descripcion de las estaciones" in _sin_tildes(_texto(el))), None)

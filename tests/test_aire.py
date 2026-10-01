@@ -159,6 +159,22 @@ class TestEstadistica(unittest.TestCase):
         self.assertEqual(percentil_exc([1, 2, 3, 4], 0.25), 1.25)
 
 
+class TestCoordenadas(unittest.TestCase):
+    def test_planas_se_conservan_y_fuera_de_colombia_se_avisa(self):
+        from types import SimpleNamespace
+
+        from core.informe_aire import _coordenadas
+        c = _coordenadas(SimpleNamespace(longitud="4874000", latitud="2214000"))
+        self.assertEqual((c["este"], c["norte"], c["fuera"]), ("4.874.000,000", "2.214.000,000", False))
+        self.assertTrue(c["lat"].endswith("N") and c["lon"].endswith("O"))
+        c = _coordenadas(SimpleNamespace(longitud="7727100", latitud="13198600"))
+        self.assertEqual((c["este"], c["norte"], c["lon"], c["fuera"], c["dd"]),
+                         ("7.727.100,000", "13.198.600,000", "---", True, None))
+        c = _coordenadas(SimpleNamespace(longitud="-74.0721", latitud="4.7110"))
+        self.assertFalse(c["fuera"])
+        self.assertNotEqual(c["este"], "---")
+
+
 class TestMeteorologia(unittest.TestCase):
     def test_encabezados_con_tildes_danadas(self):
         self.assertEqual(_norm("PresiÃ³n absoluta(hpa)"), "presion absoluta(hpa)")
