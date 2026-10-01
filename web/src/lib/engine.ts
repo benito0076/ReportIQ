@@ -95,10 +95,11 @@ function config() {
 }
 
 // Render (plan gratuito) duerme el motor tras 15 min sin tráfico: mientras
-// despierta, su proxy responde 429/503 sin llegar a la aplicación. Se
-// reintenta con espera creciente durante este margen como máximo.
+// despierta, su proxy responde 429/502/503/504 sin llegar a la aplicación
+// (los errores propios del motor siempre traen `detail`). Se reintenta con
+// espera creciente durante este margen como máximo.
 const WAKE_WINDOW_MS = 150_000;
-const RETRY_STATUS = new Set([429, 503]);
+const RETRY_STATUS = new Set([429, 502, 503, 504]);
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,9 +120,26 @@ async function errorDetail(res: Response) {
   }
 }
 
+/**
+ * Despierta el motor con GET /health (petición liviana) antes de enviar el
+ * trabajo, para no reenviar el cuerpo completo mientras Render lo arranca.
+ */
+async function wake(url: string, started: number) {
+  for (let attempt = 0; Date.now() - started < WAKE_WINDOW_MS; attempt++) {
+    try {
+      const res = await fetch(`${url}/health`, { signal: AbortSignal.timeout(30_000), cache: "no-store" });
+      if (res.ok) return;
+      await sleep(retryDelay(res, attempt));
+    } catch {
+      await sleep(Math.min(3_000 * 2 ** attempt, 20_000));
+    }
+  }
+}
+
 async function call(path: string, body: unknown): Promise<Response> {
   const { url, key } = config();
   const started = Date.now();
+  await wake(url, started);
   const payload = JSON.stringify(body);
   for (let attempt = 0; ; attempt++) {
     let res: Response;
@@ -156,7 +174,7 @@ async function call(path: string, body: unknown): Promise<Response> {
       );
     }
     if (res.status === 422 && detail) throw new EngineError(detail, 422);
-    if ((res.status === 502 || res.status === 503) && detail) throw new EngineError(detail, 502);
+    if (res.status >= 500 && detail) throw new EngineError(detail, 502);
     if (res.status === 401) throw new EngineError("La clave del motor de cálculo (ENGINE_API_KEY) no coincide.", 502);
     throw new EngineError(`El motor de cálculo respondió con un error (HTTP ${res.status}).`, 502);
   }
