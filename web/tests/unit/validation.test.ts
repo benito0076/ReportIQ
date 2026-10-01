@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "@/lib/errors";
-import { SECTORES, parseDecimal, parseOrThrow, pointSchema } from "@/lib/validation";
+import { SECTORES, coordenadaFueraDeColombia, parseDecimal, parseOrThrow, pointSchema } from "@/lib/validation";
 
 const base = { nombre: "RA1", sector: "", incertidumbre: "0,0043", este: "", norte: "", altitud: "", descripcion: "", fuentes: "" };
 
@@ -34,5 +34,21 @@ describe("parseDecimal", () => {
     ["1.2.3", null],
   ])("%s → %s", (v, expected) => {
     expect(parseDecimal(v)).toBe(expected);
+  });
+});
+
+describe("coordenadaFueraDeColombia", () => {
+  it("acepta Origen Nacional y grados decimales dentro de Colombia", () => {
+    expect(coordenadaFueraDeColombia("4874000", "2214000")).toBeNull();
+    expect(coordenadaFueraDeColombia("4.874.000,5", "2.214.000")).toBeNull();
+    expect(coordenadaFueraDeColombia("-74.0721", "4.7110")).toBeNull();
+    expect(coordenadaFueraDeColombia("73°33'40\"O", "4°N")).toBeNull(); // DMS: lo valida el motor
+    expect(coordenadaFueraDeColombia("", "")).toBeNull();
+  });
+
+  it("rechaza puntos fuera de Colombia", () => {
+    expect(coordenadaFueraDeColombia("7727100", "13198600")?.campo).toBe("longitud");
+    expect(coordenadaFueraDeColombia("4874000", "13198600")?.campo).toBe("latitud");
+    expect(coordenadaFueraDeColombia("2.35", "48.85")?.campo).toBe("longitud");
   });
 });

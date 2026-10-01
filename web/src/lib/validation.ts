@@ -34,6 +34,34 @@ const coordinate = optionalText(50).refine(
   "Debe ser un número (use coma o punto decimal).",
 );
 
+/** Número simple (admite coma decimal y puntos de miles); null si es DMS u otro texto. */
+function numeroCoordenada(texto: string | null | undefined): number | null {
+  const t = (texto ?? "").trim();
+  if (!/^-?[\d.,]+$/.test(t)) return null;
+  const n = Number((t.split(".").length > 2 ? t.replaceAll(".", "") : t).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Revisa que la estación quede en Colombia: grados decimales (longitud/latitud)
+ * o planas Origen Nacional (Este/Norte, EPSG:9377). Rangos aproximados.
+ */
+export function coordenadaFueraDeColombia(longitud: string | null | undefined, latitud: string | null | undefined) {
+  const x = numeroCoordenada(longitud);
+  const y = numeroCoordenada(latitud);
+  if (x === null || y === null) return null;
+  if (Math.abs(x) > 180 || Math.abs(y) > 180) {
+    if (x < 3_900_000 || x > 5_800_000)
+      return { campo: "longitud", mensaje: "El Este (Origen Nacional) en Colombia está entre 3.900.000 y 5.800.000 m." };
+    if (y < 1_000_000 || y > 3_100_000)
+      return { campo: "latitud", mensaje: "El Norte (Origen Nacional) en Colombia está entre 1.000.000 y 3.100.000 m." };
+    return null;
+  }
+  if (x < -83 || x > -66) return { campo: "longitud", mensaje: "La longitud en Colombia está entre -83 y -66 (oeste)." };
+  if (y < -5 || y > 14) return { campo: "latitud", mensaje: "La latitud en Colombia está entre -5 y 14." };
+  return null;
+}
+
 /** Estación de calidad del aire: el número es la hoja CA-n / ESTACION n de las plantillas. */
 export const airStationSchema = z.object({
   numero: z.coerce
@@ -47,6 +75,9 @@ export const airStationSchema = z.object({
   longitud: optionalText(50),
   latitud: optionalText(50),
   descripcion: optionalText(2000),
+}).superRefine((v, ctx) => {
+  const problema = coordenadaFueraDeColombia(v.longitud, v.latitud);
+  if (problema) ctx.addIssue({ code: "custom", path: [problema.campo], message: problema.mensaje });
 });
 export type AirStationInput = z.output<typeof airStationSchema>;
 
