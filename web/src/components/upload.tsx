@@ -12,6 +12,7 @@ export type UploadTarget =
   | { kind: "foto"; projectId: string; pointId: string }
   | { kind: "meteo"; projectId: string }
   | { kind: "barrido"; projectId: string }
+  | { kind: "aire"; projectId: string; plantilla: string }
   | { kind: "plantilla" };
 
 const MAX_PHOTO_SIDE = 1600;

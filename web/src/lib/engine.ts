@@ -1,6 +1,6 @@
 import "server-only";
 import type { ReportKind } from "@/db/enums";
-import type { ResultadosProyecto } from "./engine-types";
+import type { ResultadosAire, ResultadosProyecto } from "./engine-types";
 import { EngineError } from "./errors";
 
 /**
@@ -43,6 +43,24 @@ export interface ProyectoPayload {
   /** Datos de redacción del informe (claves de engine/schemas.py InformeIn). */
   informe: Record<string, string>;
   barrido: BarridoPayload[];
+  meteorologia: ArchivoRemoto | null;
+}
+
+/** Proyecto de calidad del aire (engine/schemas.py ProyectoAireIn). */
+export interface ProyectoAirePayload {
+  nombre_proyecto: string;
+  codigo: string;
+  cliente: string;
+  estaciones: {
+    numero: number;
+    nombre: string;
+    codigo: string;
+    codigo_anla: string;
+    longitud: string;
+    latitud: string;
+    descripcion: string;
+  }[];
+  plantillas: Partial<Record<string, ArchivoRemoto>>;
   meteorologia: ArchivoRemoto | null;
 }
 
@@ -114,8 +132,20 @@ export async function procesar(proyecto: ProyectoPayload): Promise<ResultadosPro
   return (await res.json()) as ResultadosProyecto;
 }
 
+export async function procesarAire(proyecto: ProyectoAirePayload): Promise<ResultadosAire> {
+  const res = await call("/v1/aire/procesar", { proyecto });
+  return (await res.json()) as ResultadosAire;
+}
+
+export async function generarAire(proyecto: ProyectoAirePayload): Promise<Entregable> {
+  return entregable(await call("/v1/aire/generar", { proyecto, tipo: "excel" }), "xlsx");
+}
+
 export async function generar(payload: GenerarPayload): Promise<Entregable> {
-  const res = await call("/v1/generar", payload);
+  return entregable(await call("/v1/generar", payload), payload.tipo);
+}
+
+async function entregable(res: Response, defecto: string): Promise<Entregable> {
   const bytes = new Uint8Array(await res.arrayBuffer());
   let advertencias: string[] = [];
   try {
@@ -125,7 +155,7 @@ export async function generar(payload: GenerarPayload): Promise<Entregable> {
   }
   return {
     bytes,
-    fileName: decodeURIComponent(res.headers.get("x-nombre-archivo") ?? `informe.${payload.tipo}`),
+    fileName: decodeURIComponent(res.headers.get("x-nombre-archivo") ?? `informe.${defecto}`),
     contentType: res.headers.get("content-type") ?? "application/octet-stream",
     advertencias,
   };

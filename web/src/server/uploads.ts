@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { DIRECCIONES, DIRECCIONES_Y_RANURAS, ESQUEMAS, RANURAS_EMISION } from "@/db/enums";
+import { DIRECCIONES, DIRECCIONES_Y_RANURAS, ESQUEMAS, PLANTILLAS_AIRE, RANURAS_EMISION } from "@/db/enums";
 import { CONTENT_TYPES, UPLOAD_RULES, extensionFor, matchesRule, sniff } from "@/lib/files";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import type { CurrentUser } from "@/lib/session";
@@ -14,6 +14,7 @@ import {
   uploadUrl,
 } from "@/lib/storage";
 import { addBarrido, getPoint, getProject, setMemoryFile, setPointPhoto, setProjectMeteo } from "./projects";
+import { getAireProject, setAirFile } from "./aire";
 import { logActivity } from "./activity";
 import { updateSettings } from "./settings";
 
@@ -36,6 +37,7 @@ export const uploadTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("barrido"), projectId: z.uuid() }),
   z.object({ kind: z.literal("foto"), projectId: z.uuid(), pointId: z.uuid() }),
   z.object({ kind: z.literal("meteo"), projectId: z.uuid() }),
+  z.object({ kind: z.literal("aire"), projectId: z.uuid(), plantilla: z.enum(PLANTILLAS_AIRE) }),
   z.object({ kind: z.literal("plantilla") }),
 ]);
 export type UploadTarget = z.infer<typeof uploadTargetSchema>;
@@ -50,7 +52,14 @@ async function checkTarget(target: UploadTarget, user: CurrentUser) {
     return;
   }
   if (target.kind === "meteo") {
-    await getProject(target.projectId);
+    const project = await getProject(target.projectId);
+    // Calidad del aire está en desarrollo: solo el administrador.
+    if (project.tipo === "aire" && user.role !== "admin") throw new ForbiddenError();
+    return;
+  }
+  if (target.kind === "aire") {
+    if (user.role !== "admin") throw new ForbiddenError();
+    await getAireProject(target.projectId);
     return;
   }
   if (target.kind === "barrido") {
@@ -108,6 +117,9 @@ export async function confirmUpload(target: UploadTarget, key: string, fileName:
       break;
     case "barrido":
       await addBarrido(target.projectId, { key, fileName: name, size });
+      break;
+    case "aire":
+      await setAirFile(target.projectId, target.plantilla, { key, fileName: name, size });
       break;
     case "plantilla":
       await updateSettings({ plantillaKey: key, plantillaNombre: name });

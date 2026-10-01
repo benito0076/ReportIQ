@@ -11,11 +11,25 @@ export const ESQUEMA_LABELS: Record<Esquema, string> = {
   NDNH: "Nocturno - Día no hábil",
 };
 
-export const PROJECT_TYPES = ["ambiental", "emision"] as const;
+export const PROJECT_TYPES = ["ambiental", "emision", "aire"] as const;
 export type ProjectType = (typeof PROJECT_TYPES)[number];
+/** Tipos de la matriz Ruido (los de calidad del aire viven en /aire). */
+export const RUIDO_TYPES = ["ambiental", "emision"] as const;
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   ambiental: "Ruido ambiental",
   emision: "Emisión de ruido",
+  aire: "Calidad del aire",
+};
+
+/** Plantillas de procesamiento de calidad del aire (una por contaminante; FP-021 para los automáticos). */
+export const PLANTILLAS_AIRE = ["PM10", "PM2.5", "SO2", "COV", "AUTOMATICOS"] as const;
+export type PlantillaAire = (typeof PLANTILLAS_AIRE)[number];
+export const PLANTILLA_AIRE_LABELS: Record<PlantillaAire, { titulo: string; formato: string }> = {
+  PM10: { titulo: "PM10 – equipos de alto volumen", formato: "FP-031" },
+  "PM2.5": { titulo: "PM2.5 – equipos de bajo volumen", formato: "FP-032" },
+  SO2: { titulo: "Dióxido de azufre (SO2) – manual", formato: "FP-033" },
+  COV: { titulo: "Compuestos orgánicos volátiles (COV)", formato: "FP-035" },
+  AUTOMATICOS: { titulo: "Equipos automáticos (CO, NO2, O3)", formato: "FP-021" },
 };
 
 export const DIRECCIONES = ["Vertical", "Norte", "Sur", "Este", "Oeste"] as const;

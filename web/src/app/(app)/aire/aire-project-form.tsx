@@ -1,19 +1,18 @@
 "use client";
 
 import { useActionState } from "react";
-import { createProjectAction, updateProjectAction } from "@/app/actions/projects";
+import { createAireProjectAction, updateAireProjectAction } from "@/app/actions/aire";
 import type { ActionState } from "@/app/actions/state";
-import { Field, FormError, SubmitButton, selectClass } from "@/components/form";
-import { PROJECT_TYPE_LABELS, RUIDO_TYPES } from "@/db/enums";
+import { Field, FormError, SubmitButton } from "@/components/form";
 import { Notice } from "@/components/notice";
 import { Input } from "@/components/ui/input";
 
-export function ProjectForm({
+export function AireProjectForm({
   project,
 }: {
   project?: { id: string; nombre: string; cliente: string; codigoInforme: string };
 }) {
-  const action = project ? updateProjectAction.bind(null, project.id) : createProjectAction;
+  const action = project ? updateAireProjectAction.bind(null, project.id) : createAireProjectAction;
   const [state, formAction] = useActionState<ActionState, FormData>(action, {});
   const fe = state.fieldErrors ?? {};
   const v = state.values ?? project ?? {};
@@ -27,20 +26,9 @@ export function ProjectForm({
       <Field label="Cliente" htmlFor="cliente" error={fe.cliente}>
         <Input id="cliente" name="cliente" defaultValue={v.cliente} />
       </Field>
-      <Field label="Código de informe" htmlFor="codigoInforme" error={fe.codigoInforme} hint="Ej.: ER-731-26">
+      <Field label="Plan de muestreo / código" htmlFor="codigoInforme" error={fe.codigoInforme} hint="Ej.: EC-042-26">
         <Input id="codigoInforme" name="codigoInforme" defaultValue={v.codigoInforme} />
       </Field>
-      {!project && (
-        <Field label="Tipo de estudio" htmlFor="tipo" hint="No se puede cambiar después de crear el proyecto.">
-          <select id="tipo" name="tipo" defaultValue={state.values?.tipo ?? "ambiental"} className={selectClass}>
-            {RUIDO_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {PROJECT_TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
       <div className={project ? "sm:col-span-3" : ""}>
         <SubmitButton>{project ? "Guardar datos" : "Crear proyecto"}</SubmitButton>
       </div>
