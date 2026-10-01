@@ -18,8 +18,12 @@ from __future__ import annotations
 import hmac
 import json
 import logging
+import multiprocessing
 import os
 import tempfile
+import threading
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -59,15 +63,70 @@ def sectores():
     ]
 
 
+# --------------------------------------------------------------- aislamiento
+# Cada trabajo pesado (procesar o generar) corre en un proceso hijo que termina
+# al acabar: Python no devuelve al sistema la memoria de openpyxl, matplotlib y
+# python-docx, y en el plan de 512 MB los trabajos sucesivos acababan matando el
+# servicio. El hijo sale de un "forkserver" con los modulos ya importados (rapido
+# y seguro con hilos), y solo corre un trabajo a la vez por proceso del servidor.
+_TRABAJOS = threading.Semaphore(int(os.environ.get("ENGINE_TRABAJOS", "1")))
+_MP = multiprocessing.get_context("forkserver")
+_MP.set_forkserver_preload(["engine.service", "core.aire", "core.informe_aire", "core.report_generator"])
+
+
+def _aislado(fn, *args):
+    if os.environ.get("ENGINE_AISLAR", "1") == "0":
+        return fn(*args)
+    with _TRABAJOS:
+        try:
+            with ProcessPoolExecutor(max_workers=1, mp_context=_MP) as pool:
+                return pool.submit(fn, *args).result()
+        except BrokenProcessPool as exc:
+            log.error("El proceso del trabajo termino de forma inesperada (memoria insuficiente?)")
+            raise HTTPException(503, "El motor se quedó sin memoria con este proyecto. Intente de nuevo; si "
+                                     "persiste, reduzca el número de estaciones por informe.") from exc
+
+
+def _errores(fn, *args):
+    try:
+        return _aislado(fn, *args)
+    except service.ErrorDescarga as exc:
+        raise HTTPException(502, str(exc)) from exc
+    except service.ErrorEntrada as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+def _trabajo_procesar(proyecto):
+    with tempfile.TemporaryDirectory(prefix="ruido_") as carpeta:
+        ctx, _ = service.preparar(proyecto, carpeta)
+        return service.resultados_a_dict(service.procesar(ctx))
+
+
+def _trabajo_generar(body: GenerarIn):
+    with tempfile.TemporaryDirectory(prefix="ruido_") as carpeta:
+        ctx, ruta_plantilla = service.preparar(body.proyecto, carpeta, body.plantilla)
+        if body.tipo == "excel":
+            return service.generar_excel(ctx)
+        if body.tipo == "anexos":
+            return service.generar_anexos(ctx, body.elaborado_por)
+        return service.generar_word(ctx, ruta_plantilla, body.equipos, body.elaborado_por)
+
+
+def _trabajo_procesar_aire(proyecto):
+    with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
+        return service.aire_a_dict(service.procesar_aire(service.preparar_aire(proyecto, carpeta)))
+
+
+def _trabajo_generar_aire(body: GenerarAireIn):
+    with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
+        ctx = service.preparar_aire(body.proyecto, carpeta)
+        return service.generar_word_aire(ctx) if body.tipo == "word" else service.generar_excel_aire(ctx)
+
+
+# --------------------------------------------------------------- rutas
 @app.post("/v1/procesar", dependencies=[Depends(verificar_clave)])
 def procesar(body: ProcesarIn):
-    with tempfile.TemporaryDirectory(prefix="ruido_") as carpeta:
-        try:
-            ctx, _ = service.preparar(body.proyecto, carpeta)
-        except service.ErrorDescarga as exc:
-            raise HTTPException(502, str(exc)) from exc
-        resultados = service.procesar(ctx)
-        return service.resultados_a_dict(resultados)
+    return _errores(_trabajo_procesar, body.proyecto)
 
 
 def _respuesta_archivo(entregable) -> Response:
@@ -83,38 +142,14 @@ def _respuesta_archivo(entregable) -> Response:
 
 @app.post("/v1/aire/procesar", dependencies=[Depends(verificar_clave)])
 def procesar_aire(body: ProcesarAireIn):
-    with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
-        try:
-            ctx = service.preparar_aire(body.proyecto, carpeta)
-        except service.ErrorDescarga as exc:
-            raise HTTPException(502, str(exc)) from exc
-        return service.aire_a_dict(service.procesar_aire(ctx))
+    return _errores(_trabajo_procesar_aire, body.proyecto)
 
 
 @app.post("/v1/aire/generar", dependencies=[Depends(verificar_clave)])
 def generar_aire(body: GenerarAireIn):
-    with tempfile.TemporaryDirectory(prefix="aire_") as carpeta:
-        try:
-            ctx = service.preparar_aire(body.proyecto, carpeta)
-            entregable = service.generar_word_aire(ctx) if body.tipo == "word" else service.generar_excel_aire(ctx)
-        except service.ErrorDescarga as exc:
-            raise HTTPException(502, str(exc)) from exc
-    return _respuesta_archivo(entregable)
+    return _respuesta_archivo(_errores(_trabajo_generar_aire, body))
 
 
 @app.post("/v1/generar", dependencies=[Depends(verificar_clave)])
 def generar(body: GenerarIn):
-    with tempfile.TemporaryDirectory(prefix="ruido_") as carpeta:
-        try:
-            ctx, ruta_plantilla = service.preparar(body.proyecto, carpeta, body.plantilla)
-            if body.tipo == "excel":
-                entregable = service.generar_excel(ctx)
-            elif body.tipo == "anexos":
-                entregable = service.generar_anexos(ctx, body.elaborado_por)
-            else:
-                entregable = service.generar_word(ctx, ruta_plantilla, body.equipos, body.elaborado_por)
-        except service.ErrorDescarga as exc:
-            raise HTTPException(502, str(exc)) from exc
-        except service.ErrorEntrada as exc:
-            raise HTTPException(422, str(exc)) from exc
-    return _respuesta_archivo(entregable)
+    return _respuesta_archivo(_errores(_trabajo_generar, body))
