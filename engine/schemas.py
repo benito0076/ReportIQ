@@ -97,3 +97,40 @@ class GenerarIn(BaseModel):
     plantilla: Optional[ArchivoRemoto] = None  # si no se indica, se usa la plantilla incluida
     equipos: list[EquipoIn] = Field(default_factory=list)
     elaborado_por: str = ""
+
+
+# ------------------------------------------------------------ calidad del aire
+PlantillaAire = Literal["PM10", "PM2.5", "SO2", "COV", "AUTOMATICOS"]
+
+
+class EstacionAireIn(BaseModel):
+    numero: int  # hoja CA-n / ESTACION n de las plantillas
+    nombre: str = ""
+    codigo: str = ""
+    codigo_anla: str = ""
+    longitud: str = ""
+    latitud: str = ""
+    descripcion: str = ""
+
+
+class ProyectoAireIn(BaseModel):
+    nombre_proyecto: str = ""
+    codigo: str = ""
+    cliente: str = ""
+    estaciones: list[EstacionAireIn] = Field(default_factory=list)
+    # Plantillas FP diligenciadas: PM10 (FP-031), PM2.5 (FP-032), SO2 (FP-033),
+    # COV (FP-035) y AUTOMATICOS (FP-021: CO, NO2, O3).
+    plantillas: dict[PlantillaAire, ArchivoRemoto] = Field(default_factory=dict)
+    meteorologia: Optional[ArchivoRemoto] = None
+    informe: InformeIn = Field(default_factory=InformeIn)
+    # Limites de cuantificacion del laboratorio (µg) si difieren de los usuales.
+    limites_cuantificacion: dict[str, float] = Field(default_factory=dict)
+
+
+class ProcesarAireIn(BaseModel):
+    proyecto: ProyectoAireIn
+
+
+class GenerarAireIn(BaseModel):
+    proyecto: ProyectoAireIn
+    tipo: Literal["excel"]

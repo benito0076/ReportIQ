@@ -65,8 +65,17 @@ class Registro:
     lluvia: Optional[float] = None  # mm en el intervalo
 
 
+def _reparar_mojibake(texto: str) -> str:
+    """Encabezados UTF-8 leidos como Latin-1 por la estacion ('PresiÃ³n' -> 'Presión')."""
+    try:
+        return texto.encode("cp1252").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return texto
+
+
 def _norm(texto) -> str:
-    t = unicodedata.normalize("NFKD", str(texto or "")).encode("ascii", "ignore").decode()
+    t = _reparar_mojibake(str(texto or ""))
+    t = unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", t.strip().lower())
 
 
@@ -83,7 +92,7 @@ def _columnas(encabezado) -> dict:
             continue
         # Estaciones tipo Ecowitt/EasyWeather: "Outdoor Temperature(℃)", "Outdoor Humidity(%)".
         h = re.sub(r"^(outdoor|exterior)\s*", "", h)
-        if "fecha" not in cols and (h.startswith("date") or h.startswith("fecha") or h == "time"
+        if "fecha" not in cols and (h.startswith("date") or h.startswith("fecha") or h in ("time", "tiempo")
                                      or h.startswith("time(") or h.startswith("time (")):
             cols["fecha"] = (i, 1.0)
         elif "presion" not in cols and (h.startswith("barometer") or h.startswith("presion") or h.startswith("bar ")
@@ -102,7 +111,8 @@ def _columnas(encabezado) -> dict:
         elif "humedad" not in cols and (h.startswith("hum") or h.startswith("humedad")) and not _es_extremo(h):
             cols["humedad"] = (i, 1.0)
         elif "viento" not in cols and (h.startswith("wind speed") or h.startswith("velocidad") or h == "wind"
-                                        or h.startswith("wind(") or h.startswith("wind (")) and not _es_extremo(h):
+                                        or h.startswith("wind(") or h.startswith("wind (") or h.startswith("viento")) \
+                and not _es_extremo(h):
             factor = 1 / 3.6 if "km/h" in h else (0.44704 if "mph" in h else 1.0)
             cols["viento"] = (i, factor)
         elif "direccion" not in cols and (h.startswith("wind direction") or h.startswith("wind dir")
