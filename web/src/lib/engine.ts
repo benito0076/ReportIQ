@@ -94,39 +94,72 @@ function config() {
   return { url: url.replace(/\/$/, ""), key };
 }
 
+// Render (plan gratuito) duerme el motor tras 15 min sin tráfico: mientras
+// despierta, su proxy responde 429/503 sin llegar a la aplicación. Se
+// reintenta con espera creciente durante este margen como máximo.
+const WAKE_WINDOW_MS = 150_000;
+const RETRY_STATUS = new Set([429, 503]);
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Espera sugerida por Retry-After (segundos), acotada; si no hay, backoff. */
+function retryDelay(res: Response, attempt: number) {
+  const header = Number(res.headers.get("retry-after"));
+  const backoff = Math.min(3_000 * 2 ** attempt, 20_000);
+  return Number.isFinite(header) && header > 0 ? Math.min(header * 1000, 20_000) : backoff;
+}
+
+async function errorDetail(res: Response) {
+  try {
+    return ((await res.json()) as { detail?: string }).detail ?? "";
+  } catch {
+    return ""; // cuerpo no JSON (p. ej. la página del proxy de Render)
+  }
+}
+
 async function call(path: string, body: unknown): Promise<Response> {
   const { url, key } = config();
-  let res: Response;
-  try {
-    res = await fetch(`${url}${path}`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      cache: "no-store",
-    });
-  } catch (e) {
-    const timeout = e instanceof DOMException && e.name === "TimeoutError";
-    throw new EngineError(
-      timeout
-        ? "El motor de cálculo tardó demasiado en responder. Intente de nuevo."
-        : "No se pudo contactar el motor de cálculo. Verifique que esté en línea.",
-      timeout ? 504 : 502,
-    );
-  }
-  if (!res.ok) {
-    let detail = "";
+  const started = Date.now();
+  const payload = JSON.stringify(body);
+  for (let attempt = 0; ; attempt++) {
+    let res: Response;
     try {
-      detail = ((await res.json()) as { detail?: string }).detail ?? "";
-    } catch {
-      // cuerpo no JSON
+      res = await fetch(`${url}${path}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: payload,
+        signal: AbortSignal.timeout(Math.max(TIMEOUT_MS - (Date.now() - started), 1_000)),
+        cache: "no-store",
+      });
+    } catch (e) {
+      const timeout = e instanceof DOMException && e.name === "TimeoutError";
+      throw new EngineError(
+        timeout
+          ? "El motor de cálculo tardó demasiado en responder. Intente de nuevo."
+          : "No se pudo contactar el motor de cálculo. Verifique que esté en línea.",
+        timeout ? 504 : 502,
+      );
+    }
+    if (res.ok) return res;
+    const detail = await errorDetail(res);
+    if (RETRY_STATUS.has(res.status) && !detail) {
+      const wait = retryDelay(res, attempt);
+      if (Date.now() - started + wait <= WAKE_WINDOW_MS) {
+        await sleep(wait);
+        continue;
+      }
+      throw new EngineError(
+        "El motor de cálculo está iniciando o saturado. Espere un minuto e intente de nuevo.",
+        503,
+      );
     }
     if (res.status === 422 && detail) throw new EngineError(detail, 422);
-    if (res.status === 502 && detail) throw new EngineError(detail, 502);
+    if ((res.status === 502 || res.status === 503) && detail) throw new EngineError(detail, 502);
     if (res.status === 401) throw new EngineError("La clave del motor de cálculo (ENGINE_API_KEY) no coincide.", 502);
     throw new EngineError(`El motor de cálculo respondió con un error (HTTP ${res.status}).`, 502);
   }
-  return res;
 }
 
 export async function procesar(proyecto: ProyectoPayload): Promise<ResultadosProyecto> {
