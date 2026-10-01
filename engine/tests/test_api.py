@@ -206,8 +206,10 @@ class TestApiMotor(unittest.TestCase):
         def falla(*_a, **_k):
             raise ConnectionError("sin acceso a server.arcgisonline.com")
 
+        # Los mocks solo existen en este proceso: el trabajo corre aqui, sin hijo.
         with mock.patch.object(service, "CON_MAPA_BASE", True), \
-                mock.patch.object(contextily, "add_basemap", falla):
+                mock.patch.object(contextily, "add_basemap", falla), \
+                mock.patch.dict(os.environ, {"ENGINE_AISLAR": "0"}):
             for tipo in ("anexos", "word"):
                 r = self.client.post("/v1/generar", json={"proyecto": self._proyecto(), "tipo": tipo}, headers=AUTH)
                 self.assertEqual(r.status_code, 200, r.text)

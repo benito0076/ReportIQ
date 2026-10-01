@@ -32,6 +32,7 @@ from core.models import ESQUEMA_LABELS, ESQUEMAS, ArchivoMemoria, DatosInforme, 
 from core.pipeline import procesar_proyecto
 from core.report_generator import ErrorPlantilla, generar_informe
 
+from .errores import ErrorDescarga, ErrorEntrada  # noqa: F401 (se usan como service.Error*)
 from .schemas import ArchivoRemoto, EquipoIn, ProyectoAireIn, ProyectoIn
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -52,12 +53,6 @@ MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 MIME_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
-class ErrorDescarga(Exception):
-    pass
-
-
-class ErrorEntrada(Exception):
-    """Error atribuible a los datos enviados (plantilla invalida, etc.)."""
 
 
 @dataclass
