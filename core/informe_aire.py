@@ -758,6 +758,75 @@ def _objetivos(doc, ctx: ContextoAire):
             _quitar(p._p)
 
 
+# Anchos (twips) de la tabla de descripcion de estaciones del informe ejemplo.
+_ANCHOS_ESTACION = (1357, 1125, 1230, 2558, 2558)
+_FOTO_ANCHO_CM, _FOTO_ALTO_CM = 5.4, 4.0
+
+
+def _tabla_estaciones(doc, ctx: ContextoAire) -> Table:
+    """Un bloque de 5 filas por estacion, como el informe ejemplo: encabezado
+    (2 filas), datos, y foto (3 columnas) junto a la descripcion del punto."""
+    from docx.shared import Twips
+
+    t = construir_tabla(doc, [], [[""] * 5 for _ in range(5 * max(len(ctx.estaciones), 1))])
+    combinar = []
+    for k, e in enumerate(ctx.estaciones):
+        r = 5 * k
+        c = _coordenadas(e)
+        d0, d1 = ctx.periodos.get(e.numero) or (None, None)
+        textos = {
+            (r, 0): "Ubicación", (r, 1): "Fecha de inicio del monitoreo", (r, 2): "Fecha de finalización del monitoreo",
+            (r, 3): "Coordenadas planas Origen Nacional Único", (r + 1, 3): "Norte (Y)", (r + 1, 4): "Este (X)",
+            (r + 2, 0): ctx.nombres[e.numero], (r + 2, 1): d0.isoformat() if d0 else "---",
+            (r + 2, 2): d1.isoformat() if d1 else "---", (r + 2, 3): c["norte"], (r + 2, 4): c["este"],
+            (r + 3, 3): "Descripción del punto de monitoreo", (r + 4, 3): e.descripcion or "---",
+        }
+        for (fila, col), texto in textos.items():
+            t.cell(fila, col).text = texto
+        encabezados = {(r, i) for i in range(5)} | {(r + 1, i) for i in range(5)} | {(r + 3, 3), (r + 3, 4)}
+        for fila in range(r, r + 5):
+            for col in range(5):
+                celda = t.cell(fila, col)
+                celda._tc.get_or_add_tcPr().clear()
+                _formato_celda(celda, (fila, col) in encabezados, None, fila == r + 4)
+                celda.width = Twips(_ANCHOS_ESTACION[col])
+        combinar += [((r, 0), (r + 1, 0)), ((r, 1), (r + 1, 1)), ((r, 2), (r + 1, 2)), ((r, 3), (r, 4)),
+                     ((r + 3, 3), (r + 3, 4)), ((r + 4, 3), (r + 4, 4)), ((r + 3, 0), (r + 4, 2))]
+    for (r0, c0), (r1, c1) in combinar:
+        a = t.cell(r0, c0)
+        texto = a.text
+        negrita = any(run.bold for p in a.paragraphs for run in p.runs)
+        a.merge(t.cell(r1, c1))
+        set_cell_text(a, texto)
+        for p in a.paragraphs:
+            for run in p.runs:
+                run.font.size = Pt(9)
+                run.bold = negrita or None
+    for k, e in enumerate(ctx.estaciones):
+        if e.foto_ruta and os.path.exists(e.foto_ruta):
+            celda = t.cell(5 * k + 3, 0)
+            ancho = Cm(_FOTO_ANCHO_CM)
+            try:
+                from PIL import Image
+
+                with Image.open(e.foto_ruta) as im:
+                    w, h = im.size
+                if h and w and _FOTO_ANCHO_CM * h / w > _FOTO_ALTO_CM:
+                    ancho = Cm(_FOTO_ALTO_CM * w / h)
+                celda.paragraphs[0].add_run().add_picture(e.foto_ruta, width=ancho)
+            except Exception:  # noqa: BLE001 - una foto ilegible no detiene el informe
+                pass
+    # Ninguna fila es encabezado repetido: cada bloque trae el suyo.
+    for fila in t.rows:
+        for rep in fila._tr.findall(".//" + qn("w:tblHeader")):
+            rep.getparent().remove(rep)
+        # No partir un bloque entre paginas.
+        trpr = fila._tr.get_or_add_trPr()
+        cant = OxmlElement("w:cantSplit")
+        trpr.append(cant)
+    return t
+
+
 def _svca(doc, ctx: ContextoAire, carpeta: str, faltantes):
     """Descripcion de las estaciones (tabla) y figura de localizacion."""
     _avisar_coordenadas(ctx, faltantes)
@@ -773,18 +842,11 @@ def _svca(doc, ctx: ContextoAire, carpeta: str, faltantes):
             actual, siguiente = siguiente, siguiente.getnext()
             _quitar(actual)
         cur = Cursor(doc, leyenda)
-        filas = []
-        for e in ctx.estaciones:
-            c = _coordenadas(e)
-            d0, d1 = ctx.periodos.get(e.numero) or (None, None)
-            filas.append([ctx.nombres[e.numero], d0.isoformat() if d0 else "---", d1.isoformat() if d1 else "---",
-                          c["norte"], c["este"], e.descripcion or "---"])
-        cur.tabla([[("Estación", 1, 2), ("Fecha de inicio del monitoreo", 1, 2),
-                    ("Fecha de finalización del monitoreo", 1, 2), ("Coordenadas planas Origen Nacional", 2, 1),
-                    ("Descripción", 1, 2)],
-                   ["Norte (Y)", "Este (X)"]],
-                  filas, izquierda=(5,))
+        cur._poner(_tabla_estaciones(doc, ctx)._tbl)
         cur.fuente(anio=ctx.anio)
+        sin_foto = [ctx.nombres[e.numero] for e in ctx.estaciones if not e.foto_ruta]
+        if sin_foto:
+            faltantes.append("Registro fotográfico: suba la foto de la estación en " + lista(sin_foto))
         if not any(e.descripcion for e in ctx.estaciones):
             faltantes.append("Descripción de las estaciones: agregue la descripción en cada estación")
     if p is not None and n_tabla:
@@ -1144,19 +1206,23 @@ def _automatico(cur: Cursor, ctx: ContextoAire, c: str, carpeta: str):
                [*[ctx.nombres[e.numero] for _ in exposiciones for e in estaciones]]], filas, rellenos)
     cur.fuente(anio=ctx.anio)
 
+    # Todas las graficas son de barras, en el orden del informe ejemplo: por cada tiempo
+    # de exposicion, la serie de cada estacion y luego los maximos diarios vs. el limite.
     graficas = []
-    for e in estaciones:
-        s = series[e.numero]
-        graficas.append((f"Concentraciones horarias de {TITULOS[c]} – {ctx.nombres[e.numero]}",
-                         gr.serie_horaria(s.horas, s.medias_8h, LIMITES[c].get("1h"), LIMITES[c].get("8h"),
-                                          f"{sigla} (µg/m³)", gr.nombre_archivo(carpeta, "horaria", c, e.numero),
-                                          mostrar_1h=c != O3, mostrar_8h=c != NO2)))
     for clave, attr, texto in exposiciones:
+        nombre_serie = "horarias" if clave == "1h" else "octohorarias"
+        for e in estaciones:
+            s = series[e.numero]
+            pares = s.horas if clave == "1h" else s.medias_8h
+            graficas.append((f"Concentraciones {nombre_serie} de {TITULOS[c]} – {ctx.nombres[e.numero]}",
+                             gr.barras_horarias(pares, f"{sigla} (µg/m³)",
+                                                gr.nombre_archivo(carpeta, nombre_serie, c, e.numero),
+                                                "Concentración horaria" if clave == "1h" else "Media móvil de 8 horas")))
         graficas.append((f"Concentraciones {'máximas horarias' if clave == '1h' else 'máximas octohorarias'} de "
                          f"{TITULOS[c]} versus el límite máximo permisible",
                          gr.barras_diarias({ctx.nombres[e.numero]: [(d.fecha, getattr(d, attr)) for d in series[e.numero].dias]
                                             for e in estaciones}, LIMITES[c][clave], f"{sigla} (µg/m³)",
-                                           gr.nombre_archivo(carpeta, "max", c, clave), log=True)))
+                                           gr.nombre_archivo(carpeta, "max", c, clave))))
     n_graf = cur.numero("Gráfica")
     for clave, attr, texto in exposiciones:
         nombre_exp = "concentraciones máximas horarias" if clave == "1h" else "medias móviles máximas de ocho horas"

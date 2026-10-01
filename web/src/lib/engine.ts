@@ -59,6 +59,7 @@ export interface ProyectoAirePayload {
     longitud: string;
     latitud: string;
     descripcion: string;
+    foto: ArchivoRemoto | null;
   }[];
   plantillas: Partial<Record<string, ArchivoRemoto>>;
   meteorologia: ArchivoRemoto | null;

@@ -13,6 +13,7 @@ import {
   deleteStation,
   getAireProject,
   removeAirFile,
+  removeStationPhoto,
   updateStation,
 } from "@/server/aire";
 import { deleteProject, updateProject } from "@/server/projects";
@@ -103,6 +104,12 @@ export async function updateStationAction(
 export async function deleteStationAction(projectId: string, stationId: string) {
   await assertAdmin();
   await deleteStation(projectId, stationId);
+  revalidatePath(`/aire/${projectId}`);
+}
+
+export async function removeStationPhotoAction(projectId: string, stationId: string) {
+  await assertAdmin();
+  await removeStationPhoto(projectId, stationId);
   revalidatePath(`/aire/${projectId}`);
 }
 

@@ -112,6 +112,7 @@ class EstacionAireIn(BaseModel):
     longitud: str = ""
     latitud: str = ""
     descripcion: str = ""
+    foto: Optional[ArchivoRemoto] = None
 
 
 class ProyectoAireIn(BaseModel):

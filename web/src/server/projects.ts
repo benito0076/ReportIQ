@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, count, desc, eq, inArray, max, ne } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
 import type { CondicionBarrido, Direccion, Esquema, ProjectType } from "@/db/enums";
-import { airFiles, barridoFiles, memoryFiles, points, projects, reports, users } from "@/db/schema";
+import { airFiles, airStations, barridoFiles, memoryFiles, points, projects, reports, users } from "@/db/schema";
 import type { DatosInforme, PointInput, ProjectInput } from "@/lib/validation";
 import { NotFoundError } from "@/lib/errors";
 import { deleteObject } from "@/lib/storage";
@@ -79,6 +79,10 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
   const [proj] = await db.select({ meteo: projects.meteoKey }).from(projects).where(eq(projects.id, projectId));
   const barr = await db.select({ key: barridoFiles.fileKey }).from(barridoFiles).where(eq(barridoFiles.projectId, projectId));
   const aire = await db.select({ key: airFiles.fileKey }).from(airFiles).where(eq(airFiles.projectId, projectId));
+  const fotosAire = await db
+    .select({ key: airStations.fotoKey })
+    .from(airStations)
+    .where(eq(airStations.projectId, projectId));
   return [
     proj?.meteo,
     ...pts.map((p) => p.foto),
@@ -86,6 +90,7 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
     ...reps.map((r) => r.key),
     ...barr.map((b) => b.key),
     ...aire.map((a) => a.key),
+    ...fotosAire.map((f) => f.key),
   ].filter(
     (k): k is string => !!k,
   );
