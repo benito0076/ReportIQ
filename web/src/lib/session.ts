@@ -40,7 +40,7 @@ export async function requireUser(): Promise<CurrentUser> {
 /** Para páginas de administración. */
 export async function requireAdminPage(): Promise<CurrentUser> {
   const user = await requireUser();
-  if (user.role !== "admin") redirect("/proyectos");
+  if (user.role !== "admin") redirect("/inicio");
   return user;
 }
 

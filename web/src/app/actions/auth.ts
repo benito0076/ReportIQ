@@ -10,7 +10,7 @@ import { str, toActionState, type ActionState } from "./state";
 
 /** Solo acepta rutas internas para evitar redirecciones abiertas. */
 function safeCallback(value: string): string {
-  return value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\") ? value : "/proyectos";
+  return value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\") ? value : "/inicio";
 }
 
 export async function loginAction(_prev: ActionState, form: FormData): Promise<ActionState> {
@@ -37,7 +37,7 @@ export async function setupAction(_prev: ActionState, form: FormData): Promise<A
       password: str(form, "password"),
     });
     await setupFirstAdmin(input);
-    await signIn("credentials", { email: input.email, password: input.password, redirectTo: "/proyectos" });
+    await signIn("credentials", { email: input.email, password: input.password, redirectTo: "/inicio" });
     return { ok: true };
   } catch (e) {
     if (e instanceof AuthError) return { error: "Cuenta creada, pero no se pudo iniciar sesión. Intente en /login." };
