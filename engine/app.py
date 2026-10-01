@@ -67,12 +67,11 @@ def sectores():
 # Cada trabajo pesado (procesar o generar) corre en un proceso hijo que termina
 # al acabar: Python no devuelve al sistema la memoria de openpyxl, matplotlib y
 # python-docx, y en el plan de 512 MB los trabajos sucesivos acababan matando el
-# servicio. El proceso del servidor ni siquiera importa core/ (~90 MB): el hijo
-# sale de un "forkserver" con los modulos ya importados (rapido y seguro con
-# hilos), y solo corre un trabajo a la vez por proceso del servidor.
+# servicio. Ni el proceso del servidor ni el "forkserver" (seguro con hilos)
+# importan core/ (~90 MB): solo el hijo lo carga (2-3 s) y lo libera al salir.
+# Corre un trabajo a la vez por proceso del servidor.
 _TRABAJOS = threading.Semaphore(int(os.environ.get("ENGINE_TRABAJOS", "1")))
 _MP = multiprocessing.get_context("forkserver")
-_MP.set_forkserver_preload(["engine.service", "core.aire", "core.informe_aire", "core.report_generator"])
 
 
 def _aislado(fn, *args):
