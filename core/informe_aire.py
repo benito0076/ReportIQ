@@ -397,6 +397,10 @@ def construir_tabla(doc, encabezado: list, filas: list, rellenos: Optional[dict]
     jc = OxmlElement("w:jc")
     jc.set(qn("w:val"), "center")
     tblpr.append(jc)
+    # t.cell(r, c) recalcula toda la cuadricula en cada llamada (cuadratico en tablas
+    # grandes): se calcula una vez, antes de combinar celdas.
+    cuadricula = t._cells
+    celda_en = lambda r, c: cuadricula[r * ncol + c]  # noqa: E731
     ocupadas = set()
     combinar = []
     for r, fila in enumerate(encabezado):
@@ -405,7 +409,7 @@ def construir_tabla(doc, encabezado: list, filas: list, rellenos: Optional[dict]
             texto, ncols, nfilas = (celda + (1, 1)[len(celda) - 1:]) if isinstance(celda, tuple) else (celda, 1, 1)
             while (r, c) in ocupadas:
                 c += 1
-            t.cell(r, c).text = texto
+            celda_en(r, c).text = texto
             for dr in range(nfilas):
                 for dc in range(ncols):
                     ocupadas.add((r + dr, c + dc))
@@ -415,10 +419,10 @@ def construir_tabla(doc, encabezado: list, filas: list, rellenos: Optional[dict]
     n_enc = len(encabezado)
     for r, fila in enumerate(filas):
         for c, valor in enumerate(fila):
-            t.cell(n_enc + r, c).text = "" if valor is None else str(valor)
+            celda_en(n_enc + r, c).text = "" if valor is None else str(valor)
     for r in range(len(encabezado) + len(filas)):
         for c in range(ncol):
-            celda = t.cell(r, c)
+            celda = celda_en(r, c)
             relleno = (rellenos or {}).get((r - n_enc, c)) if r >= n_enc else None
             _formato_celda(celda, r < n_enc, relleno, c in izquierda)
     for r0, c0, r1, c1 in combinar:

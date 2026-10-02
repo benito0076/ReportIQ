@@ -141,11 +141,64 @@ def _texto(v) -> str:
     return re.sub(r"\s+", " ", str(v or "")).strip()
 
 
-def _abrir(ruta: str):
+class _Celda:
+    __slots__ = ("value",)
+
+    def __init__(self, value):
+        self.value = value
+
+
+class _Hoja:
+    """Hoja ya leida en memoria (solo valores) con la parte de la interfaz de
+    openpyxl que usan los lectores: title, sheet_state, max_row, cell e iter_rows."""
+
+    def __init__(self, ws):
+        self.title = ws.title
+        self.sheet_state = getattr(ws, "sheet_state", "visible")
+        self._ws = ws
+        self._filas = None
+
+    def _cargar(self) -> list:
+        if self._filas is None:
+            if hasattr(self._ws, "reset_dimensions"):
+                self._ws.reset_dimensions()  # no confiar en la dimension declarada en el archivo
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")  # formatos condicionales no soportados
+                self._filas = [tuple(f) for f in self._ws.iter_rows(values_only=True)]
+            self._ws = None
+        return self._filas
+
+    @property
+    def max_row(self) -> int:
+        return len(self._cargar())
+
+    def cell(self, fila: int, columna: int) -> _Celda:
+        filas = self._cargar()
+        valores = filas[fila - 1] if 0 < fila <= len(filas) else ()
+        return _Celda(valores[columna - 1] if 0 < columna <= len(valores) else None)
+
+    def __getitem__(self, coordenada: str) -> _Celda:
+        from openpyxl.utils.cell import coordinate_to_tuple
+
+        return self.cell(*coordinate_to_tuple(coordenada))
+
+    def iter_rows(self, min_row: int = 1, max_row: Optional[int] = None, values_only: bool = True):
+        yield from self._cargar()[min_row - 1:max_row]
+
+
+class _Libro:
+    def __init__(self, wb):
+        self.worksheets = [_Hoja(ws) for ws in wb.worksheets]
+
+
+def _abrir(ruta: str) -> _Libro:
+    """Abre la plantilla en modo de solo lectura: sin estilos ni celdas combinadas,
+    que en las FP costaban ~6 s de CPU por archivo (el plan de Render tiene 0,15 CPU).
+    Cada hoja se lee una sola vez, al usarla, y queda en memoria solo con valores."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")  # formatos condicionales e imagenes WMF
         try:
-            return openpyxl.load_workbook(ruta, data_only=True)
+            return _Libro(openpyxl.load_workbook(ruta, data_only=True, read_only=True))
         except Exception as exc:  # noqa: BLE001
             raise ErrorPlantillaAire(f"No se pudo abrir el archivo: {exc}") from exc
 
