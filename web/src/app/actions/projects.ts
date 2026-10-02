@@ -83,6 +83,7 @@ export async function updateInformeAction(projectId: string, _prev: ActionState,
   }
   revalidatePath(`/proyectos/${projectId}`);
   revalidatePath(`/aire/${projectId}`);
+  revalidatePath(`/vertimientos/${projectId}`);
   return { ok: true, message: "Datos del informe guardados." };
 }
 

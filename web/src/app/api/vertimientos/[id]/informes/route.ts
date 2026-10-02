@@ -8,17 +8,16 @@ import { generateVertReport } from "@/server/vertimientos";
 
 export const maxDuration = 300;
 
-// El informe Word de vertimientos llega en una fase posterior.
-const bodySchema = z.object({ kind: z.literal("excel") });
+const bodySchema = z.object({ kind: z.enum(["excel", "word"]) });
 
-/** Genera el Excel de resultados de vertimientos frente a la Res. 0631 de 2015. */
+/** Genera el Excel de resultados o el informe Word de vertimientos (Res. 0631 de 2015). */
 export async function POST(req: Request, { params }: RouteContext<"/api/vertimientos/[id]/informes">) {
   return handleApi(async () => {
     const user = await assertAdmin();
     const { id } = await params;
     const body = bodySchema.safeParse(await req.json().catch(() => null));
     if (!body.success) throw new ValidationError("Tipo de informe inválido.");
-    const report = await generateVertReport(id, user.id);
+    const report = await generateVertReport(id, body.data.kind, user.id);
     await logActivity("informe_generado", user, report.fileName);
     return NextResponse.json({ ok: true, id: report.id, advertencias: report.advertencias });
   });

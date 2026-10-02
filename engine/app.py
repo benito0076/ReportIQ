@@ -14,7 +14,7 @@ cabecera `Authorization: Bearer <ENGINE_API_KEY>`.
     POST /v1/aire/generar   calidad del aire: entregable (excel | word)
     GET  /v1/vertimientos/actividades  actividades de la Res. 0631 de 2015
     POST /v1/vertimientos/procesar     vertimientos: resultados vs Res. 0631 (JSON)
-    POST /v1/vertimientos/generar      vertimientos: entregable (excel)
+    POST /v1/vertimientos/generar      vertimientos: entregable (excel | word)
 """
 from __future__ import annotations
 
@@ -147,10 +147,11 @@ def _trabajo_procesar_vertimiento(proyecto):
 def _trabajo_generar_vertimiento(body: GenerarVertimientoIn):
     from . import service  # core/ solo se importa en el proceso de trabajo
 
-    if body.tipo != "excel":
-        raise ErrorEntrada("El informe Word de vertimientos aún no está disponible.")
     with tempfile.TemporaryDirectory(prefix="vert_") as carpeta:
-        return service.generar_excel_vertimiento(service.preparar_vertimiento(body.proyecto, carpeta))
+        ctx = service.preparar_vertimiento(body.proyecto, carpeta)
+        if body.tipo == "word":
+            return service.generar_word_vertimiento(ctx)
+        return service.generar_excel_vertimiento(ctx)
 
 
 # --------------------------------------------------------------- rutas

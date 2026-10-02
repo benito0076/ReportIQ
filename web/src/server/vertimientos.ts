@@ -240,15 +240,15 @@ export async function processVertimiento(projectId: string): Promise<ResultadosV
   return resultados;
 }
 
-export async function generateVertReport(projectId: string, userId: string) {
-  const result = await engine.generarVertimiento(await buildPayload(projectId), "excel");
-  const key = newKey("informe", projectId, "xlsx");
+export async function generateVertReport(projectId: string, kind: "excel" | "word", userId: string) {
+  const result = await engine.generarVertimiento(await buildPayload(projectId), kind);
+  const key = newKey("informe", projectId, kind === "word" ? "docx" : "xlsx");
   await putObject(key, result.bytes, result.contentType);
   const [row] = await db
     .insert(reports)
     .values({
       projectId,
-      kind: "excel",
+      kind,
       fileKey: key,
       fileName: result.fileName,
       size: result.bytes.byteLength,

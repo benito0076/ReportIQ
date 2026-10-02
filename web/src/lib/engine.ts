@@ -223,8 +223,11 @@ export async function procesarVertimiento(proyecto: ProyectoVertimientoPayload):
   return (await res.json()) as ResultadosVertimiento;
 }
 
-export async function generarVertimiento(proyecto: ProyectoVertimientoPayload, tipo: "excel"): Promise<Entregable> {
-  return entregable(await call("/v1/vertimientos/generar", { proyecto, tipo }), "xlsx");
+export async function generarVertimiento(
+  proyecto: ProyectoVertimientoPayload,
+  tipo: "excel" | "word",
+): Promise<Entregable> {
+  return entregable(await call("/v1/vertimientos/generar", { proyecto, tipo }), tipo === "word" ? "docx" : "xlsx");
 }
 
 export async function generar(payload: GenerarPayload): Promise<Entregable> {

@@ -22,6 +22,7 @@ import { requireAdminPage } from "@/lib/session";
 import { listReports } from "@/server/processing";
 import { isUuid } from "@/server/projects";
 import { configDe, getVertProject, listWaterPoints } from "@/server/vertimientos";
+import { InformeForm } from "../../proyectos/[id]/informe-form";
 import { VertProjectForm } from "../vert-project-form";
 import { NormaForm } from "./norma-form";
 import { PointForm } from "./point-form";
@@ -247,10 +248,24 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
 
         <Card>
           <CardHeader className="border-b">
-            <CardTitle>5. Procesamiento y entregables</CardTitle>
+            <CardTitle>5. Datos del informe</CardTitle>
             <CardDescription>
-              Compara los resultados del laboratorio con los límites de la Resolución 0631 de 2015. El informe Word llegará
-              en la siguiente fase; por ahora se genera el Excel de resultados.
+              Portada, encabezado y cliente del informe Word. Si faltan el NIT, la dirección, el contacto o el municipio,
+              se toman del reporte del laboratorio. Las firmas del cuadro de control se toman de Ajustes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <InformeForm projectId={id} informe={project.informe} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b">
+            <CardTitle>6. Procesamiento y entregables</CardTitle>
+            <CardDescription>
+              Compara los resultados del laboratorio con los límites de la Resolución 0631 de 2015. El informe Word sigue
+              el formato FP-023 (informe técnico de calidad de agua): tablas de campo y de laboratorio, análisis por
+              parámetro con gráficas y conclusiones.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">

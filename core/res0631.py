@@ -49,6 +49,7 @@ class Limite:
 
 NE = Limite("ne", "N.E.")
 AYR = Limite("ayr", "Análisis y Reporte")
+NA = Limite("ne", "N.A.")
 
 
 def numero(texto: str) -> float:
@@ -76,7 +77,9 @@ def limite(actividad: str, parametro: str, alcantarillado: bool = False, consumo
     """Limite de la resolucion para el parametro (clave del laboratorio o de la norma) en la actividad.
     `alcantarillado`: aplica el Art. 16; `consumo_humano`: paragrafo de HAP <= 0,01 mg/L."""
     p = parametro_norma(parametro)
-    if p in ("temperatura_max", "temperatura_min", "temperatura"):
+    if p == "temperatura_min":
+        return NA  # el limite del Art. 5 es un maximo: se compara la temperatura maxima
+    if p in ("temperatura_max", "temperatura"):
         return Limite("max", fmt_limite(datos.TEMPERATURA_MAXIMA), maximo=datos.TEMPERATURA_MAXIMA,
                       nota="Artículo 5 de la Resolución 0631 de 2015.")
     act = ACTIVIDADES.get(actividad)
