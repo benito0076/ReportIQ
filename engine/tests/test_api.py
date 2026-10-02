@@ -306,6 +306,35 @@ class TestApiMotor(unittest.TestCase):
         texto = "\n".join(p.text for p in docx.Document(io.BytesIO(r.content)).paragraphs)
         self.assertIn("Parámetro: Partículas Menores a 10 Micras (PM10)", texto)
 
+    def test_vertimientos(self):
+        from tests.test_vertimientos import crear_fp004
+
+        crear_fp004(os.path.join(self.tmp.name, "FP004.xlsx"))
+        r = self.client.get("/v1/vertimientos/actividades", headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        art12 = next(g for g in r.json() if g["articulo"] == 12)
+        self.assertIn({"clave": "art12_alimentos_animales", "actividad": "Elaboración de alimentos preparados "
+                       "para animales"}, art12["actividades"])
+        proyecto = {
+            "codigo": "EA-900-26", "actividades": ["art12_alimentos_animales"], "alcantarillado": True,
+            "fp004": {"url": f"{self.base}/FP004.xlsx", "nombre": "FP004.xlsx"},
+            "puntos": [{"nombre": "Entrada sistema de tratamiento", "evaluar": False},
+                       {"nombre": "Salida sistema de tratamiento"}],
+        }
+        r = self.client.post("/v1/vertimientos/procesar", json={"proyecto": proyecto}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        datos = r.json()
+        self.assertEqual([p["campo"]["hoja"] for p in datos["puntos"]], ["Entrada", "Salida"])
+        self.assertEqual(datos["puntos"][1]["campo"]["caudal_maximo_mls"], 300.0)
+        self.assertEqual([c["titulo"] for c in datos["columnas"]],
+                         ["Art. 12 Elaboración de alimentos preparados para animales", "Art. 12 Ajustado al Art. 16"])
+        r = self.client.post("/v1/vertimientos/generar", json={"proyecto": proyecto, "tipo": "excel"}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        import openpyxl
+
+        wb = openpyxl.load_workbook(io.BytesIO(r.content))
+        self.assertEqual(wb.sheetnames, ["Resultados vs Res. 0631", "Campo Entrada", "Campo Salida", "Norma aplicada"])
+
 
 if __name__ == "__main__":
     unittest.main()
