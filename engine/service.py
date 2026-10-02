@@ -579,3 +579,110 @@ def generar_word_aire(ctx: ContextoAire) -> Entregable:
     advertencias += [f"Revisar en el informe: {t}" for t in faltantes]
     base = re.sub(r"[^\w\-. ]+", "_", ctx.proyecto.codigo or ctx.proyecto.nombre_proyecto or "proyecto").strip()
     return Entregable(contenido, f"{base[:80]} - Informe calidad del aire.docx", MIME_DOCX, advertencias)
+
+
+# ---------------------------------------------------------------- vertimientos
+@dataclass
+class ContextoVertimiento:
+    carpeta: str
+    proyecto: object  # core.vertimientos.ProyectoVertimiento
+    nombres: dict = field(default_factory=dict)
+    informe: Optional[DatosInforme] = None
+
+
+def preparar_vertimiento(proyecto_in, carpeta: str) -> ContextoVertimiento:
+    from core.vertimientos import ProyectoVertimiento, PuntoVertimiento
+
+    proyecto = ProyectoVertimiento(
+        nombre_proyecto=proyecto_in.nombre_proyecto, codigo=proyecto_in.codigo, cliente=proyecto_in.cliente,
+        actividades=list(proyecto_in.actividades), alcantarillado=proyecto_in.alcantarillado,
+        consumo_humano=proyecto_in.consumo_humano)
+    ctx = ContextoVertimiento(carpeta=carpeta, proyecto=proyecto,
+                              informe=DatosInforme(**proyecto_in.informe.model_dump()))
+    descargas = []
+    for i, p in enumerate(proyecto_in.puntos, start=1):
+        punto = PuntoVertimiento(nombre=p.nombre, hoja_fp=p.hoja_fp, evaluar=p.evaluar, latitud=p.latitud,
+                                 longitud=p.longitud, descripcion=p.descripcion, tipo_agua=p.tipo_agua)
+        if p.informe is not None:
+            punto.informe_pdf = os.path.join(carpeta, f"p{i}_laboratorio.pdf")
+            ctx.nombres[punto.informe_pdf] = p.informe.nombre or f"reporte del punto {i}"
+            descargas.append((p.informe, punto.informe_pdf))
+        if p.foto is not None:
+            punto.foto_ruta = os.path.join(carpeta, f"p{i}_foto{_extension(p.foto.nombre, '.jpg')}")
+            descargas.append((p.foto, punto.foto_ruta))
+        proyecto.puntos.append(punto)
+    if proyecto_in.fp004 is not None:
+        proyecto.fp004 = os.path.join(carpeta, "fp004.xlsx")
+        ctx.nombres[proyecto.fp004] = proyecto_in.fp004.nombre or "FP-004"
+        descargas.append((proyecto_in.fp004, proyecto.fp004))
+    if descargas:
+        with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0), follow_redirects=True) as cliente:
+            with ThreadPoolExecutor(max_workers=DESCARGAS_SIMULTANEAS) as pool:
+                list(pool.map(lambda d: _descargar(cliente, d[0], d[1]), descargas))
+    return ctx
+
+
+def procesar_vertimiento(ctx: ContextoVertimiento):
+    from core.vertimientos import procesar_vertimiento as _procesar
+
+    res = _procesar(ctx.proyecto)
+    for i, adv in enumerate(res.advertencias):
+        for ruta, nombre in ctx.nombres.items():
+            adv = adv.replace(ruta, nombre)
+        res.advertencias[i] = adv
+    return res
+
+
+def vertimiento_a_dict(res) -> dict:
+    from core import res0631
+
+    def campo(c):
+        if c is None:
+            return None
+        caudales = [m.caudal_mls for m in c.mediciones if m.caudal_mls is not None]
+        return {
+            "hoja": c.hoja, "titulo": c.titulo, "mediciones": len(c.mediciones),
+            "inicio": _valor(c.mediciones[0].hora) if c.mediciones else None,
+            "fin": _valor(c.mediciones[-1].hora) if c.mediciones else None,
+            "caudal_promedio_mls": _valor(sum(caudales) / len(caudales)) if caudales else None,
+            "caudal_maximo_mls": _valor(max(caudales)) if caudales else None,
+            "caudal_minimo_mls": _valor(min(caudales)) if caudales else None,
+            "tamano_muestra_ml": _valor(c.tamano_muestra_ml),
+        }
+
+    return {
+        "puntos": [{
+            "nombre": rp.punto.nombre, "evaluar": rp.punto.evaluar, "campo": campo(rp.campo),
+            "muestra": rp.informe.muestra if rp.informe else None,
+            "punto_laboratorio": rp.informe.punto if rp.informe else None,
+            "tipo_muestreo": rp.informe.tipo_muestreo if rp.informe else None,
+            "fecha_muestreo": _valor(rp.informe.fecha_muestreo) if rp.informe else None,
+            "ensayos": len(rp.informe.resultados) if rp.informe else 0,
+        } for rp in res.puntos],
+        "columnas": [{"titulo": c.titulo, "actividad": c.actividad, "alcantarillado": c.alcantarillado,
+                      "aplica": c.aplica} for c in res.columnas],
+        "filas": [{
+            "clave": f.parametro.clave, "parametro": f.parametro.nombre, "grupo": f.parametro.grupo,
+            "unidad": f.unidad, "metodo": f.metodo, "lcm": f.lcm, "subcontratado": f.subcontratado,
+            "resultados": {k: r.reporte for k, r in f.resultados.items()},
+            "limites": [res0631.texto_limite(f.parametro.clave, lim) + lim.marca for lim in f.limites],
+            "conformidad": [{"punto": p, "columna": c, "estado": e} for (p, c), e in f.conformidad.items()],
+        } for f in res.filas],
+        "incumplimientos": [{"punto": p, "parametro": f.parametro.nombre, "columna": res.columnas[c].titulo,
+                             "resultado": f.resultados[p].reporte,
+                             "limite": res0631.texto_limite(f.parametro.clave, f.limites[c]) + f.limites[c].marca}
+                            for p, f, c in res.incumplimientos()],
+        "advertencias": list(res.advertencias),
+    }
+
+
+def generar_excel_vertimiento(ctx: ContextoVertimiento) -> Entregable:
+    from core.vertimientos_excel import exportar_resultados_vertimiento
+
+    res = procesar_vertimiento(ctx)
+    ruta = os.path.join(ctx.carpeta, "resultados_vertimientos.xlsx")
+    exportar_resultados_vertimiento(res, ruta)
+    with open(ruta, "rb") as f:
+        contenido = f.read()
+    base = re.sub(r"[^\w\-. ]+", "_", ctx.proyecto.codigo or ctx.proyecto.nombre_proyecto or "proyecto").strip()
+    return Entregable(contenido, f"Resultados vertimientos {base[:80]}.xlsx", MIME_XLSX, list(res.advertencias))

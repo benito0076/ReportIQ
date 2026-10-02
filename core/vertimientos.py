@@ -128,11 +128,19 @@ def parametro_de(ensayo: str) -> Parametro:
     if m:
         compuesto = m.group(1).strip()
         return Parametro("hap_" + re.sub(r"[^a-z0-9]+", "_", compuesto.lower()).strip("_"),
-                         _titulo(compuesto), "hap", "")
+                         _sin_normalizar(ensayo, compuesto), "hap", "")
     for p in PARAMETROS:
         if re.search(p.patron, n):
             return p
     return Parametro(re.sub(r"[^a-z0-9]+", "_", n.lower()).strip("_"), _titulo(ensayo), "otro", "")
+
+
+def _sin_normalizar(ensayo: str, compuesto: str) -> str:
+    """Nombre del compuesto con sus tildes originales, solo con la primera letra en mayuscula
+    ("Benzo(a)antraceno", "Indeno(1,2,3-cd) pireno")."""
+    original = re.split(r"\s*-\s*", str(ensayo), maxsplit=1)[-1].replace("*", "").strip() or compuesto
+    original = original.lower()
+    return original[:1].upper() + original[1:]
 
 
 _MINUSCULAS = {"de", "del", "la", "las", "los", "y", "a", "como", "en", "el"}
@@ -253,8 +261,14 @@ def _fecha_hora(texto: str) -> Optional[datetime]:
 
 def leer_informe_laboratorio(ruta: str) -> InformeLaboratorio:
     """Lee un reporte de resultados del laboratorio (PDF con texto, formato FT-024)."""
-    lineas = _texto_pdf(ruta)
-    inf = InformeLaboratorio(archivo=ruta)
+    inf = interpretar_reporte(_texto_pdf(ruta))
+    inf.archivo = ruta
+    return inf
+
+
+def interpretar_reporte(lineas: list[str]) -> InformeLaboratorio:
+    """Interpreta el texto del reporte (lineas con el espaciado de la pagina)."""
+    inf = InformeLaboratorio()
     datos: dict[str, str] = {}
     en_resultados = subcontratados = False
     ultimo: Optional[ResultadoLab] = None
@@ -456,3 +470,151 @@ def leer_fp004(ruta: str) -> list[PuntoCampo]:
         raise ErrorVertimientos("La plantilla no tiene hojas de punto con datos (se esperaba la tabla "
                                 "Hora | Volumen (mL) | Tiempo (s) | Caudal (mL/s) en la fila 4).")
     return puntos
+
+
+# ---------------------------------------------------------------- proyecto
+@dataclass
+class PuntoVertimiento:
+    nombre: str  # "Entrada sistema de tratamiento"
+    informe_pdf: str = ""  # reporte de resultados del laboratorio
+    hoja_fp: str = ""  # hoja de la FP-004 con los datos de campo ("" = se busca por nombre)
+    evaluar: bool = True  # se compara con la norma (la entrada a la PTAR normalmente no)
+    latitud: str = ""
+    longitud: str = ""
+    descripcion: str = ""
+    tipo_agua: str = "ARnD"
+    foto_ruta: str = ""
+
+
+@dataclass
+class ProyectoVertimiento:
+    nombre_proyecto: str = ""
+    codigo: str = ""
+    cliente: str = ""
+    puntos: list[PuntoVertimiento] = field(default_factory=list)
+    fp004: str = ""  # plantilla de datos de campo
+    actividades: list[str] = field(default_factory=list)  # claves de core.res0631_datos
+    alcantarillado: bool = False  # vertimiento al alcantarillado publico (Art. 16)
+    consumo_humano: bool = False  # receptor con uso para consumo humano (paragrafo HAP)
+
+
+@dataclass
+class ResultadoPunto:
+    punto: PuntoVertimiento
+    campo: Optional[PuntoCampo] = None
+    informe: Optional[InformeLaboratorio] = None
+
+
+@dataclass
+class Columna:
+    titulo: str
+    actividad: str
+    alcantarillado: bool  # columna ajustada al Art. 16
+    aplica: bool  # columna con la que se declara la conformidad
+
+
+@dataclass
+class FilaComparacion:
+    parametro: Parametro
+    unidad: str
+    metodo: str
+    lcm: str
+    incertidumbre: str
+    subcontratado: bool
+    resultados: dict  # nombre del punto -> ResultadoLab
+    limites: list  # un res0631.Limite por columna
+    conformidad: dict  # (nombre del punto, indice de columna) -> "Cumple" / "No cumple" / None
+
+
+@dataclass
+class ResultadosVertimiento:
+    proyecto: ProyectoVertimiento
+    puntos: list[ResultadoPunto]
+    columnas: list[Columna]
+    filas: list[FilaComparacion]
+    advertencias: list[str] = field(default_factory=list)
+
+    def incumplimientos(self) -> list[tuple[str, FilaComparacion, int]]:
+        return [(punto, f, c) for f in self.filas for (punto, c), v in f.conformidad.items() if v == "No cumple"]
+
+
+_PALABRAS_PUNTO = ("ENTRADA", "SALIDA", "AFLUENTE", "EFLUENTE", "VERTIMIENTO", "DESCARGA")
+
+
+def _hoja_para(punto: PuntoVertimiento, campos: list[PuntoCampo], usadas: set) -> Optional[PuntoCampo]:
+    libres = [c for c in campos if c.hoja not in usadas]
+    if punto.hoja_fp:
+        return next((c for c in campos if normalizar(c.hoja) == normalizar(punto.hoja_fp)), None)
+    n = normalizar(punto.nombre)
+    for palabra in _PALABRAS_PUNTO:
+        if palabra in n:
+            c = next((c for c in libres if palabra in normalizar(c.hoja) or palabra in normalizar(c.titulo)), None)
+            if c:
+                return c
+    return libres[0] if len(libres) == 1 else None
+
+
+def procesar_vertimiento(proyecto: ProyectoVertimiento) -> ResultadosVertimiento:
+    from . import res0631
+
+    advertencias: list[str] = []
+    campos: list[PuntoCampo] = []
+    if proyecto.fp004:
+        try:
+            campos = leer_fp004(proyecto.fp004)
+        except ErrorVertimientos as exc:
+            advertencias.append(f"Plantilla FP-004: {exc}")
+    puntos, usadas = [], set()
+    for p in proyecto.puntos:
+        rp = ResultadoPunto(p)
+        if p.informe_pdf:
+            try:
+                rp.informe = leer_informe_laboratorio(p.informe_pdf)
+            except ErrorVertimientos as exc:
+                advertencias.append(f"Reporte de laboratorio de {p.nombre}: {exc}")
+        rp.campo = _hoja_para(p, campos, usadas) if campos else None
+        if rp.campo:
+            usadas.add(rp.campo.hoja)
+        elif campos:
+            advertencias.append(f"No se identificó la hoja de la FP-004 de {p.nombre}; indíquela en el punto.")
+        if rp.informe and rp.informe.punto and normalizar(rp.informe.punto) != normalizar(p.nombre):
+            advertencias.append(f"El reporte {rp.informe.muestra} es del punto «{rp.informe.punto}», asignado a "
+                                f"«{p.nombre}».")
+        puntos.append(rp)
+
+    columnas: list[Columna] = []
+    for act in proyecto.actividades:
+        if act not in res0631.ACTIVIDADES:
+            advertencias.append(f"Actividad desconocida de la Resolución 0631: {act}")
+            continue
+        columnas.append(Columna(res0631.nombre_columna(act), act, False, not proyecto.alcantarillado))
+        if proyecto.alcantarillado:
+            columnas.append(Columna(res0631.nombre_columna(act, True), act, True, True))
+    if not columnas:
+        advertencias.append("Seleccione al menos una actividad de la Resolución 0631 para comparar los resultados.")
+
+    # Filas en el orden del primer reporte, agregando los parametros que solo traen otros puntos.
+    orden: list[str] = []
+    por_clave: dict[str, ResultadoLab] = {}
+    for rp in puntos:
+        for r in (rp.informe.resultados if rp.informe else []):
+            if r.parametro.clave not in por_clave:
+                orden.append(r.parametro.clave)
+                por_clave[r.parametro.clave] = r
+    filas = []
+    for clave in orden:
+        base = por_clave[clave]
+        resultados = {rp.punto.nombre: rp.informe.resultado(clave) for rp in puntos if rp.informe}
+        resultados = {k: v for k, v in resultados.items() if v is not None}
+        limites = [res0631.limite(c.actividad, clave, c.alcantarillado, proyecto.consumo_humano) for c in columnas]
+        conformidad = {}
+        for rp in puntos:
+            r = resultados.get(rp.punto.nombre)
+            if r is None or not rp.punto.evaluar:
+                continue
+            for i, (c, lim) in enumerate(zip(columnas, limites)):
+                if c.aplica:
+                    conformidad[(rp.punto.nombre, i)] = res0631.evaluar(clave, r.valor, r.menor_que_lcm, lim)
+        filas.append(FilaComparacion(base.parametro, base.unidad, base.metodo, base.lcm, base.incertidumbre,
+                                     base.subcontratado, resultados, limites, conformidad))
+    return ResultadosVertimiento(proyecto, puntos, columnas, filas, advertencias)

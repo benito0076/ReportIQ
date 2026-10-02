@@ -136,3 +136,37 @@ class ProcesarAireIn(BaseModel):
 class GenerarAireIn(BaseModel):
     proyecto: ProyectoAireIn
     tipo: Literal["excel", "word"] = "excel"
+
+
+# ------------------------------------------------------------ vertimientos
+class PuntoVertimientoIn(BaseModel):
+    nombre: str
+    informe: Optional[ArchivoRemoto] = None  # reporte de resultados del laboratorio (PDF)
+    hoja_fp: str = ""  # hoja de la FP-004 ("" = se busca por el nombre del punto)
+    evaluar: bool = True  # se compara con la norma (la entrada a la PTAR normalmente no)
+    latitud: str = ""
+    longitud: str = ""
+    descripcion: str = ""
+    tipo_agua: str = "ARnD"
+    foto: Optional[ArchivoRemoto] = None
+
+
+class ProyectoVertimientoIn(BaseModel):
+    nombre_proyecto: str = ""
+    codigo: str = ""
+    cliente: str = ""
+    puntos: list[PuntoVertimientoIn] = Field(default_factory=list)
+    fp004: Optional[ArchivoRemoto] = None  # plantilla de datos de campo
+    actividades: list[str] = Field(default_factory=list)  # claves de core.res0631_datos
+    alcantarillado: bool = False  # vertimiento al alcantarillado publico (Art. 16)
+    consumo_humano: bool = False  # receptor con uso para consumo humano (HAP <= 0,01 mg/L)
+    informe: InformeIn = Field(default_factory=InformeIn)
+
+
+class ProcesarVertimientoIn(BaseModel):
+    proyecto: ProyectoVertimientoIn
+
+
+class GenerarVertimientoIn(BaseModel):
+    proyecto: ProyectoVertimientoIn
+    tipo: Literal["excel", "word"] = "excel"

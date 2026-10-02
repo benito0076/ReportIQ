@@ -12,6 +12,9 @@ cabecera `Authorization: Bearer <ENGINE_API_KEY>`.
                         cabecera X-Advertencias (JSON codificado como URL)
     POST /v1/aire/procesar  calidad del aire (Res. 2254): resultados (JSON)
     POST /v1/aire/generar   calidad del aire: entregable (excel | word)
+    GET  /v1/vertimientos/actividades  actividades de la Res. 0631 de 2015
+    POST /v1/vertimientos/procesar     vertimientos: resultados vs Res. 0631 (JSON)
+    POST /v1/vertimientos/generar      vertimientos: entregable (excel)
 """
 from __future__ import annotations
 
@@ -32,7 +35,9 @@ from fastapi.responses import Response
 from core import norms
 
 from .errores import ErrorDescarga, ErrorEntrada
-from .schemas import GenerarAireIn, GenerarIn, ProcesarAireIn, ProcesarIn
+from .schemas import (
+    GenerarAireIn, GenerarIn, GenerarVertimientoIn, ProcesarAireIn, ProcesarIn, ProcesarVertimientoIn,
+)
 
 # Los avisos de core/ (p.ej. fallo del mapa satelital) salen en los logs del servicio.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -131,6 +136,23 @@ def _trabajo_generar_aire(body: GenerarAireIn):
         return service.generar_word_aire(ctx) if body.tipo == "word" else service.generar_excel_aire(ctx)
 
 
+def _trabajo_procesar_vertimiento(proyecto):
+    from . import service  # core/ solo se importa en el proceso de trabajo
+
+    with tempfile.TemporaryDirectory(prefix="vert_") as carpeta:
+        ctx = service.preparar_vertimiento(proyecto, carpeta)
+        return service.vertimiento_a_dict(service.procesar_vertimiento(ctx))
+
+
+def _trabajo_generar_vertimiento(body: GenerarVertimientoIn):
+    from . import service  # core/ solo se importa en el proceso de trabajo
+
+    if body.tipo != "excel":
+        raise ErrorEntrada("El informe Word de vertimientos aún no está disponible.")
+    with tempfile.TemporaryDirectory(prefix="vert_") as carpeta:
+        return service.generar_excel_vertimiento(service.preparar_vertimiento(body.proyecto, carpeta))
+
+
 # --------------------------------------------------------------- rutas
 @app.post("/v1/procesar", dependencies=[Depends(verificar_clave)])
 def procesar(body: ProcesarIn):
@@ -161,3 +183,20 @@ def generar_aire(body: GenerarAireIn):
 @app.post("/v1/generar", dependencies=[Depends(verificar_clave)])
 def generar(body: GenerarIn):
     return _respuesta_archivo(_errores(_trabajo_generar, body))
+
+
+@app.get("/v1/vertimientos/actividades", dependencies=[Depends(verificar_clave)])
+def actividades_vertimientos():
+    from core import res0631  # liviano: solo las tablas de la resolucion
+
+    return res0631.actividades_por_articulo()
+
+
+@app.post("/v1/vertimientos/procesar", dependencies=[Depends(verificar_clave)])
+def procesar_vertimiento(body: ProcesarVertimientoIn):
+    return _errores(_trabajo_procesar_vertimiento, body.proyecto)
+
+
+@app.post("/v1/vertimientos/generar", dependencies=[Depends(verificar_clave)])
+def generar_vertimiento(body: GenerarVertimientoIn):
+    return _respuesta_archivo(_errores(_trabajo_generar_vertimiento, body))
