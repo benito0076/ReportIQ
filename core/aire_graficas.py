@@ -9,6 +9,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.dates as mdates  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.collections import PolyCollection  # noqa: E402
+from matplotlib.patches import Patch  # noqa: E402
 from matplotlib.ticker import FuncFormatter, MaxNLocator  # noqa: E402
 
 from .aire import CATEGORIAS_ICA  # noqa: E402
@@ -68,8 +70,18 @@ def barras_horarias(pares: list, titulo_y: str, ruta: str, etiqueta: str):
     if not pares:
         return None
     fig, ax = plt.subplots(figsize=(10, 4.2))
-    ax.bar([mdates.date2num(t) for t, _ in pares], [v for _, v in pares], width=0.8 / 24, color=PALETA[0],
-           label=etiqueta)
+    # Cientos de barras: una sola coleccion de rectangulos (ax.bar crea un objeto por
+    # barra y es ~10 veces mas lento, mucho en el plan de 0,15 CPU de Render).
+    medio = 0.4 / 24
+    xs = [mdates.date2num(t) for t, _ in pares]
+    ys = [v for _, v in pares]
+    ax.add_collection(PolyCollection([[(x - medio, 0), (x - medio, y), (x + medio, y), (x + medio, 0)]
+                                      for x, y in zip(xs, ys)], facecolors=PALETA[0], edgecolors="none"))
+    ax.set_xlim(min(xs) - 0.5, max(xs) + 0.5)
+    ax.set_ylim(min(0, min(ys)), max(ys) * 1.05 if max(ys) > 0 else 1)
+    ax.xaxis_date()
+    ax.legend(handles=[Patch(color=PALETA[0], label=etiqueta)], loc="upper center", bbox_to_anchor=(0.5, -0.3),
+              fontsize=8, frameon=False)
     ax.yaxis.set_major_formatter(_NUM)
     ax.set_ylabel(titulo_y)
     ax.set_xlabel("Fecha de monitoreo")
@@ -79,7 +91,6 @@ def barras_horarias(pares: list, titulo_y: str, ruta: str, etiqueta: str):
     for t in ax.get_xticklabels():
         t.set_rotation(90)
     ax.grid(axis="y", alpha=0.3)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.3), ncol=2, fontsize=8, frameon=False)
     return _guardar(fig, ruta)
 
 
