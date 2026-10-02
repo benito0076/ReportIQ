@@ -1,7 +1,7 @@
 import type { UserRole } from "@/db/schema";
 
 export interface Matriz {
-  clave: "ruido" | "aire";
+  clave: "ruido" | "aire" | "vertimientos";
   titulo: string;
   descripcion: string;
   href: string;
@@ -22,6 +22,13 @@ export const MATRICES: Matriz[] = [
     titulo: "Calidad del aire",
     descripcion: "Informes de calidad del aire.",
     href: "/aire",
+    soloAdmin: true,
+  },
+  {
+    clave: "vertimientos",
+    titulo: "Vertimientos (agua)",
+    descripcion: "Caracterización de vertimientos frente a la Resolución 0631 de 2015.",
+    href: "/vertimientos",
     soloAdmin: true,
   },
 ];

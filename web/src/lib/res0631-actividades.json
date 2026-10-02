@@ -1,0 +1,354 @@
+[
+ {
+  "articulo": 8,
+  "sector": "Aguas residuales domésticas – ARD y de prestadores del servicio de alcantarillado",
+  "actividades": [
+   {
+    "clave": "art8_soluciones_individuales",
+    "actividad": "ARD de las soluciones individuales de saneamiento de viviendas unifamiliares o bifamiliares"
+   },
+   {
+    "clave": "art8_prestadores_hasta_625",
+    "actividad": "ARD, y ARD – ARnD de los prestadores del servicio público de alcantarillado a cuerpos de aguas superficiales, con una carga menor o igual a 625,00 Kg/día DBO5"
+   },
+   {
+    "clave": "art8_prestadores_625_3000",
+    "actividad": "ARD y ARnD de los prestadores del servicio público de alcantarillado, con una carga mayor a 625,00 Kg/día y menor o igual a 3.000,00 Kg/día DBO5"
+   },
+   {
+    "clave": "art8_prestadores_mayor_3000",
+    "actividad": "ARD y ARnD de los prestadores del servicio público de alcantarillado, con una carga mayor a 3.000,00 Kg/día DBO5"
+   }
+  ]
+ },
+ {
+  "articulo": 9,
+  "sector": "Actividades productivas de agroindustria y ganadería",
+  "actividades": [
+   {
+    "clave": "art9_hortalizas_frutas",
+    "actividad": "Procesamiento de hortalizas, frutas, legumbres, raíces y tubérculos"
+   },
+   {
+    "clave": "art9_cafe_ecologico",
+    "actividad": "Beneficio de café – proceso ecológico"
+   },
+   {
+    "clave": "art9_cafe_tradicional",
+    "actividad": "Beneficio de café – proceso tradicional"
+   },
+   {
+    "clave": "art9_platano_banano",
+    "actividad": "Procesos postcosecha de plátano y banano"
+   },
+   {
+    "clave": "art9_azucar",
+    "actividad": "Producción de azúcar y derivados a partir de caña de azúcar"
+   },
+   {
+    "clave": "art9_aceites_vegetales",
+    "actividad": "Extracción de aceites de origen vegetal"
+   },
+   {
+    "clave": "art9_bovinos_cria",
+    "actividad": "Ganadería de bovino, bufalino, equino, ovino y/o caprino – cría"
+   },
+   {
+    "clave": "art9_bovinos_beneficio",
+    "actividad": "Ganadería de bovino, bufalino, equino, ovino y/o caprino – beneficio"
+   },
+   {
+    "clave": "art9_porcinos_cria",
+    "actividad": "Ganadería de porcinos – cría"
+   },
+   {
+    "clave": "art9_porcinos_beneficio",
+    "actividad": "Ganadería de porcinos – beneficio"
+   },
+   {
+    "clave": "art9_beneficio_dual",
+    "actividad": "Ganadería de bovinos y porcinos – beneficio dual (bovinos y porcinos)"
+   },
+   {
+    "clave": "art9_aves_cria",
+    "actividad": "Ganadería de aves de corral – incubación y cría"
+   },
+   {
+    "clave": "art9_aves_beneficio",
+    "actividad": "Ganadería de aves de corral – beneficio"
+   }
+  ]
+ },
+ {
+  "articulo": 10,
+  "sector": "Actividades de minería",
+  "actividades": [
+   {
+    "clave": "art10_carbon",
+    "actividad": "Extracción de carbón de piedra y lignito"
+   },
+   {
+    "clave": "art10_hierro",
+    "actividad": "Extracción de minerales de hierro"
+   },
+   {
+    "clave": "art10_oro",
+    "actividad": "Extracción de oro y otros metales preciosos"
+   },
+   {
+    "clave": "art10_niquel",
+    "actividad": "Extracción de minerales de níquel y otros minerales metalíferos no ferrosos"
+   },
+   {
+    "clave": "art10_otras_minas",
+    "actividad": "Extracción de minerales de otras minas y canteras"
+   }
+  ]
+ },
+ {
+  "articulo": 11,
+  "sector": "Actividades de hidrocarburos (petróleo crudo, gas natural y derivados)",
+  "actividades": [
+   {
+    "clave": "art11_exploracion",
+    "actividad": "Hidrocarburos – exploración (upstream)"
+   },
+   {
+    "clave": "art11_produccion",
+    "actividad": "Hidrocarburos – producción (upstream)"
+   },
+   {
+    "clave": "art11_refino",
+    "actividad": "Hidrocarburos – refino"
+   },
+   {
+    "clave": "art11_venta_distribucion",
+    "actividad": "Hidrocarburos – venta y distribución (downstream)"
+   },
+   {
+    "clave": "art11_transporte",
+    "actividad": "Hidrocarburos – transporte y almacenamiento (midstream)"
+   }
+  ]
+ },
+ {
+  "articulo": 12,
+  "sector": "Actividades de elaboración de productos alimenticios y bebidas",
+  "actividades": [
+   {
+    "clave": "art12_productos_alimenticios",
+    "actividad": "Elaboración de productos alimenticios"
+   },
+   {
+    "clave": "art12_alimentos_animales",
+    "actividad": "Elaboración de alimentos preparados para animales"
+   },
+   {
+    "clave": "art12_maltas_cervezas",
+    "actividad": "Elaboración de maltas y cervezas"
+   },
+   {
+    "clave": "art12_bebidas_no_alcoholicas",
+    "actividad": "Elaboración de bebidas no alcohólicas, aguas minerales y otras aguas embotelladas"
+   },
+   {
+    "clave": "art12_lacteos",
+    "actividad": "Elaboración de productos lácteos"
+   },
+   {
+    "clave": "art12_aceites_grasas",
+    "actividad": "Elaboración de aceites y grasas de origen animal y vegetal"
+   },
+   {
+    "clave": "art12_cafe_soluble",
+    "actividad": "Elaboración de café soluble"
+   }
+  ]
+ },
+ {
+  "articulo": 13,
+  "sector": "Actividades de fabricación y manufactura de bienes",
+  "actividades": [
+   {
+    "clave": "art13_tabaco",
+    "actividad": "Fabricación de productos derivados del tabaco"
+   },
+   {
+    "clave": "art13_textiles",
+    "actividad": "Fabricación de productos textiles"
+   },
+   {
+    "clave": "art13_curtido",
+    "actividad": "Fabricación de artículos de piel, curtido y adobo de pieles"
+   },
+   {
+    "clave": "art13_gases",
+    "actividad": "Fabricación de gases industriales y medicinales"
+   },
+   {
+    "clave": "art13_papel_pulpa",
+    "actividad": "Fabricación de papel y cartón – plantas integradas de pulpa blanqueada (maderables y no maderables)"
+   },
+   {
+    "clave": "art13_papel_reciclado",
+    "actividad": "Fabricación de papel y cartón a partir de fibras recicladas"
+   },
+   {
+    "clave": "art13_abonos",
+    "actividad": "Fabricación de abonos y compuestos inorgánicos nitrogenados"
+   },
+   {
+    "clave": "art13_sustancias_quimicas",
+    "actividad": "Fabricación de sustancias y productos químicos"
+   },
+   {
+    "clave": "art13_pigmentos_azul",
+    "actividad": "Fabricación de pigmentos inorgánicos – de azul ultramar"
+   },
+   {
+    "clave": "art13_pigmentos_oxidos_hierro",
+    "actividad": "Fabricación de pigmentos inorgánicos – de óxidos de hierro"
+   },
+   {
+    "clave": "art13_pigmentos_cromatos",
+    "actividad": "Fabricación de pigmentos inorgánicos – de cromatos y molibdatos de plomo"
+   },
+   {
+    "clave": "art13_acidos_inorganicos",
+    "actividad": "Fabricación de ácidos inorgánicos y sus sales"
+   },
+   {
+    "clave": "art13_plasticos",
+    "actividad": "Fabricación de plásticos en formas primarias, de formas básicas y artículos de plástico"
+   },
+   {
+    "clave": "art13_sabores_fragancias",
+    "actividad": "Fabricación de sabores y fragancias"
+   },
+   {
+    "clave": "art13_surfactantes",
+    "actividad": "Fabricación de surfactantes"
+   },
+   {
+    "clave": "art13_plaguicidas",
+    "actividad": "Fabricación de plaguicidas y otros productos químicos de uso agropecuario"
+   },
+   {
+    "clave": "art13_pinturas",
+    "actividad": "Fabricación de pinturas, barnices y revestimientos similares"
+   },
+   {
+    "clave": "art13_jabones_cosmeticos",
+    "actividad": "Fabricación de jabones, detergentes y productos cosméticos"
+   },
+   {
+    "clave": "art13_farmaceuticos",
+    "actividad": "Fabricación de productos farmacéuticos, sustancias químicas medicinales y productos botánicos de uso farmacéutico"
+   },
+   {
+    "clave": "art13_vidrio_cemento",
+    "actividad": "Fabricación de vidrio, productos de vidrio, cemento, cal y yeso"
+   },
+   {
+    "clave": "art13_ceramicos",
+    "actividad": "Fabricación de productos cerámicos"
+   },
+   {
+    "clave": "art13_hormigon",
+    "actividad": "Fabricación de artículos de hormigón, cemento y yeso"
+   },
+   {
+    "clave": "art13_tratamiento_metales",
+    "actividad": "Tratamiento y revestimiento de metales"
+   },
+   {
+    "clave": "art13_pilas_baterias",
+    "actividad": "Fabricación de pilas, baterías y acumuladores eléctricos"
+   },
+   {
+    "clave": "art13_equipos_iluminacion",
+    "actividad": "Fabricación de equipos eléctricos de iluminación"
+   },
+   {
+    "clave": "art13_aparatos_domesticos",
+    "actividad": "Fabricación de aparatos de uso doméstico"
+   },
+   {
+    "clave": "art13_maquinaria",
+    "actividad": "Fabricación de maquinaria y equipos (recubrimientos electrolíticos)"
+   },
+   {
+    "clave": "art13_vehiculos",
+    "actividad": "Fabricación de vehículos automotores, remolques y semirremolques"
+   },
+   {
+    "clave": "art13_autopartes",
+    "actividad": "Fabricación de autopartes"
+   },
+   {
+    "clave": "art13_siderurgia",
+    "actividad": "Siderurgia"
+   },
+   {
+    "clave": "art13_imprentas",
+    "actividad": "Imprentas y litografías"
+   },
+   {
+    "clave": "art13_bebidas_destiladas",
+    "actividad": "Elaboración de bebidas alcohólicas destiladas"
+   },
+   {
+    "clave": "art13_mezcla_bebidas",
+    "actividad": "Mezcla y formulación de bebidas alcohólicas"
+   },
+   {
+    "clave": "art13_caucho",
+    "actividad": "Producción y fabricación de derivados del caucho"
+   }
+  ]
+ },
+ {
+  "articulo": 14,
+  "sector": "Actividades asociadas con servicios y otras actividades",
+  "actividades": [
+   {
+    "clave": "art14_energia_electrica",
+    "actividad": "Generación de energía eléctrica"
+   },
+   {
+    "clave": "art14_residuos",
+    "actividad": "Tratamiento y disposición de residuos"
+   },
+   {
+    "clave": "art14_reciclaje_plasticos",
+    "actividad": "Reciclaje de materiales plásticos y similares"
+   },
+   {
+    "clave": "art14_reciclaje_tambores",
+    "actividad": "Reciclaje de tambores"
+   },
+   {
+    "clave": "art14_salud_internacion",
+    "actividad": "Actividades de atención a la salud humana – atención médica con y sin internación"
+   },
+   {
+    "clave": "art14_salud_dialisis",
+    "actividad": "Actividades de atención a la salud humana – hemodiálisis y diálisis peritoneal"
+   },
+   {
+    "clave": "art14_pompas_funebres",
+    "actividad": "Pompas fúnebres y actividades relacionadas"
+   }
+  ]
+ },
+ {
+  "articulo": 15,
+  "sector": "Actividades industriales, comerciales o de servicios diferentes a las contempladas en los capítulos V y VI",
+  "actividades": [
+   {
+    "clave": "art15_otras",
+    "actividad": "Actividades industriales, comerciales o de servicios diferentes a las contempladas en los capítulos V y VI"
+   }
+  ]
+ }
+]

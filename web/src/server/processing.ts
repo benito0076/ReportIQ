@@ -23,7 +23,9 @@ export async function buildPayload(projectId: string): Promise<engine.ProyectoPa
     getSettings(),
     listBarrido(projectId),
   ]);
-  if (project.tipo === "aire") throw new ValidationError("Los proyectos de calidad del aire se procesan desde su página.");
+  if (project.tipo === "aire" || project.tipo === "vertimientos") {
+    throw new ValidationError("Este proyecto se procesa desde su propia página.");
+  }
   if (pts.length === 0) throw new ValidationError("Agregue al menos un punto de monitoreo.");
   if (mems.length === 0) throw new ValidationError("Suba al menos una memoria del sonómetro.");
 

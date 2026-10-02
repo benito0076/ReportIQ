@@ -153,3 +153,17 @@ class TestProcesamiento(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_catalogo_web_sincronizado():
+    """web/src/lib/res0631-actividades.json (formulario de la web) debe coincidir con core.
+    Regenerarlo: python -c "import json; from core import res0631; json.dump(res0631.actividades_por_articulo(),
+    open('web/src/lib/res0631-actividades.json', 'w'), ensure_ascii=False, indent=1)"."""
+    import json
+    import os
+
+    from core import res0631
+
+    ruta = os.path.join(os.path.dirname(__file__), "..", "web", "src", "lib", "res0631-actividades.json")
+    with open(ruta, encoding="utf-8") as f:
+        assert json.load(f) == res0631.actividades_por_articulo()

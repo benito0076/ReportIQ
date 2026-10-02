@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Volume2, Wind } from "lucide-react";
+import { ArrowRight, Droplets, Volume2, Wind } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Inicio" };
 
-const ICONOS = { ruido: Volume2, aire: Wind };
+const ICONOS = { ruido: Volume2, aire: Wind, vertimientos: Droplets };
 
 export default async function InicioPage() {
   const user = await requireUser();

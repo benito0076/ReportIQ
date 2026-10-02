@@ -5,8 +5,8 @@ export interface UploadRule {
   maxBytes: number;
   /** Atributo `accept` del <input type="file">. */
   accept: string;
-  /** Firma binaria esperada: "zip" (xlsx/docx) o "image" (jpeg/png). */
-  signature: "zip" | "image";
+  /** Firma binaria esperada: "zip" (xlsx/docx), "image" (jpeg/png) o "pdf". */
+  signature: "zip" | "image" | "pdf";
   label: string;
 }
 
@@ -49,6 +49,24 @@ export const UPLOAD_RULES: Record<Exclude<FileKind, "informe">, UploadRule> = {
     signature: "zip",
     label: "plantilla de procesamiento (.xlsx)",
   },
+  laboratorio: {
+    maxBytes: 20 * MB,
+    accept: ".pdf,application/pdf",
+    signature: "pdf",
+    label: "copia en PDF del reporte de resultados del laboratorio",
+  },
+  fp004: {
+    maxBytes: 40 * MB,
+    accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    signature: "zip",
+    label: "plantilla FP-004 (.xlsx)",
+  },
+  fotoAgua: {
+    maxBytes: 15 * MB,
+    accept: "image/jpeg,image/png",
+    signature: "image",
+    label: "foto (JPG o PNG)",
+  },
   plantilla: {
     maxBytes: 40 * MB,
     accept: ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -62,10 +80,11 @@ export const CONTENT_TYPES = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   jpg: "image/jpeg",
   png: "image/png",
+  pdf: "application/pdf",
   zip: "application/zip",
 } as const;
 
-export type SniffedType = "zip" | "jpg" | "png";
+export type SniffedType = "zip" | "jpg" | "png" | "pdf";
 
 /** Identifica el archivo por su firma binaria (no se confía en la extensión). */
 export function sniff(bytes: Uint8Array): SniffedType | null {
@@ -73,17 +92,20 @@ export function sniff(bytes: Uint8Array): SniffedType | null {
   if (starts([0x50, 0x4b, 0x03, 0x04])) return "zip";
   if (starts([0xff, 0xd8, 0xff])) return "jpg";
   if (starts([0x89, 0x50, 0x4e, 0x47])) return "png";
+  if (starts([0x25, 0x50, 0x44, 0x46])) return "pdf"; // %PDF
   return null;
 }
 
 export function matchesRule(type: SniffedType | null, rule: UploadRule): boolean {
   if (!type) return false;
-  return rule.signature === "zip" ? type === "zip" : type === "jpg" || type === "png";
+  if (rule.signature === "image") return type === "jpg" || type === "png";
+  return type === rule.signature;
 }
 
 /** Extensión para la clave de almacenamiento según el tipo de archivo. */
 export function extensionFor(kind: Exclude<FileKind, "informe">, fileName: string): string {
-  if (kind === "memoria" || kind === "meteo" || kind === "barrido" || kind === "aire") return "xlsx";
+  if (kind === "memoria" || kind === "meteo" || kind === "barrido" || kind === "aire" || kind === "fp004") return "xlsx";
+  if (kind === "laboratorio") return "pdf";
   if (kind === "plantilla") return "docx";
   return /\.png$/i.test(fileName) ? "png" : "jpg";
 }

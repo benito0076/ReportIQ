@@ -1,7 +1,8 @@
 import { z } from "zod";
-import { USER_ROLES } from "@/db/enums";
+import { TIPOS_AGUA, USER_ROLES } from "@/db/enums";
 import { ValidationError } from "./errors";
 import sectores from "./sectores.json";
+import ACTIVIDADES_0631 from "./res0631-actividades.json";
 
 export const SECTORES: {
   etiqueta: string;
@@ -80,6 +81,34 @@ export const airStationSchema = z.object({
   if (problema) ctx.addIssue({ code: "custom", path: [problema.campo], message: problema.mensaje });
 });
 export type AirStationInput = z.output<typeof airStationSchema>;
+
+/** Punto de muestreo de vertimientos (coordenadas en grados u Origen Nacional, como en aire). */
+export const waterPointSchema = z.object({
+  nombre: text(150).min(1, "El nombre del punto es obligatorio."),
+  hojaFp: optionalText(60),
+  evaluar: z.boolean(),
+  tipoAgua: z.enum(TIPOS_AGUA),
+  longitud: optionalText(50),
+  latitud: optionalText(50),
+  descripcion: optionalText(2000),
+}).superRefine((v, ctx) => {
+  const problema = coordenadaFueraDeColombia(v.longitud, v.latitud);
+  if (problema) ctx.addIssue({ code: "custom", path: [problema.campo], message: problema.mensaje });
+});
+export type WaterPointInput = z.output<typeof waterPointSchema>;
+
+const CLAVES_ACTIVIDAD = new Set(ACTIVIDADES_0631.flatMap((g) => g.actividades.map((a) => a.clave)));
+
+/** Norma aplicable a un proyecto de vertimientos (Res. 0631 de 2015). */
+export const configVertimientoSchema = z.object({
+  actividades: z
+    .array(z.string())
+    .max(6, "Seleccione como máximo 6 actividades.")
+    .refine((a) => a.every((c) => CLAVES_ACTIVIDAD.has(c)), "Actividad desconocida."),
+  alcantarillado: z.boolean(),
+  consumoHumano: z.boolean(),
+});
+export type ConfigVertimientoInput = z.output<typeof configVertimientoSchema>;
 
 export const projectSchema = z.object({
   nombre: text(255).min(1, "El nombre del proyecto es obligatorio."),

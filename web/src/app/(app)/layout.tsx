@@ -15,6 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ...(user.role === "admin"
       ? [
           { href: "/aire", label: "Calidad del aire" },
+          { href: "/vertimientos", label: "Vertimientos" },
           { href: "/usuarios", label: "Usuarios" },
           { href: "/ajustes", label: "Ajustes" },
           { href: "/actividad", label: "Actividad" },

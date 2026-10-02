@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, count, desc, eq, inArray, max, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, notInArray } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
 import type { CondicionBarrido, Direccion, Esquema, ProjectType } from "@/db/enums";
-import { airFiles, airStations, barridoFiles, memoryFiles, points, projects, reports, users } from "@/db/schema";
+import { airFiles, airStations, barridoFiles, memoryFiles, points, projects, reports, users, waterPoints } from "@/db/schema";
 import type { DatosInforme, PointInput, ProjectInput } from "@/lib/validation";
 import { NotFoundError } from "@/lib/errors";
 import { deleteObject } from "@/lib/storage";
@@ -29,8 +29,8 @@ export async function listProjects() {
     .from(projects)
     .leftJoin(nPoints, eq(nPoints.projectId, projects.id))
     .leftJoin(users, eq(users.id, projects.createdBy))
-    // Los de calidad del aire se listan en /aire.
-    .where(ne(projects.tipo, "aire"))
+    // Los de calidad del aire se listan en /aire y los de vertimientos en /vertimientos.
+    .where(notInArray(projects.tipo, ["aire", "vertimientos"]))
     .orderBy(desc(projects.updatedAt));
 }
 
@@ -76,15 +76,24 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
     ? await db.select({ key: memoryFiles.fileKey }).from(memoryFiles).where(inArray(memoryFiles.pointId, ids))
     : [];
   const reps = await db.select({ key: reports.fileKey }).from(reports).where(eq(reports.projectId, projectId));
-  const [proj] = await db.select({ meteo: projects.meteoKey }).from(projects).where(eq(projects.id, projectId));
+  const [proj] = await db
+    .select({ meteo: projects.meteoKey, fp004: projects.fp004Key })
+    .from(projects)
+    .where(eq(projects.id, projectId));
   const barr = await db.select({ key: barridoFiles.fileKey }).from(barridoFiles).where(eq(barridoFiles.projectId, projectId));
   const aire = await db.select({ key: airFiles.fileKey }).from(airFiles).where(eq(airFiles.projectId, projectId));
   const fotosAire = await db
     .select({ key: airStations.fotoKey })
     .from(airStations)
     .where(eq(airStations.projectId, projectId));
+  const agua = await db
+    .select({ informe: waterPoints.informeKey, foto: waterPoints.fotoKey })
+    .from(waterPoints)
+    .where(eq(waterPoints.projectId, projectId));
   return [
     proj?.meteo,
+    proj?.fp004,
+    ...agua.flatMap((a) => [a.informe, a.foto]),
     ...pts.map((p) => p.foto),
     ...mems.map((m) => m.key),
     ...reps.map((r) => r.key),

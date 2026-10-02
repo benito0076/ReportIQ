@@ -1,6 +1,6 @@
 import "server-only";
 import type { ReportKind } from "@/db/enums";
-import type { ResultadosAire, ResultadosProyecto } from "./engine-types";
+import type { ResultadosAire, ResultadosProyecto, ResultadosVertimiento } from "./engine-types";
 import { EngineError } from "./errors";
 
 /**
@@ -64,6 +64,29 @@ export interface ProyectoAirePayload {
   plantillas: Partial<Record<string, ArchivoRemoto>>;
   meteorologia: ArchivoRemoto | null;
   /** Datos de redacción del informe (claves de engine/schemas.py InformeIn). */
+  informe: Record<string, string>;
+}
+
+/** Proyecto de vertimientos (engine/schemas.py ProyectoVertimientoIn). */
+export interface ProyectoVertimientoPayload {
+  nombre_proyecto: string;
+  codigo: string;
+  cliente: string;
+  puntos: {
+    nombre: string;
+    informe: ArchivoRemoto | null;
+    hoja_fp: string;
+    evaluar: boolean;
+    latitud: string;
+    longitud: string;
+    descripcion: string;
+    tipo_agua: string;
+    foto: ArchivoRemoto | null;
+  }[];
+  fp004: ArchivoRemoto | null;
+  actividades: string[];
+  alcantarillado: boolean;
+  consumo_humano: boolean;
   informe: Record<string, string>;
 }
 
@@ -193,6 +216,15 @@ export async function procesarAire(proyecto: ProyectoAirePayload): Promise<Resul
 
 export async function generarAire(proyecto: ProyectoAirePayload, tipo: "excel" | "word"): Promise<Entregable> {
   return entregable(await call("/v1/aire/generar", { proyecto, tipo }), tipo === "word" ? "docx" : "xlsx");
+}
+
+export async function procesarVertimiento(proyecto: ProyectoVertimientoPayload): Promise<ResultadosVertimiento> {
+  const res = await call("/v1/vertimientos/procesar", { proyecto });
+  return (await res.json()) as ResultadosVertimiento;
+}
+
+export async function generarVertimiento(proyecto: ProyectoVertimientoPayload, tipo: "excel"): Promise<Entregable> {
+  return entregable(await call("/v1/vertimientos/generar", { proyecto, tipo }), "xlsx");
 }
 
 export async function generar(payload: GenerarPayload): Promise<Entregable> {

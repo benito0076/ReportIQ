@@ -157,3 +157,49 @@ export interface ResultadosAire {
   ica: Record<string, Record<string, { fecha: string; concentracion: number; ica: number | null; categoria: string | null }[]>>;
   advertencias: string[];
 }
+
+// ---------------------------------------------------------------- vertimientos
+/** Estructura devuelta por POST /v1/vertimientos/procesar (engine/service.py vertimiento_a_dict). */
+export interface CampoVertimiento {
+  hoja: string;
+  titulo: string;
+  mediciones: number;
+  inicio: string | null;
+  fin: string | null;
+  caudal_promedio_mls: number | null;
+  caudal_maximo_mls: number | null;
+  caudal_minimo_mls: number | null;
+  tamano_muestra_ml: number | null;
+}
+
+export interface FilaVertimiento {
+  clave: string;
+  parametro: string;
+  grupo: string;
+  unidad: string;
+  metodo: string;
+  lcm: string;
+  subcontratado: boolean;
+  /** Punto -> resultado tal como lo reporta el laboratorio ("<0,10", "12,5"). */
+  resultados: Record<string, string>;
+  /** Texto del límite por columna (con la marca * o ** del Art. 16). */
+  limites: string[];
+  conformidad: { punto: string; columna: number; estado: "Cumple" | "No cumple" | null }[];
+}
+
+export interface ResultadosVertimiento {
+  puntos: {
+    nombre: string;
+    evaluar: boolean;
+    campo: CampoVertimiento | null;
+    muestra: string | null;
+    punto_laboratorio: string | null;
+    tipo_muestreo: string | null;
+    fecha_muestreo: string | null;
+    ensayos: number;
+  }[];
+  columnas: { titulo: string; actividad: string; alcantarillado: boolean; aplica: boolean }[];
+  filas: FilaVertimiento[];
+  incumplimientos: { punto: string; parametro: string; columna: string; resultado: string; limite: string }[];
+  advertencias: string[];
+}

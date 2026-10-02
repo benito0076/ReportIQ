@@ -51,9 +51,11 @@ export async function getAireProject(id: string) {
   return project;
 }
 
-/** Los proyectos de calidad del aire solo los ve el administrador (rutas compartidas). */
+/** Los proyectos de calidad del aire y de vertimientos solo los ve el administrador (rutas compartidas). */
 export function assertProjectAccess(project: Pick<Project, "tipo">, user: CurrentUser) {
-  if (project.tipo === "aire" && user.role !== "admin") throw new NotFoundError("El proyecto no existe.");
+  if ((project.tipo === "aire" || project.tipo === "vertimientos") && user.role !== "admin") {
+    throw new NotFoundError("El proyecto no existe.");
+  }
 }
 
 export async function createAireProject(input: ProjectInput, userId: string) {

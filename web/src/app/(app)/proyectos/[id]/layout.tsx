@@ -17,8 +17,9 @@ export default async function ProjectLayout({ children, params }: LayoutProps<"/
     .where(eq(projects.id, id))
     .limit(1);
   if (!project) notFound();
-  // Calidad del aire tiene su propia página (solo administradores).
+  // Calidad del aire y vertimientos tienen su propia página (solo administradores).
   if (project.tipo === "aire") redirect(`/aire/${id}`);
+  if (project.tipo === "vertimientos") redirect(`/vertimientos/${id}`);
   return (
     <>
       <Link href="/proyectos" className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">

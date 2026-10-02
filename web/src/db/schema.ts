@@ -18,11 +18,12 @@ import type {
   Direccion,
   Esquema,
   PlantillaAire,
+  TipoAgua,
   ProjectType,
   ReportKind,
   UserRole,
 } from "./enums";
-import type { ResultadosAire, ResultadosProyecto } from "@/lib/engine-types";
+import type { ResultadosAire, ResultadosProyecto, ResultadosVertimiento } from "@/lib/engine-types";
 import type { DatosInforme } from "@/lib/validation";
 
 export type { UserRole };
@@ -64,6 +65,13 @@ export const projects = pgTable(
     procesadoAt: timestamp("procesado_at", { withTimezone: true }),
     /** Resultados de calidad del aire (tipo "aire"; se invalidan al cambiar estaciones o plantillas). */
     resultadosAire: jsonb("resultados_aire").$type<ResultadosAire>(),
+    /** Vertimientos: norma aplicable (actividades de la Res. 0631 y Art. 16). */
+    vertimiento: jsonb("vertimiento").$type<Partial<ConfigVertimiento>>().notNull().default(sql`'{}'::jsonb`),
+    /** Vertimientos: plantilla FP-004 con los datos de campo. */
+    fp004Key: text("fp004_key"),
+    fp004Nombre: varchar("fp004_nombre", { length: 255 }),
+    /** Resultados de vertimientos (se invalidan al cambiar puntos, archivos o norma). */
+    resultadosVertimiento: jsonb("resultados_vertimiento").$type<ResultadosVertimiento>(),
     ...timestamps,
   },
   (t) => [index("projects_updated_idx").on(t.updatedAt)],
@@ -106,6 +114,43 @@ export const airFiles = pgTable(
     uploadedAt: timestamp("uploaded_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("air_files_plantilla_uq").on(t.projectId, t.plantilla)],
+);
+
+/** Configuración de la norma de un proyecto de vertimientos. */
+export interface ConfigVertimiento {
+  /** Claves de las actividades de la Res. 0631 de 2015 (core/res0631_datos.py). */
+  actividades: string[];
+  /** Vertimiento al alcantarillado público (Art. 16). */
+  alcantarillado: boolean;
+  /** Receptor con uso para consumo humano y doméstico (HAP ≤ 0,01 mg/L). */
+  consumoHumano: boolean;
+}
+
+/** Punto de muestreo de vertimientos con su reporte de resultados del laboratorio (PDF). */
+export const waterPoints = pgTable(
+  "water_points",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    orden: integer("orden").notNull(),
+    nombre: varchar("nombre", { length: 150 }).notNull(),
+    /** Hoja de la FP-004 ("" = se busca por el nombre del punto). */
+    hojaFp: varchar("hoja_fp", { length: 60 }).notNull().default(""),
+    /** Se compara con la norma (la entrada a la PTAR normalmente no). */
+    evaluar: boolean("evaluar").notNull().default(true),
+    tipoAgua: varchar("tipo_agua", { length: 10 }).$type<TipoAgua>().notNull().default("ARnD"),
+    longitud: varchar("longitud", { length: 50 }).notNull().default(""),
+    latitud: varchar("latitud", { length: 50 }).notNull().default(""),
+    descripcion: text("descripcion").notNull().default(""),
+    informeKey: text("informe_key"),
+    informeNombre: varchar("informe_nombre", { length: 255 }),
+    fotoKey: text("foto_key"),
+    fotoNombre: varchar("foto_nombre", { length: 255 }),
+    ...timestamps,
+  },
+  (t) => [index("water_points_project_idx").on(t.projectId, t.orden)],
 );
 
 export const points = pgTable(
@@ -241,3 +286,4 @@ export type Equipment = typeof equipment.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type AirStation = typeof airStations.$inferSelect;
 export type AirFile = typeof airFiles.$inferSelect;
+export type WaterPoint = typeof waterPoints.$inferSelect;

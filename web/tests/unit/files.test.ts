@@ -14,6 +14,15 @@ describe("sniff", () => {
     expect(matchesRule("jpg", UPLOAD_RULES.memoria)).toBe(false);
     expect(matchesRule("png", UPLOAD_RULES.foto)).toBe(true);
     expect(matchesRule("zip", UPLOAD_RULES.foto)).toBe(false);
+    expect(matchesRule("pdf", UPLOAD_RULES.laboratorio)).toBe(true);
+    expect(matchesRule("zip", UPLOAD_RULES.laboratorio)).toBe(false);
+    expect(matchesRule("pdf", UPLOAD_RULES.fp004)).toBe(false);
+  });
+
+  it("reconoce el PDF del laboratorio", () => {
+    expect(sniff(new TextEncoder().encode("%PDF-1.7"))).toBe("pdf");
+    expect(extensionFor("laboratorio", "reporte.PDF")).toBe("pdf");
+    expect(extensionFor("fp004", "FP-004.xlsx")).toBe("xlsx");
   });
 
   it("elige la extensión de almacenamiento", () => {

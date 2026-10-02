@@ -11,14 +11,23 @@ export const ESQUEMA_LABELS: Record<Esquema, string> = {
   NDNH: "Nocturno - Día no hábil",
 };
 
-export const PROJECT_TYPES = ["ambiental", "emision", "aire"] as const;
+export const PROJECT_TYPES = ["ambiental", "emision", "aire", "vertimientos"] as const;
 export type ProjectType = (typeof PROJECT_TYPES)[number];
-/** Tipos de la matriz Ruido (los de calidad del aire viven en /aire). */
+/** Tipos de la matriz Ruido (calidad del aire vive en /aire y vertimientos en /vertimientos). */
 export const RUIDO_TYPES = ["ambiental", "emision"] as const;
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   ambiental: "Ruido ambiental",
   emision: "Emisión de ruido",
   aire: "Calidad del aire",
+  vertimientos: "Vertimientos",
+};
+
+/** Tipo de agua del punto de muestreo de vertimientos. */
+export const TIPOS_AGUA = ["ARnD", "ARD"] as const;
+export type TipoAgua = (typeof TIPOS_AGUA)[number];
+export const TIPO_AGUA_LABELS: Record<TipoAgua, string> = {
+  ARnD: "Agua residual no doméstica (ARnD)",
+  ARD: "Agua residual doméstica (ARD)",
 };
 
 /** Plantillas de procesamiento de calidad del aire (una por contaminante; FP-021 para los automáticos). */
