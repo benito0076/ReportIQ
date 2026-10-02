@@ -23,7 +23,18 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
  *    firmadas apuntan entonces a /api/local-files, protegidas con HMAC.
  */
 
-export type FileKind = "memoria" | "foto" | "plantilla" | "meteo" | "barrido" | "aire" | "fotoAire" | "informe";
+export type FileKind =
+  | "memoria"
+  | "foto"
+  | "plantilla"
+  | "meteo"
+  | "barrido"
+  | "aire"
+  | "fotoAire"
+  | "laboratorio"
+  | "fp004"
+  | "fotoAgua"
+  | "informe";
 
 const PREFIX: Record<FileKind, string> = {
   memoria: "memorias",
@@ -33,6 +44,9 @@ const PREFIX: Record<FileKind, string> = {
   barrido: "barrido",
   aire: "aire",
   fotoAire: "fotos",
+  laboratorio: "vertimientos",
+  fp004: "vertimientos",
+  fotoAgua: "fotos",
   informe: "informes",
 };
 

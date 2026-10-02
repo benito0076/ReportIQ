@@ -14,6 +14,9 @@ export type UploadTarget =
   | { kind: "meteo"; projectId: string }
   | { kind: "barrido"; projectId: string }
   | { kind: "aire"; projectId: string; plantilla: string }
+  | { kind: "laboratorio"; projectId: string; pointId: string }
+  | { kind: "fp004"; projectId: string }
+  | { kind: "fotoAgua"; projectId: string; pointId: string }
   | { kind: "plantilla" };
 
 const MAX_PHOTO_SIDE = 1600;
@@ -57,7 +60,7 @@ export async function uploadFile(
   original: File,
   onProgress?: (p: number) => void,
 ): Promise<string | null> {
-  const file = target.kind === "foto" || target.kind === "fotoAire" ? await shrinkPhoto(original) : original;
+  const file = target.kind === "foto" || target.kind === "fotoAire" || target.kind === "fotoAgua" ? await shrinkPhoto(original) : original;
   const rule = UPLOAD_RULES[target.kind];
   if (file.size > rule.maxBytes) return `"${original.name}" supera el tamaño máximo (${rule.maxBytes / 1024 / 1024} MB).`;
   const prepared = await prepareUploadAction(target, file.name, file.size);

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { ValidationError } from "@/lib/errors";
-import { SECTORES, coordenadaFueraDeColombia, parseDecimal, parseOrThrow, pointSchema } from "@/lib/validation";
+import {
+  SECTORES,
+  configVertimientoSchema,
+  coordenadaFueraDeColombia,
+  parseDecimal,
+  parseOrThrow,
+  pointSchema,
+  waterPointSchema,
+} from "@/lib/validation";
 
 const base = { nombre: "RA1", sector: "", incertidumbre: "0,0043", este: "", norte: "", altitud: "", descripcion: "", fuentes: "" };
 
@@ -50,5 +58,20 @@ describe("coordenadaFueraDeColombia", () => {
     expect(coordenadaFueraDeColombia("7727100", "13198600")?.campo).toBe("longitud");
     expect(coordenadaFueraDeColombia("4874000", "13198600")?.campo).toBe("latitud");
     expect(coordenadaFueraDeColombia("2.35", "48.85")?.campo).toBe("longitud");
+  });
+});
+
+describe("vertimientos", () => {
+  it("valida las actividades de la Res. 0631 contra el catálogo", () => {
+    const ok = { actividades: ["art12_alimentos_animales"], alcantarillado: true, consumoHumano: false };
+    expect(parseOrThrow(configVertimientoSchema, ok)).toEqual(ok);
+    expect(() => parseOrThrow(configVertimientoSchema, { ...ok, actividades: ["art99_inventada"] })).toThrow(ValidationError);
+  });
+
+  it("exige el nombre del punto y revisa las coordenadas", () => {
+    const base = { nombre: "Salida PTAR", hojaFp: "", evaluar: true, tipoAgua: "ARnD", longitud: "", latitud: "", descripcion: "" };
+    expect(parseOrThrow(waterPointSchema, base).nombre).toBe("Salida PTAR");
+    expect(() => parseOrThrow(waterPointSchema, { ...base, nombre: "" })).toThrow(ValidationError);
+    expect(() => parseOrThrow(waterPointSchema, { ...base, longitud: "10", latitud: "4.6" })).toThrow(ValidationError);
   });
 });

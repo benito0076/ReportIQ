@@ -146,6 +146,7 @@ export async function removeMeteoAction(projectId: string) {
   await setProjectMeteo(projectId, null, null);
   revalidatePath(`/proyectos/${projectId}`);
   revalidatePath(`/aire/${projectId}`);
+  revalidatePath(`/vertimientos/${projectId}`);
 }
 
 export async function removeMemoryAction(projectId: string, fileId: string) {

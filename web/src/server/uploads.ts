@@ -15,6 +15,7 @@ import {
 } from "@/lib/storage";
 import { addBarrido, getPoint, getProject, setMemoryFile, setPointPhoto, setProjectMeteo } from "./projects";
 import { getAireProject, getStation, setAirFile, setStationPhoto } from "./aire";
+import { getVertProject, getWaterPoint, setFp004, setWaterPointFile } from "./vertimientos";
 import { logActivity } from "./activity";
 import { updateSettings } from "./settings";
 
@@ -39,6 +40,9 @@ export const uploadTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("meteo"), projectId: z.uuid() }),
   z.object({ kind: z.literal("aire"), projectId: z.uuid(), plantilla: z.enum(PLANTILLAS_AIRE) }),
   z.object({ kind: z.literal("fotoAire"), projectId: z.uuid(), stationId: z.uuid() }),
+  z.object({ kind: z.literal("laboratorio"), projectId: z.uuid(), pointId: z.uuid() }),
+  z.object({ kind: z.literal("fp004"), projectId: z.uuid() }),
+  z.object({ kind: z.literal("fotoAgua"), projectId: z.uuid(), pointId: z.uuid() }),
   z.object({ kind: z.literal("plantilla") }),
 ]);
 export type UploadTarget = z.infer<typeof uploadTargetSchema>;
@@ -55,7 +59,7 @@ async function checkTarget(target: UploadTarget, user: CurrentUser) {
   if (target.kind === "meteo") {
     const project = await getProject(target.projectId);
     // Calidad del aire está en desarrollo: solo el administrador.
-    if (project.tipo === "aire" && user.role !== "admin") throw new ForbiddenError();
+    if ((project.tipo === "aire" || project.tipo === "vertimientos") && user.role !== "admin") throw new ForbiddenError();
     return;
   }
   if (target.kind === "aire") {
@@ -66,6 +70,17 @@ async function checkTarget(target: UploadTarget, user: CurrentUser) {
   if (target.kind === "fotoAire") {
     if (user.role !== "admin") throw new ForbiddenError();
     await getStation(target.projectId, target.stationId);
+    return;
+  }
+  if (target.kind === "laboratorio" || target.kind === "fotoAgua") {
+    // Vertimientos está en desarrollo: solo el administrador.
+    if (user.role !== "admin") throw new ForbiddenError();
+    await getWaterPoint(target.projectId, target.pointId);
+    return;
+  }
+  if (target.kind === "fp004") {
+    if (user.role !== "admin") throw new ForbiddenError();
+    await getVertProject(target.projectId);
     return;
   }
   if (target.kind === "barrido") {
@@ -129,6 +144,15 @@ export async function confirmUpload(target: UploadTarget, key: string, fileName:
       break;
     case "fotoAire":
       await setStationPhoto(target.projectId, target.stationId, key, name);
+      break;
+    case "laboratorio":
+      await setWaterPointFile(target.projectId, target.pointId, "informe", key, name);
+      break;
+    case "fotoAgua":
+      await setWaterPointFile(target.projectId, target.pointId, "foto", key, name);
+      break;
+    case "fp004":
+      await setFp004(target.projectId, key, name);
       break;
     case "plantilla":
       await updateSettings({ plantillaKey: key, plantillaNombre: name });
