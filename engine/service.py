@@ -686,3 +686,22 @@ def generar_excel_vertimiento(ctx: ContextoVertimiento) -> Entregable:
         contenido = f.read()
     base = re.sub(r"[^\w\-. ]+", "_", ctx.proyecto.codigo or ctx.proyecto.nombre_proyecto or "proyecto").strip()
     return Entregable(contenido, f"Resultados vertimientos {base[:80]}.xlsx", MIME_XLSX, list(res.advertencias))
+
+
+PLANTILLA_VERTIMIENTOS = os.path.join(RAIZ, "templates", "informe_vertimientos_template.docx")
+
+
+def generar_word_vertimiento(ctx: ContextoVertimiento) -> Entregable:
+    from core.informe_vertimientos import generar_informe_vertimiento
+
+    res = procesar_vertimiento(ctx)
+    salida = os.path.join(ctx.carpeta, "informe_vertimientos.docx")
+    with _LOCK_GRAFICOS:
+        _, faltantes = generar_informe_vertimiento(res, PLANTILLA_VERTIMIENTOS, salida,
+                                                   os.path.join(ctx.carpeta, "graficas"),
+                                                   ctx.informe or DatosInforme())
+    with open(salida, "rb") as f:
+        contenido = f.read()
+    advertencias = list(res.advertencias) + [f"Revisar en el informe: {t}" for t in faltantes]
+    base = re.sub(r"[^\w\-. ]+", "_", ctx.proyecto.codigo or ctx.proyecto.nombre_proyecto or "proyecto").strip()
+    return Entregable(contenido, f"{base[:80]} - Informe vertimientos.docx", MIME_DOCX, advertencias)

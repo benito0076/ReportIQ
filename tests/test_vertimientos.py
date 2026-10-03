@@ -1,5 +1,6 @@
 """Vertimientos: reporte de laboratorio, FP-004 y comparacion con la Resolucion 0631 de 2015."""
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -153,6 +154,52 @@ class TestProcesamiento(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestInformeWord(unittest.TestCase):
+    def test_informe_word(self):
+        import docx
+        from types import SimpleNamespace
+
+        import core.vertimientos as v
+        from core.informe_vertimientos import generar_informe_vertimiento, minus
+
+        os.environ["ENGINE_BASEMAP"] = "0"
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "fp004.xlsx")
+            crear_fp004(ruta)
+            original = v.leer_informe_laboratorio
+            v.leer_informe_laboratorio = lambda _ruta: interpretar_reporte(REPORTE)
+            try:
+                res = procesar_vertimiento(ProyectoVertimiento(
+                    codigo="EA-900-26", cliente="EMPRESA DE PRUEBA SAS",
+                    puntos=[PuntoVertimiento("Salida sistema de tratamiento", informe_pdf="x.pdf", latitud="4.96498",
+                                             longitud="-73.95357", descripcion="Salida de la PTAR.")],
+                    fp004=ruta, actividades=["art12_alimentos_animales"], alcantarillado=True))
+            finally:
+                v.leer_informe_laboratorio = original
+            datos = SimpleNamespace(municipio="Bogotá", departamento="Cundinamarca", version="1.0",
+                                    fecha="2026-04-28", **{k: "" for k in (
+                                        "area_estudio", "titulo", "expediente", "acto_administrativo", "cliente_nit",
+                                        "cliente_direccion", "cliente_contacto", "cliente_ciudad",
+                                        "cliente_departamento", "cliente_actividad", "elaboro_nombre", "elaboro_cargo",
+                                        "autorizo_nombre", "autorizo_cargo")})
+            salida = os.path.join(d, "informe.docx")
+            plantilla = os.path.join(RAIZ, "templates", "informe_vertimientos_template.docx")
+            generar_informe_vertimiento(res, plantilla, salida, os.path.join(d, "graficas"), datos)
+            doc = docx.Document(salida)
+        texto = "\n".join(p.text for p in doc.paragraphs)
+        titulos = [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]
+        for t in ("RESULTADOS DE PARÁMETROS IN SITU", "RESULTADOS MEDIDOS EN EL LABORATORIO", "Caudal",
+                  "Cianuro total", "DBO5 y DQO", "Hidrocarburos aromáticos policíclicos"):
+            self.assertIn(t, titulos)
+        self.assertIn("Resolución 1004 del 24 de agosto de 2026", texto)
+        self.assertNotIn("1096", texto)
+        self.assertIn("cianuro total en el punto «Salida sistema de tratamiento»", texto)
+        self.assertIn("Tabla 9. Resultados del análisis de laboratorio vs Resolución 0631 de 2015", texto)
+        self.assertIn("La Tabla 9 presenta los límites de referencia", texto)
+        self.assertIsNone(re.search(r"\b[Dd]e el\b", texto))
+        self.assertEqual(minus("Demanda Bioquímica de Oxígeno (DBO5)"), "demanda bioquímica de oxígeno (DBO5)")
 
 
 def test_catalogo_web_sincronizado():

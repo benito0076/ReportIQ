@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileSpreadsheet, Loader2, Play } from "lucide-react";
+import { FileSpreadsheet, FileText, Loader2, Play } from "lucide-react";
 import { Notice } from "@/components/notice";
 import { Button } from "@/components/ui/button";
 
-type Accion = "procesar" | "excel";
+type Accion = "procesar" | "word" | "excel";
 
 async function post(url: string, body?: unknown): Promise<{ error?: string; advertencias?: unknown }> {
   try {
@@ -22,6 +22,8 @@ async function post(url: string, body?: unknown): Promise<{ error?: string; adve
     return { error: "No se pudo contactar el servidor. Revise su conexión." };
   }
 }
+
+const NOMBRE: Record<Exclude<Accion, "procesar">, string> = { word: "Informe Word", excel: "Excel de resultados" };
 
 export function VertButtons({ projectId, disabled }: { projectId: string; disabled?: boolean }) {
   const router = useRouter();
@@ -42,7 +44,7 @@ export function VertButtons({ projectId, disabled }: { projectId: string; disabl
       const adv = Array.isArray(res.advertencias) ? (res.advertencias as string[]) : [];
       setResult({
         tone: adv.length ? "warning" : "success",
-        text: "Excel de resultados generado. Descárguelo en el historial de abajo.",
+        text: `${NOMBRE[accion]} generado. Descárguelo en el historial de abajo.`,
         items: adv,
       });
     }
@@ -56,6 +58,10 @@ export function VertButtons({ projectId, disabled }: { projectId: string; disabl
           {pending === "procesar" ? <Loader2 className="animate-spin" /> : <Play />}
           {pending === "procesar" ? "Procesando…" : "Procesar proyecto"}
         </Button>
+        <Button disabled={pending !== null || disabled} onClick={() => run("word")}>
+          {pending === "word" ? <Loader2 className="animate-spin" /> : <FileText />}
+          Informe Word
+        </Button>
         <Button variant="outline" disabled={pending !== null || disabled} onClick={() => run("excel")}>
           {pending === "excel" ? <Loader2 className="animate-spin" /> : <FileSpreadsheet />}
           Resultados Excel
@@ -63,7 +69,9 @@ export function VertButtons({ projectId, disabled }: { projectId: string; disabl
       </div>
       {pending && (
         <p className="text-sm text-muted-foreground">
-          Leyendo los reportes del laboratorio y la FP-004… puede tardar unos segundos.
+          {pending === "word"
+            ? "Generando el informe… puede tardar uno o dos minutos (gráficas y mapa de localización)."
+            : "Leyendo los reportes del laboratorio y la FP-004… puede tardar unos segundos."}
         </p>
       )}
       {result && (
