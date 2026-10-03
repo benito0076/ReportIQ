@@ -11,6 +11,7 @@ export interface CurrentUser {
   id: string;
   email: string;
   fullName: string | null;
+  cargo: string;
   role: UserRole;
 }
 
@@ -23,7 +24,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const id = session?.user?.id;
   if (!id) return null;
   const [row] = await db
-    .select({ id: users.id, email: users.email, fullName: users.fullName, role: users.role })
+    .select({ id: users.id, email: users.email, fullName: users.fullName, cargo: users.cargo, role: users.role })
     .from(users)
     .where(eq(users.id, id))
     .limit(1);

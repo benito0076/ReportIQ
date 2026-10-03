@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { createUserAction, resetPasswordAction, setRoleAction } from "@/app/actions/admin";
+import { createUserAction, resetPasswordAction, setRoleAction, updateUserProfileAction } from "@/app/actions/admin";
 import type { ActionState } from "@/app/actions/state";
 import { Field, FormError, SubmitButton, selectClass } from "@/components/form";
 import { Notice } from "@/components/notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { UserRole } from "@/db/enums";
+import { ProfileForm } from "../perfil/profile-form";
 
 export function NewUserForm() {
   const [state, action] = useActionState<ActionState, FormData>(createUserAction, {});
@@ -18,6 +19,9 @@ export function NewUserForm() {
       {state.ok && state.message && <Notice tone="success">{state.message}</Notice>}
       <Field label="Nombre" htmlFor="fullName" error={fe.fullName}>
         <Input id="fullName" name="fullName" defaultValue={state.values?.fullName} />
+      </Field>
+      <Field label="Cargo" htmlFor="cargo" error={fe.cargo} hint="Firma «Elaboró» junto al nombre.">
+        <Input id="cargo" name="cargo" defaultValue={state.values?.cargo} />
       </Field>
       <Field label="Correo electrónico" htmlFor="email" required error={fe.email}>
         <Input id="email" name="email" type="email" required defaultValue={state.values?.email} />
@@ -78,5 +82,25 @@ export function PasswordForm({ id }: { id: string }) {
       {state.error && <p className="w-full text-xs text-peligro">{state.error}</p>}
       {state.ok && <p className="w-full text-xs text-exito">{state.message}</p>}
     </form>
+  );
+}
+
+/** Nombre y cargo de otro usuario (firma «Elaboró»). */
+export function EditProfile({ id, fullName, cargo }: { id: string; fullName: string; cargo: string }) {
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Nombre y cargo
+      </Button>
+    );
+  }
+  return (
+    <div className="grid w-full gap-2 rounded-lg border bg-muted/30 p-3">
+      <ProfileForm action={updateUserProfileAction.bind(null, id)} values={{ fullName, cargo }} idPrefijo={`${id}-`} />
+      <Button variant="ghost" size="sm" className="justify-self-start" onClick={() => setOpen(false)}>
+        Cerrar
+      </Button>
+    </div>
   );
 }

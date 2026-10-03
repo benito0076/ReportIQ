@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAdminPage } from "@/lib/session";
 import { listUsers } from "@/server/users";
-import { NewUserForm, PasswordForm, RoleSelect } from "./user-forms";
+import { EditProfile, NewUserForm, PasswordForm, RoleSelect } from "./user-forms";
 
 export const metadata: Metadata = { title: "Usuarios" };
 
@@ -15,7 +15,7 @@ export default async function UsersPage() {
   const list = await listUsers();
   return (
     <>
-      <PageHeader title="Usuarios" description="Personas con acceso a la aplicación. Los administradores gestionan usuarios y ajustes." />
+      <PageHeader title="Usuarios" description="Personas con acceso a la aplicación. El nombre y el cargo de cada uno firman «Elaboró» en los informes que genera." />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <Card>
           <CardContent className="grid gap-2">
@@ -26,10 +26,11 @@ export default async function UsersPage() {
                     {u.fullName ?? u.email}
                     {u.id === me.id && <span className="ml-1 text-xs text-muted-foreground">(usted)</span>}
                   </div>
-                  <div className="text-sm text-muted-foreground">{u.email}</div>
+                  <div className="text-sm text-muted-foreground">{[u.cargo, u.email].filter(Boolean).join(" · ")}</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <RoleSelect id={u.id} role={u.role} disabled={u.id === me.id} />
+                  <EditProfile id={u.id} fullName={u.fullName ?? ""} cargo={u.cargo} />
                   <PasswordForm id={u.id} />
                   {u.id !== me.id && (
                     <ConfirmButton

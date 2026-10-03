@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { LogOut } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { AppNav, type ItemMenu } from "@/components/app-nav";
 import { SelectorTema } from "@/components/tema";
@@ -52,10 +52,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <AppNav items={items} />
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <div className="mr-1 hidden text-right text-xs leading-tight lg:block">
-              <div className="font-medium">{user.fullName ?? user.email}</div>
-              <div className="text-muted-foreground">{admin ? "Administrador" : "Usuario"}</div>
-            </div>
+            <Link
+              href="/perfil"
+              title="Mi perfil: nombre y cargo de «Elaboró»"
+              className="mr-1 flex items-center gap-2 rounded-lg px-2 py-1 text-right text-xs leading-tight hover:bg-muted"
+            >
+              <span className="hidden lg:block">
+                <span className="block font-medium">{user.fullName ?? user.email}</span>
+                <span className="block text-muted-foreground">{user.cargo || (admin ? "Administrador" : "Usuario")}</span>
+              </span>
+              <UserRound className="size-4 lg:hidden" aria-label="Mi perfil" />
+            </Link>
             <SelectorTema />
             <form action={logoutAction}>
               <Button type="submit" variant="ghost" size="icon" aria-label="Cerrar sesión" title="Cerrar sesión">

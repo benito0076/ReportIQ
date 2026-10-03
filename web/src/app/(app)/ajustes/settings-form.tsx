@@ -23,8 +23,12 @@ export function SettingsForm({ settings }: { settings: SettingsInput }) {
       {state.ok && state.message && <Notice tone="success">{state.message}</Notice>}
       <fieldset className="grid gap-3 sm:grid-cols-2">
         <legend className="mb-2 text-sm font-semibold">Cuadro de control del informe Word</legend>
-        {campo("elaboroNombre", "Elaboró", "Vacío = se deja el nombre de la plantilla.")}
-        {campo("elaboroCargo", "Cargo de quien elaboró")}
+        {campo(
+          "elaboroNombre",
+          "Elaboró (respaldo)",
+          "Solo si quien genera el informe no tiene nombre en Mi perfil. Vacío = el de la plantilla.",
+        )}
+        {campo("elaboroCargo", "Cargo de quien elaboró (respaldo)")}
         {campo("autorizoNombre", "Autorizó", "Vacío = se deja el nombre de la plantilla.")}
         {campo("autorizoCargo", "Cargo de quien autorizó")}
       </fieldset>

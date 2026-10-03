@@ -9,18 +9,18 @@ import { deleteObject, downloadUrl, newKey, putObject } from "@/lib/storage";
 import type { ResultadosProyecto } from "@/lib/engine-types";
 import { informePayload } from "@/lib/informe";
 import { getProject, isUuid, listBarrido, listMemoryFiles, listPoints, saveResults } from "./projects";
-import { getSettings } from "./settings";
+import { firmasInforme, getSettings } from "./settings";
 
 // Las URLs firmadas que recibe el motor deben durar lo que dure el trabajo.
 const ENGINE_URL_TTL = 15 * 60;
 
 /** Arma el proyecto para el motor, con URLs firmadas para memorias y fotos. */
-export async function buildPayload(projectId: string): Promise<engine.ProyectoPayload> {
-  const [project, pts, mems, settings, barrido] = await Promise.all([
+export async function buildPayload(projectId: string, userId?: string): Promise<engine.ProyectoPayload> {
+  const [project, pts, mems, firmas, barrido] = await Promise.all([
     getProject(projectId),
     listPoints(projectId),
     listMemoryFiles(projectId),
-    getSettings(),
+    firmasInforme(userId),
     listBarrido(projectId),
   ]);
   if (project.tipo === "aire" || project.tipo === "vertimientos") {
@@ -71,12 +71,7 @@ export async function buildPayload(projectId: string): Promise<engine.ProyectoPa
     codigo_informe: project.codigoInforme,
     cliente: project.cliente,
     puntos,
-    informe: informePayload(project.informe, {
-      elaboroNombre: settings.elaboroNombre,
-      elaboroCargo: settings.elaboroCargo,
-      autorizoNombre: settings.autorizoNombre,
-      autorizoCargo: settings.autorizoCargo,
-    }),
+    informe: informePayload(project.informe, firmas),
     meteorologia: project.meteoKey
       ? { url: await downloadUrl(project.meteoKey, { ttl: ENGINE_URL_TTL }), nombre: project.meteoNombre ?? "meteorologia.xlsx" }
       : null,
@@ -91,7 +86,7 @@ export async function processProject(projectId: string): Promise<ResultadosProye
 
 export async function generateReport(projectId: string, kind: ReportKind, userId: string) {
   const [proyecto, settings, equipos] = await Promise.all([
-    buildPayload(projectId),
+    buildPayload(projectId, userId),
     getSettings(),
     db.select({ nombre: equipment.nombre, codigo: equipment.codigo, serial: equipment.serial }).from(equipment),
   ]);

@@ -27,16 +27,17 @@ export async function hasUsers(): Promise<boolean> {
 
 export async function listUsers() {
   return db
-    .select({ id: users.id, email: users.email, fullName: users.fullName, role: users.role, createdAt: users.createdAt })
+    .select({ id: users.id, email: users.email, fullName: users.fullName, cargo: users.cargo, role: users.role, createdAt: users.createdAt })
     .from(users)
     .orderBy(asc(users.email));
 }
 
-export async function createUser(input: { email: string; fullName: string; password: string; role: UserRole }) {
+export async function createUser(input: { email: string; fullName: string; cargo: string; password: string; role: UserRole }) {
   try {
     await db.insert(users).values({
       email: input.email,
       fullName: input.fullName || null,
+      cargo: input.cargo,
       role: input.role,
       passwordHash: await bcrypt.hash(input.password, ROUNDS),
     });
@@ -68,6 +69,17 @@ export async function setPassword(id: string, password: string) {
   const res = await db
     .update(users)
     .set({ passwordHash: await bcrypt.hash(password, ROUNDS) })
+    .where(eq(users.id, id))
+    .returning({ id: users.id });
+  if (res.length === 0) throw new NotFoundError();
+}
+
+/** Nombre y cargo con los que el usuario firma «Elaboró». */
+export async function setProfile(id: string, input: { fullName: string; cargo: string }) {
+  if (!isUuid(id)) throw new NotFoundError();
+  const res = await db
+    .update(users)
+    .set({ fullName: input.fullName || null, cargo: input.cargo })
     .where(eq(users.id, id))
     .returning({ id: users.id });
   if (res.length === 0) throw new NotFoundError();

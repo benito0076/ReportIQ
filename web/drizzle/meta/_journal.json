@@ -64,6 +64,13 @@
       "when": 1790973396659,
       "tag": "0008_vertimientos",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791031526872,
+      "tag": "0009_usuario_cargo",
+      "breakpoints": true
     }
   ]
 }

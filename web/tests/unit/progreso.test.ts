@@ -65,7 +65,8 @@ describe("revisarAire", () => {
     });
     expect(r.avisos[0]).toMatchObject({ nivel: "bloquea" });
     expect(r.avisos.map((a) => a.texto).join(" ")).toContain("Estación 1");
-    expect(r.avisos.at(-1)?.texto).toContain("firmas");
+    expect(r.avisos.at(-2)?.texto).toContain("Mi perfil");
+    expect(r.avisos.at(-1)?.texto).toContain("Autorizó");
   });
 });
 

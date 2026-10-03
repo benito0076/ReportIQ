@@ -40,6 +40,8 @@ export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   fullName: varchar("full_name", { length: 255 }),
+  /** Cargo que aparece junto al nombre en «Elaboró» del cuadro de control del informe. */
+  cargo: varchar("cargo", { length: 255 }).notNull().default(""),
   passwordHash: text("password_hash").notNull(),
   role: varchar("role", { length: 20 }).$type<UserRole>().notNull().default("user"),
   ...timestamps,

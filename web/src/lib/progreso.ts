@@ -47,10 +47,16 @@ interface InformeDatos {
   laboratorioSubcontratado?: string;
 }
 
+/** «Elaboró» sale del perfil de quien genera el informe (o de Ajustes); «Autorizó», de Ajustes. */
 function avisosComunes(firmas: Firmas, ancla: string): Aviso[] {
-  return vacio(firmas.elaboroNombre) || vacio(firmas.autorizoNombre)
-    ? [{ texto: "Faltan las firmas del cuadro de control (elaboró / autorizó) en Ajustes.", ancla, nivel: "revisar" }]
-    : [];
+  const avisos: Aviso[] = [];
+  if (vacio(firmas.elaboroNombre)) {
+    avisos.push({ texto: "Falta la firma «Elaboró»: escriba su nombre y cargo en Mi perfil.", ancla, nivel: "revisar" });
+  }
+  if (vacio(firmas.autorizoNombre)) {
+    avisos.push({ texto: "Falta la firma «Autorizó» en Ajustes (administrador).", ancla, nivel: "revisar" });
+  }
+  return avisos;
 }
 
 // ------------------------------------------------------------------ vertimientos

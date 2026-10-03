@@ -25,7 +25,7 @@ import ACTIVIDADES_0631 from "@/lib/res0631-actividades.json";
 import { normalizarPunto } from "@/lib/puntos";
 import { requireUser } from "@/lib/session";
 import { listReports } from "@/server/processing";
-import { getSettings } from "@/server/settings";
+import { firmasInforme } from "@/server/settings";
 import { isUuid } from "@/server/projects";
 import { configDe, getVertProject, listWaterPoints } from "@/server/vertimientos";
 import { InformeForm } from "../../proyectos/[id]/informe-form";
@@ -44,7 +44,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
   if (!isUuid(id)) notFound();
   const project = await getVertProject(id).catch(() => null);
   if (!project) notFound();
-  const [puntos, reps, settings] = await Promise.all([listWaterPoints(id), listReports(id), getSettings()]);
+  const [puntos, reps, firmas] = await Promise.all([listWaterPoints(id), listReports(id), firmasInforme(user.id)]);
   const r = project.resultadosVertimiento;
   const config = configDe(project);
   const conReporte = puntos.some((p) => p.informeKey);
@@ -60,7 +60,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
       .filter((p) => p.punto_laboratorio && normalizarPunto(p.punto_laboratorio) !== normalizarPunto(p.nombre))
       .map((p) => ({ punto: p.nombre, laboratorio: p.punto_laboratorio ?? "" })),
     subcontratados: !!r?.filas.some((f) => f.subcontratado),
-    firmas: settings,
+    firmas,
   });
 
   const paso = (ancla: string) => revision.pasos.find((p) => p.ancla === ancla);
@@ -261,7 +261,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
         </PasoCard>
 
         <PasoCard id="paso-informe" numero={5} titulo="Datos del informe" paso={paso("paso-informe")} descripcion={<>Portada, encabezado y cliente del informe Word. Si faltan el NIT, la dirección, el contacto o el municipio,
-              se toman del reporte del laboratorio. Las firmas del cuadro de control se toman de Ajustes.</>}>
+              se toman del reporte del laboratorio. «Elaboró» es quien genera el informe (nombre y cargo de <Link href="/perfil" className="underline">Mi perfil</Link>); «Autorizó» se toma de Ajustes.</>}>
             <InformeForm projectId={id} informe={project.informe} vertimientos />
         </PasoCard>
 
