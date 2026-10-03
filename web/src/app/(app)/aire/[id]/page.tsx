@@ -11,6 +11,7 @@ import {
 import { deleteReportAction, removeMeteoAction } from "@/app/actions/projects";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Notice } from "@/components/notice";
+import { ListaVerificacion, ProgresoPasos } from "@/components/progreso";
 import { UploadButton } from "@/components/upload";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -19,9 +20,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PLANTILLAS_AIRE, PLANTILLA_AIRE_LABELS } from "@/db/enums";
 import { formatBytes } from "@/lib/files";
 import { formatDateTime } from "@/lib/format";
+import { revisarAire } from "@/lib/progreso";
 import { requireAdminPage } from "@/lib/session";
 import { getAireProject, listAirFiles, listStations } from "@/server/aire";
 import { listReports } from "@/server/processing";
+import { getSettings } from "@/server/settings";
 import { isUuid } from "@/server/projects";
 import { InformeForm } from "../../proyectos/[id]/informe-form";
 import { AireProjectForm } from "../aire-project-form";
@@ -37,8 +40,23 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
   if (!isUuid(id)) notFound();
   const project = await getAireProject(id).catch(() => null);
   if (!project) notFound();
-  const [estaciones, archivos, reps] = await Promise.all([listStations(id), listAirFiles(id), listReports(id)]);
+  const [estaciones, archivos, reps, settings] = await Promise.all([
+    listStations(id),
+    listAirFiles(id),
+    listReports(id),
+    getSettings(),
+  ]);
   const r = project.resultadosAire;
+  const revision = revisarAire({
+    cliente: project.cliente,
+    codigo: project.codigoInforme,
+    estaciones,
+    plantillas: archivos.length,
+    meteo: !!project.meteoKey,
+    informe: project.informe,
+    procesado: !!(r && project.procesadoAt),
+    firmas: settings,
+  });
   const siguiente = Math.max(0, ...estaciones.map((e) => e.numero)) + 1;
 
   return (
@@ -57,7 +75,8 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
       </div>
 
       <div className="grid gap-6">
-        <Card>
+        <ProgresoPasos pasos={revision.pasos} />
+        <Card id="paso-datos" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>1. Datos del proyecto</CardTitle>
           </CardHeader>
@@ -75,7 +94,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-estaciones" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>2. Estaciones de monitoreo</CardTitle>
             <CardDescription>
@@ -168,7 +187,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-plantillas" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>3. Plantillas de procesamiento</CardTitle>
             <CardDescription>
@@ -269,7 +288,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-informe" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>4. Datos del informe</CardTitle>
             <CardDescription>
@@ -281,7 +300,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-procesar" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>5. Procesamiento y entregables</CardTitle>
             <CardDescription>
@@ -301,6 +320,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
                   : "El proyecto aún no se ha procesado."}
               </Notice>
             )}
+            <ListaVerificacion avisos={revision.avisos} />
             <AireButtons projectId={id} disabled={archivos.length === 0} />
             {reps.length > 0 && (
               <Table>

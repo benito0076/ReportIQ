@@ -32,6 +32,7 @@ export type FileKind =
   | "aire"
   | "fotoAire"
   | "laboratorio"
+  | "laboratorioLote"
   | "fp004"
   | "fotoAgua"
   | "informe";
@@ -45,6 +46,7 @@ const PREFIX: Record<FileKind, string> = {
   aire: "aire",
   fotoAire: "fotos",
   laboratorio: "vertimientos",
+  laboratorioLote: "vertimientos",
   fp004: "vertimientos",
   fotoAgua: "fotos",
   informe: "informes",

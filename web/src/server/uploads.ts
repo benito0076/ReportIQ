@@ -15,7 +15,7 @@ import {
 } from "@/lib/storage";
 import { addBarrido, getPoint, getProject, setMemoryFile, setPointPhoto, setProjectMeteo } from "./projects";
 import { getAireProject, getStation, setAirFile, setStationPhoto } from "./aire";
-import { getVertProject, getWaterPoint, setFp004, setWaterPointFile } from "./vertimientos";
+import { assignLabReport, getVertProject, getWaterPoint, setFp004, setWaterPointFile } from "./vertimientos";
 import { logActivity } from "./activity";
 import { updateSettings } from "./settings";
 
@@ -42,6 +42,7 @@ export const uploadTargetSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("fotoAire"), projectId: z.uuid(), stationId: z.uuid() }),
   z.object({ kind: z.literal("laboratorio"), projectId: z.uuid(), pointId: z.uuid() }),
   z.object({ kind: z.literal("fp004"), projectId: z.uuid() }),
+  z.object({ kind: z.literal("laboratorioLote"), projectId: z.uuid() }),
   z.object({ kind: z.literal("fotoAgua"), projectId: z.uuid(), pointId: z.uuid() }),
   z.object({ kind: z.literal("plantilla") }),
 ]);
@@ -78,7 +79,7 @@ async function checkTarget(target: UploadTarget, user: CurrentUser) {
     await getWaterPoint(target.projectId, target.pointId);
     return;
   }
-  if (target.kind === "fp004") {
+  if (target.kind === "fp004" || target.kind === "laboratorioLote") {
     if (user.role !== "admin") throw new ForbiddenError();
     await getVertProject(target.projectId);
     return;
@@ -110,7 +111,13 @@ export async function prepareUpload(target: UploadTarget, fileName: string, size
   return { key, url: await uploadUrl(key, contentType), contentType };
 }
 
-export async function confirmUpload(target: UploadTarget, key: string, fileName: string, user: CurrentUser) {
+/** Verifica y asigna el archivo subido. Devuelve un mensaje para el usuario (subidas por lote). */
+export async function confirmUpload(
+  target: UploadTarget,
+  key: string,
+  fileName: string,
+  user: CurrentUser,
+): Promise<{ mensaje?: string }> {
   await checkTarget(target, user);
   if (!keyBelongsTo(key, target.kind, scopeOf(target))) throw new ValidationError("Clave de archivo inválida.");
   const rule = UPLOAD_RULES[target.kind];
@@ -154,9 +161,12 @@ export async function confirmUpload(target: UploadTarget, key: string, fileName:
     case "fp004":
       await setFp004(target.projectId, key, name);
       break;
+    case "laboratorioLote":
+      return { mensaje: await assignLabReport(target.projectId, key, name) };
     case "plantilla":
       await updateSettings({ plantillaKey: key, plantillaNombre: name });
       await logActivity("plantilla_subida", user, name);
       break;
   }
+  return {};
 }

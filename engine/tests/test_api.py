@@ -334,6 +334,11 @@ class TestApiMotor(unittest.TestCase):
 
         wb = openpyxl.load_workbook(io.BytesIO(r.content))
         self.assertEqual(wb.sheetnames, ["Resultados vs Res. 0631", "Campo Entrada", "Campo Salida", "Norma aplicada"])
+        # Encabezado de un reporte: un archivo que no es un reporte del laboratorio responde 422.
+        r = self.client.post("/v1/vertimientos/reporte",
+                             json={"informe": {"url": f"{self.base}/FP004.xlsx", "nombre": "FP004.xlsx"}}, headers=AUTH)
+        self.assertEqual(r.status_code, 422, r.text)
+        self.assertIn("FP004.xlsx", r.json()["detail"])
         # Informe Word (sin reportes del laboratorio: avisa qué falta).
         r = self.client.post("/v1/vertimientos/generar", json={"proyecto": proyecto, "tipo": "word"}, headers=AUTH)
         self.assertEqual(r.status_code, 200, r.text)

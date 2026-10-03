@@ -6,6 +6,7 @@ import * as engine from "@/lib/engine";
 import type { ResultadosVertimiento } from "@/lib/engine-types";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { informePayload } from "@/lib/informe";
+import { normalizarPunto, puntoParaReporte } from "@/lib/puntos";
 import { deleteObject, downloadUrl, newKey, putObject } from "@/lib/storage";
 import type { ConfigVertimientoInput, ProjectInput, WaterPointInput } from "@/lib/validation";
 import { getProject, isUuid } from "./projects";
@@ -166,6 +167,40 @@ export async function removeWaterPointFile(projectId: string, pointId: string, a
     if (archivo === "informe") await invalidateVert(projectId, tx);
   });
   await deleteObject(key);
+}
+
+/**
+ * Reporte del laboratorio subido por lote: lee su encabezado con el motor y lo
+ * asigna al punto con el mismo nombre; si no existe, crea el punto (la entrada
+ * a un sistema de tratamiento queda sin comparación con la norma). Devuelve un
+ * mensaje para el usuario.
+ */
+export async function assignLabReport(projectId: string, key: string, fileName: string): Promise<string> {
+  await getVertProject(projectId);
+  let encabezado: engine.EncabezadoReporte;
+  try {
+    encabezado = await engine.leerReporte({ url: await downloadUrl(key, { ttl: ENGINE_URL_TTL }), nombre: fileName });
+  } catch (e) {
+    await deleteObject(key);
+    throw e;
+  }
+  const nombre = (encabezado.punto || encabezado.muestra || fileName.replace(/\.pdf$/i, "")).trim().slice(0, 150);
+  const muestra = encabezado.muestra ? `${encabezado.muestra} ` : "";
+  const puntos = await listWaterPoints(projectId);
+  const punto = puntoParaReporte(puntos, nombre);
+  if (punto) {
+    const reemplaza = punto.informeKey ? " (reemplazó el reporte anterior)" : "";
+    await setWaterPointFile(projectId, punto.id, "informe", key, fileName);
+    return `${muestra}→ «${punto.nombre}»${reemplaza}`;
+  }
+  const orden = Math.max(0, ...puntos.map((p) => p.orden)) + 1;
+  const evaluar = !/\bentrada\b|\bafluente\b|\bcruda\b/.test(normalizarPunto(nombre));
+  const [nuevo] = await db
+    .insert(waterPoints)
+    .values({ projectId, orden, nombre, evaluar })
+    .returning({ id: waterPoints.id });
+  await setWaterPointFile(projectId, nuevo.id, "informe", key, fileName);
+  return `${muestra}→ punto nuevo «${nombre}»${evaluar ? "" : " (sin comparación con la norma)"}`;
 }
 
 // ------------------------------------------------------------------ FP-004

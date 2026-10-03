@@ -16,6 +16,7 @@ export type UploadTarget =
   | { kind: "aire"; projectId: string; plantilla: string }
   | { kind: "laboratorio"; projectId: string; pointId: string }
   | { kind: "fp004"; projectId: string }
+  | { kind: "laboratorioLote"; projectId: string }
   | { kind: "fotoAgua"; projectId: string; pointId: string }
   | { kind: "plantilla" };
 

@@ -168,6 +168,11 @@ class ProcesarVertimientoIn(BaseModel):
     proyecto: ProyectoVertimientoIn
 
 
+class LeerReporteIn(BaseModel):
+    """Reporte de resultados del laboratorio (PDF) del que se lee el encabezado."""
+    informe: ArchivoRemoto
+
+
 class GenerarVertimientoIn(BaseModel):
     proyecto: ProyectoVertimientoIn
     tipo: Literal["excel", "word"] = "excel"

@@ -26,7 +26,6 @@ export async function prepareUploadAction(target: unknown, fileName: string, siz
 export async function confirmUploadAction(target: unknown, key: string, fileName: string) {
   return guard(async () => {
     const user = await assertUser();
-    await confirmUpload(uploadTargetSchema.parse(target), key, fileName, user);
-    return {};
+    return confirmUpload(uploadTargetSchema.parse(target), key, fileName, user);
   });
 }
