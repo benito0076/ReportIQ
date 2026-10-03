@@ -11,15 +11,18 @@ import {
 } from "@/app/actions/vertimientos";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Notice } from "@/components/notice";
+import { AbrirAncla } from "@/components/abrir-ancla";
+import { MatrizIcono } from "@/components/matriz";
+import { PasoCard } from "@/components/paso";
 import { ListaVerificacion, ProgresoPasos } from "@/components/progreso";
 import { UploadButton } from "@/components/upload";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
 import { formatBytes } from "@/lib/files";
 import { revisarVertimiento } from "@/lib/progreso";
+import ACTIVIDADES_0631 from "@/lib/res0631-actividades.json";
 import { normalizarPunto } from "@/lib/puntos";
 import { requireAdminPage } from "@/lib/session";
 import { listReports } from "@/server/processing";
@@ -61,303 +64,277 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
     firmas: settings,
   });
 
+  const paso = (ancla: string) => revision.pasos.find((p) => p.ancla === ancla);
+  const actividades = ACTIVIDADES_0631.flatMap((g) =>
+    g.actividades.filter((a) => config.actividades.includes(a.clave)).map((a) => `Art. ${g.articulo} ${a.actividad}`),
+  );
+  const resumenNorma =
+    [actividades.join("; "), config.alcantarillado && "alcantarillado (Art. 16)"].filter(Boolean).join(" · ") ||
+    "Sin actividades";
   return (
     <>
       <Link href="/vertimientos" className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="size-4" /> Vertimientos
       </Link>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{project.nombre}</h1>
-          <p className="text-sm text-muted-foreground">
-            {["Vertimientos", project.codigoInforme, project.cliente].filter(Boolean).join(" · ")}
-          </p>
+        <div className="flex items-start gap-3">
+          <MatrizIcono matriz="vertimientos" size="lg" />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{project.nombre}</h1>
+            <p className="text-sm text-muted-foreground">
+              {["Vertimientos", project.codigoInforme, project.cliente].filter(Boolean).join(" · ")}
+            </p>
+          </div>
         </div>
         <Badge variant="outline">En desarrollo · solo administrador</Badge>
       </div>
 
       <div className="grid gap-6">
         <ProgresoPasos pasos={revision.pasos} />
-        <Card id="paso-datos" className="scroll-mt-20">
-          <CardHeader>
-            <CardTitle>1. Datos del proyecto</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            <VertProjectForm project={project} />
-            <div className="border-t pt-3">
-              <ConfirmButton
-                action={deleteVertProjectAction.bind(null, id)}
-                confirm="¿Eliminar el proyecto con sus puntos, reportes e informes? No se puede deshacer."
-                variant="outline"
-              >
-                <Trash2 className="text-red-600" /> Eliminar proyecto
-              </ConfirmButton>
-            </div>
-          </CardContent>
-        </Card>
+        <AbrirAncla />
+        <PasoCard id="paso-datos" numero={1} titulo="Datos del proyecto" paso={paso("paso-datos")} resumen={[project.cliente, project.codigoInforme].filter(Boolean).join(" · ")}>
+          <div className="grid gap-4">
+              <VertProjectForm project={project} />
+              <div className="border-t pt-3">
+                <ConfirmButton
+                  action={deleteVertProjectAction.bind(null, id)}
+                  confirm="¿Eliminar el proyecto con sus puntos, reportes e informes? No se puede deshacer."
+                  variant="outline"
+                >
+                  <Trash2 className="text-peligro" /> Eliminar proyecto
+                </ConfirmButton>
+              </div>
+          </div>
+        </PasoCard>
 
-        <Card id="paso-norma" className="scroll-mt-20">
-          <CardHeader className="border-b">
-            <CardTitle>2. Norma aplicable</CardTitle>
-            <CardDescription>
-              Resolución 0631 de 2015. Cada actividad seleccionada es una columna de límites en la tabla de resultados.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <PasoCard id="paso-norma" numero={2} titulo="Norma aplicable" paso={paso("paso-norma")} resumen={resumenNorma} descripcion={<>Resolución 0631 de 2015. Cada actividad seleccionada es una columna de límites en la tabla de resultados.</>}>
             <NormaForm projectId={id} config={config} />
-          </CardContent>
-        </Card>
+        </PasoCard>
 
-        <Card id="paso-puntos" className="scroll-mt-20">
-          <CardHeader className="border-b">
-            <CardTitle>3. Puntos de muestreo</CardTitle>
-            <CardDescription>
-              Por cada punto suba la copia en PDF del reporte de resultados del laboratorio (FT-024): la app lee los
-              ensayos, el método, el LCM, el resultado y la incertidumbre.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 px-0">
-            {puntos.length > 0 && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="pl-4">Punto</TableHead>
-                    <TableHead>Reporte del laboratorio</TableHead>
-                    <TableHead>Foto</TableHead>
-                    <TableHead className="pr-4 text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {puntos.map((p) => (
-                    <TableRow key={p.id} className="align-top">
-                      <TableCell className="pl-4 whitespace-normal">
-                        <div className="font-medium">{p.nombre}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {[
-                            p.tipoAgua,
-                            p.evaluar ? "Se compara con la norma" : "Sin comparación",
-                            p.hojaFp && `Hoja FP-004: ${p.hojaFp}`,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </div>
-                        <details className="mt-1">
-                          <summary className="inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground">
-                            <Pencil className="size-3" /> Editar
-                          </summary>
-                          <div className="mt-2 rounded-lg border p-3">
-                            <PointForm projectId={id} point={p} />
+        <PasoCard id="paso-puntos" numero={3} titulo="Puntos de muestreo" paso={paso("paso-puntos")} resumen={puntos.map((p) => p.nombre).join(" · ") || "Sin puntos"} descripcion={<>Por cada punto suba la copia en PDF del reporte de resultados del laboratorio (FT-024): la app lee los
+              ensayos, el método, el LCM, el resultado y la incertidumbre.</>} sinMargen>
+          <div className="grid gap-4">
+              {puntos.length > 0 && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="pl-4">Punto</TableHead>
+                      <TableHead>Reporte del laboratorio</TableHead>
+                      <TableHead>Foto</TableHead>
+                      <TableHead className="pr-4 text-right">Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {puntos.map((p) => (
+                      <TableRow key={p.id} className="align-top">
+                        <TableCell className="pl-4 whitespace-normal">
+                          <div className="font-medium">{p.nombre}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {[
+                              p.tipoAgua,
+                              p.evaluar ? "Se compara con la norma" : "Sin comparación",
+                              p.hojaFp && `Hoja FP-004: ${p.hojaFp}`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
                           </div>
-                        </details>
-                      </TableCell>
-                      <TableCell className="whitespace-normal">
-                        {p.informeKey ? (
-                          <a
-                            href={`/api/vertimientos/${id}/puntos/${p.id}/informe`}
-                            className="text-sm hover:underline"
-                          >
-                            {p.informeNombre}
-                          </a>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">Sin reporte</span>
-                        )}
-                        <div className="mt-1 flex items-center gap-1">
-                          <UploadButton
-                            target={{ kind: "laboratorio", projectId: id, pointId: p.id }}
-                            label={p.informeKey ? "Reemplazar" : "Subir PDF"}
-                          />
-                          {p.informeKey && (
-                            <ConfirmButton
-                              action={removeWaterPointFileAction.bind(null, id, p.id, "informe")}
-                              confirm={`¿Quitar el reporte del punto «${p.nombre}»?`}
-                              size="icon-sm"
-                              variant="ghost"
-                              title="Quitar reporte"
+                          <details className="mt-1">
+                            <summary className="inline-flex cursor-pointer items-center gap-1 text-xs text-muted-foreground">
+                              <Pencil className="size-3" /> Editar
+                            </summary>
+                            <div className="mt-2 rounded-lg border p-3">
+                              <PointForm projectId={id} point={p} />
+                            </div>
+                          </details>
+                        </TableCell>
+                        <TableCell className="whitespace-normal">
+                          {p.informeKey ? (
+                            <a
+                              href={`/api/vertimientos/${id}/puntos/${p.id}/informe`}
+                              className="text-sm hover:underline"
                             >
-                              <Trash2 className="text-red-600" />
-                            </ConfirmButton>
+                              {p.informeNombre}
+                            </a>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Sin reporte</span>
                           )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col items-start gap-1">
-                          {p.fotoKey && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={`/api/vertimientos/${id}/puntos/${p.id}/foto?v=${encodeURIComponent(p.fotoKey)}`}
-                              alt={`Foto del punto ${p.nombre}`}
-                              className="h-16 w-24 rounded border object-cover"
-                            />
-                          )}
-                          <div className="flex items-center gap-1">
+                          <div className="mt-1 flex items-center gap-1">
                             <UploadButton
-                              target={{ kind: "fotoAgua", projectId: id, pointId: p.id }}
-                              label={p.fotoKey ? "Cambiar" : "Subir foto"}
+                              target={{ kind: "laboratorio", projectId: id, pointId: p.id }}
+                              label={p.informeKey ? "Reemplazar" : "Subir PDF"}
                             />
-                            {p.fotoKey && (
+                            {p.informeKey && (
                               <ConfirmButton
-                                action={removeWaterPointFileAction.bind(null, id, p.id, "foto")}
-                                confirm={`¿Quitar la foto del punto «${p.nombre}»?`}
+                                action={removeWaterPointFileAction.bind(null, id, p.id, "informe")}
+                                confirm={`¿Quitar el reporte del punto «${p.nombre}»?`}
                                 size="icon-sm"
                                 variant="ghost"
-                                title="Quitar foto"
+                                title="Quitar reporte"
                               >
-                                <Trash2 className="text-red-600" />
+                                <Trash2 className="text-peligro" />
                               </ConfirmButton>
                             )}
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="pr-4 text-right">
-                        <ConfirmButton
-                          action={deleteWaterPointAction.bind(null, id, p.id)}
-                          confirm={`¿Eliminar el punto «${p.nombre}» con su reporte?`}
-                          size="icon-sm"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="text-red-600" />
-                        </ConfirmButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-            <div className="px-4">
-              <LabBulkUpload projectId={id} />
-            </div>
-            <div className="px-4">
-              <div className="rounded-lg border">
-                <h3 className="border-b px-3 py-2 text-sm font-medium">Agregar punto</h3>
-                <div className="p-3">
-                  <PointForm projectId={id} />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card id="paso-campo" className="scroll-mt-20">
-          <CardHeader className="border-b">
-            <CardTitle>4. Datos de campo (FP-004)</CardTitle>
-            <CardDescription>
-              Plantilla de datos de vertimientos con una hoja por punto: aforo volumétrico, pH, temperatura, oxígeno
-              disuelto, conductividad y sólidos sedimentables. La app calcula caudales y alícuotas. Es opcional.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3">
-            {project.fp004Key ? (
-              <a href={`/api/vertimientos/${id}/fp004`} className="text-sm hover:underline">
-                {project.fp004Nombre}
-              </a>
-            ) : (
-              <span className="text-sm text-muted-foreground">Sin archivo</span>
-            )}
-            <div className="inline-flex gap-1">
-              <UploadButton target={{ kind: "fp004", projectId: id }} label={project.fp004Key ? "Reemplazar" : "Subir"} />
-              {project.fp004Key && (
-                <ConfirmButton
-                  action={removeFp004Action.bind(null, id)}
-                  confirm="¿Quitar la FP-004?"
-                  size="icon-sm"
-                  title="Quitar"
-                >
-                  <Trash2 className="text-red-600" />
-                </ConfirmButton>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card id="paso-informe" className="scroll-mt-20">
-          <CardHeader className="border-b">
-            <CardTitle>5. Datos del informe</CardTitle>
-            <CardDescription>
-              Portada, encabezado y cliente del informe Word. Si faltan el NIT, la dirección, el contacto o el municipio,
-              se toman del reporte del laboratorio. Las firmas del cuadro de control se toman de Ajustes.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <InformeForm projectId={id} informe={project.informe} vertimientos />
-          </CardContent>
-        </Card>
-
-        <Card id="paso-procesar" className="scroll-mt-20">
-          <CardHeader className="border-b">
-            <CardTitle>6. Procesamiento y entregables</CardTitle>
-            <CardDescription>
-              Compara los resultados del laboratorio con los límites de la Resolución 0631 de 2015. El informe Word sigue
-              el formato FP-023 (informe técnico de calidad de agua): tablas de campo y de laboratorio, análisis por
-              parámetro con gráficas y conclusiones.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {!conReporte ? (
-              <Notice tone="info">Agregue los puntos y suba al menos un reporte del laboratorio para procesar el proyecto.</Notice>
-            ) : r && project.procesadoAt ? (
-              <p className="text-sm text-muted-foreground">Procesado: {formatDateTime(project.procesadoAt)}</p>
-            ) : (
-              <Notice tone="warning">
-                {reps.length > 0
-                  ? "Los datos cambiaron desde el último procesamiento: vuelva a procesar para ver los resultados actualizados."
-                  : "El proyecto aún no se ha procesado."}
-              </Notice>
-            )}
-            <ListaVerificacion avisos={revision.avisos} />
-            <VertButtons projectId={id} disabled={!conReporte} />
-            {reps.length > 0 && (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Archivo</TableHead>
-                    <TableHead>Generado</TableHead>
-                    <TableHead>Tamaño</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reps.map((rep) => (
-                    <TableRow key={rep.id}>
-                      <TableCell className="whitespace-normal">
-                        <div className="font-medium">{rep.fileName}</div>
-                        {rep.advertencias.length > 0 && (
-                          <details className="text-xs text-amber-800">
-                            <summary className="cursor-pointer">{rep.advertencias.length} advertencia(s)</summary>
-                            <ul className="list-disc pl-4">
-                              {rep.advertencias.map((a, i) => (
-                                <li key={i}>{a}</li>
-                              ))}
-                            </ul>
-                          </details>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatDateTime(rep.createdAt)}</TableCell>
-                      <TableCell>{formatBytes(rep.size)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="inline-flex gap-1">
-                          <a
-                            href={`/api/proyectos/${id}/informes/${rep.id}`}
-                            className={buttonVariants({ variant: "outline", size: "sm" })}
-                          >
-                            <Download /> Descargar
-                          </a>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col items-start gap-1">
+                            {p.fotoKey && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={`/api/vertimientos/${id}/puntos/${p.id}/foto?v=${encodeURIComponent(p.fotoKey)}`}
+                                alt={`Foto del punto ${p.nombre}`}
+                                className="h-16 w-24 rounded border object-cover"
+                              />
+                            )}
+                            <div className="flex items-center gap-1">
+                              <UploadButton
+                                target={{ kind: "fotoAgua", projectId: id, pointId: p.id }}
+                                label={p.fotoKey ? "Cambiar" : "Subir foto"}
+                              />
+                              {p.fotoKey && (
+                                <ConfirmButton
+                                  action={removeWaterPointFileAction.bind(null, id, p.id, "foto")}
+                                  confirm={`¿Quitar la foto del punto «${p.nombre}»?`}
+                                  size="icon-sm"
+                                  variant="ghost"
+                                  title="Quitar foto"
+                                >
+                                  <Trash2 className="text-peligro" />
+                                </ConfirmButton>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="pr-4 text-right">
                           <ConfirmButton
-                            action={deleteReportAction.bind(null, id, rep.id)}
-                            confirm="¿Eliminar este archivo del historial?"
+                            action={deleteWaterPointAction.bind(null, id, p.id)}
+                            confirm={`¿Eliminar el punto «${p.nombre}» con su reporte?`}
                             size="icon-sm"
                             title="Eliminar"
                           >
-                            <Trash2 className="text-red-600" />
+                            <Trash2 className="text-peligro" />
                           </ConfirmButton>
-                        </div>
-                      </TableCell>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+              <div className="px-4">
+                <LabBulkUpload projectId={id} />
+              </div>
+              <div className="px-4">
+                <div className="rounded-lg border">
+                  <h3 className="border-b px-3 py-2 text-sm font-medium">Agregar punto</h3>
+                  <div className="p-3">
+                    <PointForm projectId={id} />
+                  </div>
+                </div>
+              </div>
+          </div>
+        </PasoCard>
+
+        <PasoCard id="paso-campo" numero={4} titulo="Datos de campo (FP-004)" paso={paso("paso-campo")} resumen={project.fp004Nombre ?? "Sin archivo (opcional)"} descripcion={<>Plantilla de datos de vertimientos con una hoja por punto: aforo volumétrico, pH, temperatura, oxígeno
+              disuelto, conductividad y sólidos sedimentables. La app calcula caudales y alícuotas. Es opcional.</>}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+              {project.fp004Key ? (
+                <a href={`/api/vertimientos/${id}/fp004`} className="text-sm hover:underline">
+                  {project.fp004Nombre}
+                </a>
+              ) : (
+                <span className="text-sm text-muted-foreground">Sin archivo</span>
+              )}
+              <div className="inline-flex gap-1">
+                <UploadButton target={{ kind: "fp004", projectId: id }} label={project.fp004Key ? "Reemplazar" : "Subir"} />
+                {project.fp004Key && (
+                  <ConfirmButton
+                    action={removeFp004Action.bind(null, id)}
+                    confirm="¿Quitar la FP-004?"
+                    size="icon-sm"
+                    title="Quitar"
+                  >
+                    <Trash2 className="text-peligro" />
+                  </ConfirmButton>
+                )}
+              </div>
+          </div>
+        </PasoCard>
+
+        <PasoCard id="paso-informe" numero={5} titulo="Datos del informe" paso={paso("paso-informe")} descripcion={<>Portada, encabezado y cliente del informe Word. Si faltan el NIT, la dirección, el contacto o el municipio,
+              se toman del reporte del laboratorio. Las firmas del cuadro de control se toman de Ajustes.</>}>
+            <InformeForm projectId={id} informe={project.informe} vertimientos />
+        </PasoCard>
+
+        <PasoCard id="paso-procesar" numero={6} titulo="Procesamiento y entregables" paso={paso("paso-procesar")} descripcion={<>Compara los resultados del laboratorio con los límites de la Resolución 0631 de 2015. El informe Word sigue
+              el formato FP-023 (informe técnico de calidad de agua): tablas de campo y de laboratorio, análisis por
+              parámetro con gráficas y conclusiones.</>} siempreAbierto>
+          <div className="grid gap-4">
+              {!conReporte ? (
+                <Notice tone="info">Agregue los puntos y suba al menos un reporte del laboratorio para procesar el proyecto.</Notice>
+              ) : r && project.procesadoAt ? (
+                <p className="text-sm text-muted-foreground">Procesado: {formatDateTime(project.procesadoAt)}</p>
+              ) : (
+                <Notice tone="warning">
+                  {reps.length > 0
+                    ? "Los datos cambiaron desde el último procesamiento: vuelva a procesar para ver los resultados actualizados."
+                    : "El proyecto aún no se ha procesado."}
+                </Notice>
+              )}
+              <ListaVerificacion avisos={revision.avisos} />
+              <VertButtons projectId={id} disabled={!conReporte} />
+              {reps.length > 0 && (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Archivo</TableHead>
+                      <TableHead>Generado</TableHead>
+                      <TableHead>Tamaño</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {reps.map((rep) => (
+                      <TableRow key={rep.id}>
+                        <TableCell className="whitespace-normal">
+                          <div className="font-medium">{rep.fileName}</div>
+                          {rep.advertencias.length > 0 && (
+                            <details className="text-xs text-aviso-texto">
+                              <summary className="cursor-pointer">{rep.advertencias.length} advertencia(s)</summary>
+                              <ul className="list-disc pl-4">
+                                {rep.advertencias.map((a, i) => (
+                                  <li key={i}>{a}</li>
+                                ))}
+                              </ul>
+                            </details>
+                          )}
+                        </TableCell>
+                        <TableCell>{formatDateTime(rep.createdAt)}</TableCell>
+                        <TableCell>{formatBytes(rep.size)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="inline-flex gap-1">
+                            <a
+                              href={`/api/proyectos/${id}/informes/${rep.id}`}
+                              className={buttonVariants({ variant: "outline", size: "sm" })}
+                            >
+                              <Download /> Descargar
+                            </a>
+                            <ConfirmButton
+                              action={deleteReportAction.bind(null, id, rep.id)}
+                              confirm="¿Eliminar este archivo del historial?"
+                              size="icon-sm"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="text-peligro" />
+                            </ConfirmButton>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+          </div>
+        </PasoCard>
 
         {r && (
           <>

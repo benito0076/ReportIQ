@@ -2,23 +2,38 @@ import Link from "next/link";
 import Image from "next/image";
 import { LogOut } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
-import { AppNav } from "@/components/app-nav";
+import { AppNav, type ItemMenu } from "@/components/app-nav";
+import { SelectorTema } from "@/components/tema";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/session";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const links = [
+  const admin = user.role === "admin";
+  const items: ItemMenu[] = [
     { href: "/inicio", label: "Inicio" },
-    { href: "/proyectos", label: "Proyectos" },
+    admin
+      ? {
+          label: "Proyectos",
+          items: [
+            { href: "/proyectos", label: "Todos los proyectos", descripcion: "Listado con filtros y búsqueda" },
+            { href: "/proyectos?matriz=ruido", label: "Ruido", descripcion: "Ambiental y emisión (Res. 0627 de 2006)" },
+            { href: "/aire", label: "Calidad del aire", descripcion: "Res. 2254 de 2017 · en desarrollo" },
+            { href: "/vertimientos", label: "Vertimientos", descripcion: "Res. 0631 de 2015 · en desarrollo" },
+          ],
+        }
+      : { href: "/proyectos", label: "Proyectos" },
     { href: "/equipos", label: "Equipos" },
-    ...(user.role === "admin"
+    ...(admin
       ? [
-          { href: "/aire", label: "Calidad del aire" },
-          { href: "/vertimientos", label: "Vertimientos" },
-          { href: "/usuarios", label: "Usuarios" },
-          { href: "/ajustes", label: "Ajustes" },
-          { href: "/actividad", label: "Actividad" },
+          {
+            label: "Administración",
+            items: [
+              { href: "/usuarios", label: "Usuarios" },
+              { href: "/ajustes", label: "Ajustes", descripcion: "Firmas, empresa y plantilla Word" },
+              { href: "/actividad", label: "Actividad", descripcion: "Registro de accesos y acciones" },
+            ],
+          },
         ]
       : []),
   ];
@@ -26,19 +41,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-full flex-1 flex-col bg-muted/30">
       <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4">
-          <Link href="/inicio" className="flex items-center gap-2" aria-label="Ruido Ambiental - Ambienciq Ingenieros">
+          <Link href="/inicio" className="flex items-center gap-2" aria-label="ReportIQ - Ambienciq Ingenieros">
             <Image src="/logo-icono.png" alt="" width={285} height={256} priority className="h-8 w-auto" />
-            <span className="hidden flex-col leading-tight sm:flex">
-              <span className="font-semibold">Ruido Ambiental</span>
-              <span className="text-[11px] text-muted-foreground">Ambienciq Ingenieros S.A.S.</span>
+            <span className="flex flex-col leading-tight">
+              <span className="font-semibold tracking-tight">
+                Report<span className="text-primary">IQ</span>
+              </span>
+              <span className="hidden text-[11px] text-muted-foreground sm:block">Ambienciq Ingenieros S.A.S.</span>
             </span>
           </Link>
-          <AppNav links={links} />
-          <div className="ml-auto flex items-center gap-2">
-            <div className="hidden text-right text-xs leading-tight md:block">
+          <div className="order-last md:order-none">
+            <AppNav items={items} />
+          </div>
+          <div className="ml-auto flex items-center gap-1">
+            <div className="mr-1 hidden text-right text-xs leading-tight lg:block">
               <div className="font-medium">{user.fullName ?? user.email}</div>
-              <div className="text-muted-foreground">{user.role === "admin" ? "Administrador" : "Usuario"}</div>
+              <div className="text-muted-foreground">{admin ? "Administrador" : "Usuario"}</div>
             </div>
+            <SelectorTema />
             <form action={logoutAction}>
               <Button type="submit" variant="ghost" size="icon" aria-label="Cerrar sesión" title="Cerrar sesión">
                 <LogOut />

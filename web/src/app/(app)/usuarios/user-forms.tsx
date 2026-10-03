@@ -75,8 +75,8 @@ export function PasswordForm({ id }: { id: string }) {
       <Button variant="ghost" size="sm" type="button" onClick={() => setOpen(false)}>
         Cerrar
       </Button>
-      {state.error && <p className="w-full text-xs text-red-600">{state.error}</p>}
-      {state.ok && <p className="w-full text-xs text-emerald-700">{state.message}</p>}
+      {state.error && <p className="w-full text-xs text-peligro">{state.error}</p>}
+      {state.ok && <p className="w-full text-xs text-exito">{state.message}</p>}
     </form>
   );
 }

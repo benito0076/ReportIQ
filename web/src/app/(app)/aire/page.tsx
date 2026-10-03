@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Wind } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,10 +29,7 @@ export default async function AirePage() {
         <Card>
           <CardContent className="px-0">
             {projects.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 px-4 py-12 text-center text-muted-foreground">
-                <Wind className="size-8" />
-                <p>Aún no hay proyectos de calidad del aire. Cree el primero con el formulario.</p>
-              </div>
+              <EmptyState icono={Wind} titulo="Aún no hay proyectos" texto="Cree el primero con el formulario de la derecha." />
             ) : (
               <Table>
                 <TableHeader>

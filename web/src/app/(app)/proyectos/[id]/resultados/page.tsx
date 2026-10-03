@@ -210,7 +210,7 @@ export default async function ResultsPage({ params }: PageProps<"/proyectos/[id]
                         {match ? (
                           `${match.nombre} (${match.codigo})`
                         ) : (
-                          <span className="text-amber-700">
+                          <span className="text-aviso">
                             {eq.modelo ?? "Equipo"} no registrado en el inventario —{" "}
                             <Link href="/equipos" className="underline">
                               agregarlo
@@ -255,7 +255,7 @@ export default async function ResultsPage({ params }: PageProps<"/proyectos/[id]
                       <div className="font-medium">{rep.fileName}</div>
                       <div className="text-xs text-muted-foreground">{reportLabel(rep.kind, project.tipo)}</div>
                       {rep.advertencias.length > 0 && (
-                        <details className="text-xs text-amber-800">
+                        <details className="text-xs text-aviso-texto">
                           <summary className="cursor-pointer">{rep.advertencias.length} advertencia(s)</summary>
                           <ul className="list-disc pl-4">
                             {rep.advertencias.map((a, i) => (
@@ -278,7 +278,7 @@ export default async function ResultsPage({ params }: PageProps<"/proyectos/[id]
                           size="icon-sm"
                           title="Eliminar"
                         >
-                          <Trash2 className="text-red-600" />
+                          <Trash2 className="text-peligro" />
                         </ConfirmButton>
                       </div>
                     </TableCell>

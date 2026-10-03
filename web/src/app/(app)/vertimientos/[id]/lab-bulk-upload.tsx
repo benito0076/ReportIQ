@@ -108,9 +108,9 @@ export function LabBulkUpload({ projectId }: { projectId: string }) {
           {resultados.map((r, i) => (
             <li key={i} className="flex items-start gap-2">
               {r.ok ? (
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-exito" />
               ) : (
-                <XCircle className="mt-0.5 size-4 shrink-0 text-red-600" />
+                <XCircle className="mt-0.5 size-4 shrink-0 text-peligro" />
               )}
               <span>
                 <span className="font-medium">{r.archivo}</span>: {r.texto}

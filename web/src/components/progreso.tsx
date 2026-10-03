@@ -3,8 +3,8 @@ import type { Aviso, Paso } from "@/lib/progreso";
 import { cn } from "@/lib/utils";
 
 const ESTILO = {
-  ok: { icono: CheckCircle2, cls: "border-emerald-300 bg-emerald-50 text-emerald-900" },
-  pendiente: { icono: Circle, cls: "border-amber-300 bg-amber-50 text-amber-900" },
+  ok: { icono: CheckCircle2, cls: "border-exito-borde bg-exito-suave text-exito-texto" },
+  pendiente: { icono: Circle, cls: "border-aviso-borde bg-aviso-suave text-aviso-texto" },
   opcional: { icono: CircleDashed, cls: "border-border bg-muted/40 text-muted-foreground" },
 } as const;
 
@@ -16,7 +16,7 @@ export function ProgresoPasos({ pasos }: { pasos: Paso[] }) {
       <div className="flex items-center gap-3 text-sm">
         <span className="font-medium">Avance</span>
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${(listos / pasos.length) * 100}%` }} />
+          <div className="h-full rounded-full bg-marca transition-all" style={{ width: `${(listos / pasos.length) * 100}%` }} />
         </div>
         <span className="text-muted-foreground">
           {listos}/{pasos.length}
@@ -51,7 +51,7 @@ export function ProgresoPasos({ pasos }: { pasos: Paso[] }) {
 export function ListaVerificacion({ avisos }: { avisos: Aviso[] }) {
   if (avisos.length === 0) {
     return (
-      <p className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+      <p className="flex items-center gap-2 rounded-lg border border-exito-borde bg-exito-suave px-3 py-2 text-sm text-exito-texto">
         <CheckCircle2 className="size-4" /> Todo listo: el informe saldrá completo.
       </p>
     );
@@ -66,9 +66,9 @@ export function ListaVerificacion({ avisos }: { avisos: Aviso[] }) {
         {avisos.map((a, i) => (
           <li key={i} className="flex items-start gap-2">
             {a.nivel === "bloquea" ? (
-              <XCircle className="mt-0.5 size-4 shrink-0 text-red-600" aria-label="Bloquea" />
+              <XCircle className="mt-0.5 size-4 shrink-0 text-peligro" aria-label="Bloquea" />
             ) : (
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-label="Revisar" />
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-aviso" aria-label="Revisar" />
             )}
             <a href={`#${a.ancla}`} className="hover:underline">
               {a.texto}

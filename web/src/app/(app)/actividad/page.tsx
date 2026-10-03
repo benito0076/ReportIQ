@@ -137,7 +137,7 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activid
                       <span
                         className={cn(
                           "rounded px-1.5 py-0.5 text-xs font-medium whitespace-nowrap",
-                          ALERTA.includes(r.event) ? "bg-red-100 text-red-800" : "bg-muted text-foreground",
+                          ALERTA.includes(r.event) ? "bg-peligro-suave text-peligro-texto" : "bg-muted text-foreground",
                         )}
                       >
                         {ACTIVITY_LABELS[r.event] ?? r.event}

@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Cifras } from "@/components/cifras";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { EstadisticaAire, ResultadosAire } from "@/lib/engine-types";
 import { fmtNum } from "@/lib/format";
@@ -15,12 +16,12 @@ const NOMBRES: Record<string, string> = {
 };
 
 const CATEGORIAS = [
-  { nombre: "Buena", clase: "bg-green-100 text-green-800" },
+  { nombre: "Buena", clase: "bg-exito-suave text-exito-texto" },
   { nombre: "Aceptable", clase: "bg-yellow-100 text-yellow-800" },
   { nombre: "Dañina a la salud para grupos sensibles", clase: "bg-orange-100 text-orange-800" },
-  { nombre: "Dañina a la salud", clase: "bg-red-100 text-red-800" },
+  { nombre: "Dañina a la salud", clase: "bg-peligro-suave text-peligro-texto" },
   { nombre: "Muy dañina a la salud", clase: "bg-purple-100 text-purple-800" },
-  { nombre: "Peligrosa", clase: "bg-amber-900/15 text-amber-950" },
+  { nombre: "Peligrosa", clase: "bg-aviso/15 text-aviso-texto" },
 ];
 
 /** Valor con "<" cuando está bajo el límite de cuantificación. */
@@ -119,7 +120,7 @@ function TablaDiaria({
                   return (
                     <td
                       key={e.numero}
-                      className={cn("px-2 py-1 text-center", excede && "bg-red-50 font-medium text-red-700", d?.valida === false && "text-amber-700")}
+                      className={cn("px-2 py-1 text-center", excede && "bg-peligro-suave font-medium text-peligro", d?.valida === false && "text-aviso")}
                       title={d?.valida === false ? "Muestra fuera de los criterios de validez" : undefined}
                     >
                       {d ? conc(d.valor, d.bajoLc) : "---"}
@@ -138,8 +139,25 @@ function TablaDiaria({
 export function AireResultados({ r }: { r: ResultadosAire }) {
   const filas = resumen(r);
   const compuestos = [...new Set(r.cov.map((c) => c.compuesto))];
+  const conExcedencias = filas.filter((f) => f.excedencias > 0);
+  const muestras = r.manuales.reduce((n, s) => n + s.muestras.length, 0) + r.automaticos.reduce((n, s) => n + s.dias.length, 0);
   return (
     <>
+      <Cifras
+        cifras={[
+          { etiqueta: "Estaciones", valor: r.estaciones.length, detalle: r.estaciones.map((e) => e.nombre).join(", ") },
+          { etiqueta: "Contaminantes", valor: r.contaminantes.length, detalle: r.contaminantes.join(", ") },
+          { etiqueta: "Días / muestras", valor: muestras, detalle: "Manuales y días de equipos automáticos" },
+          {
+            etiqueta: "Superan el límite",
+            valor: conExcedencias.length,
+            detalle: conExcedencias.length
+              ? [...new Set(conExcedencias.map((f) => `${f.contaminante} (${f.estacion})`))].join(", ")
+              : "Ninguna comparación supera la Res. 2254",
+            tono: conExcedencias.length ? "peligro" : "exito",
+          },
+        ]}
+      />
       <Card>
         <CardHeader className="border-b">
           <CardTitle>Comparación con la Resolución 2254 de 2017</CardTitle>
@@ -174,7 +192,7 @@ export function AireResultados({ r }: { r: ResultadosAire }) {
                   <TableCell className="text-center">
                     {f.est?.n ?? "—"}
                     {f.validas !== null && f.validas < 100 && (
-                      <div className="text-[11px] text-amber-700">{fmtNum(f.validas, 0)} % válidas</div>
+                      <div className="text-[11px] text-aviso">{fmtNum(f.validas, 0)} % válidas</div>
                     )}
                   </TableCell>
                   <TableCell className="text-center">{conc(f.est?.promedio, f.bajoLc)}</TableCell>
@@ -183,7 +201,7 @@ export function AireResultados({ r }: { r: ResultadosAire }) {
                   <TableCell className="text-center">{f.limite?.toLocaleString("es-CO") ?? "—"}</TableCell>
                   <TableCell className="pr-4 text-center">
                     {f.excedencias === 0 ? (
-                      <Badge variant="secondary" className="bg-green-100 text-green-800">Sí</Badge>
+                      <Badge variant="secondary" className="bg-exito-suave text-exito-texto">Sí</Badge>
                     ) : (
                       <Badge variant="destructive">{f.excedencias} excedencia(s)</Badge>
                     )}

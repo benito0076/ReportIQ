@@ -1,8 +1,11 @@
+import { Cifras } from "@/components/cifras";
 import { Notice } from "@/components/notice";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ResultadosVertimiento } from "@/lib/engine-types";
 import { cn } from "@/lib/utils";
+
+const lista = (xs: string[]) => [...new Set(xs)].join(", ");
 
 const num = (v: number | null, dec = 2) =>
   v === null ? "—" : v.toLocaleString("es-CO", { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -15,8 +18,25 @@ export function VertResultados({ r }: { r: ResultadosVertimiento }) {
     .filter((p) => p.evaluar)
     .flatMap((p) => r.columnas.map((c, i) => ({ punto: p.nombre, i, c })).filter((x) => x.c.aplica));
 
+  const conLimite = r.filas.filter((f) => f.conformidad.some((c) => c.estado !== null)).length;
+  const noCumplen = new Set(r.incumplimientos.map((x) => `${x.punto}|${x.parametro}`)).size;
   return (
     <>
+      <Cifras
+        cifras={[
+          { etiqueta: "Puntos con reporte", valor: puntos.length, detalle: ((n) => `${n} ${n === 1 ? "comparado" : "comparados"} con la norma`)(r.puntos.filter((p) => p.evaluar).length) },
+          { etiqueta: "Parámetros analizados", valor: r.filas.length, detalle: `${r.columnas.length} columnas de límites` },
+          { etiqueta: "Con límite aplicable", valor: conLimite, detalle: "Con declaración de conformidad" },
+          conformidad.length
+            ? {
+                etiqueta: "No cumplen",
+                valor: noCumplen,
+                detalle: noCumplen ? lista(r.incumplimientos.map((x) => x.parametro)) : "Todos cumplen la Res. 0631",
+                tono: noCumplen ? "peligro" : "exito",
+              }
+            : { etiqueta: "No cumplen", valor: "—", detalle: "Sin actividades de la norma" },
+        ]}
+      />
       <Card>
         <CardHeader className="border-b">
           <CardTitle>Puntos de muestreo</CardTitle>
@@ -90,9 +110,9 @@ export function VertResultados({ r }: { r: ResultadosVertimiento }) {
               " Art. 16: * exigencia multiplicada por 1,50; ** mismas exigencias de la actividad."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="overflow-x-auto px-0">
-          <Table className="text-xs">
-            <TableHeader>
+        <CardContent className="px-0">
+          <Table className="text-xs" containerClassName="max-h-[75vh] overflow-y-auto">
+            <TableHeader className="sticky top-0 z-10 bg-card shadow-[0_1px_0_var(--border)]">
               <TableRow>
                 <TableHead className="pl-4">Parámetro</TableHead>
                 <TableHead>Unidades</TableHead>
@@ -141,8 +161,8 @@ export function VertResultados({ r }: { r: ResultadosVertimiento }) {
                         key={`${x.punto}-${x.i}`}
                         className={cn(
                           "pr-4 text-center",
-                          estado === "No cumple" && "bg-red-100 font-medium text-red-800",
-                          estado === "Cumple" && "text-green-800",
+                          estado === "No cumple" && "bg-peligro-suave font-medium text-peligro-texto",
+                          estado === "Cumple" && "text-exito-texto",
                         )}
                       >
                         {estado ?? "—"}

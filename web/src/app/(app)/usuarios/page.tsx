@@ -38,7 +38,7 @@ export default async function UsersPage() {
                       size="icon-sm"
                       title="Eliminar usuario"
                     >
-                      <Trash2 className="text-red-600" />
+                      <Trash2 className="text-peligro" />
                     </ConfirmButton>
                   )}
                 </div>

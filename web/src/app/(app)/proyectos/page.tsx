@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Droplets, FolderOpen, Search, Volume2, Wind } from "lucide-react";
+import { ArrowRight, FolderOpen, Search, SearchX } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { MatrizIcono } from "@/components/matriz";
 import { PageHeader } from "@/components/page-header";
 import { selectClass } from "@/components/form";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +20,9 @@ import { ProjectForm } from "./project-form";
 export const metadata: Metadata = { title: "Proyectos" };
 
 const MATRICES = [
-  { clave: "ruido", titulo: "Ruido", icono: Volume2, unidad: "puntos" },
-  { clave: "aire", titulo: "Calidad del aire", icono: Wind, unidad: "estaciones" },
-  { clave: "vertimientos", titulo: "Vertimientos", icono: Droplets, unidad: "puntos" },
+  { clave: "ruido", titulo: "Ruido", unidad: "puntos" },
+  { clave: "aire", titulo: "Calidad del aire", unidad: "estaciones" },
+  { clave: "vertimientos", titulo: "Vertimientos", unidad: "puntos" },
 ] as const;
 
 const ORDENES = {
@@ -51,7 +53,7 @@ function ordenar(lista: ProyectoListado[], orden: Orden): ProyectoListado[] {
 function Estado({ p }: { p: ProyectoListado }) {
   if (p.ultimoInforme) {
     return (
-      <Badge variant="secondary" className="bg-emerald-100 text-emerald-900">
+      <Badge variant="secondary" className="bg-exito-suave text-exito-texto">
         Informe {formatDate(p.ultimoInforme)}
       </Badge>
     );
@@ -108,6 +110,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
                     matriz === m.clave ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted",
                   )}
                 >
+                  {m.clave && <span className={cn("mr-1.5 inline-block size-2 rounded-full", { ruido: "bg-ruido", aire: "bg-aire", vertimientos: "bg-agua" }[m.clave])} />}
                   {m.titulo} <span className="opacity-70">({cuenta(m.clave)})</span>
                 </Link>
               ))}
@@ -138,10 +141,15 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
           <Card>
             <CardContent className="px-0">
               {filtrados.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 px-4 py-12 text-center text-muted-foreground">
-                  <FolderOpen className="size-8" />
-                  <p>{todos.length === 0 ? "Aún no hay proyectos. Cree el primero con el formulario." : "Ningún proyecto coincide con el filtro."}</p>
-                </div>
+                todos.length === 0 ? (
+                  <EmptyState icono={FolderOpen} titulo="Aún no hay proyectos" texto="Cree el primero con el formulario de la derecha." />
+                ) : (
+                  <EmptyState
+                    icono={SearchX}
+                    titulo="Ningún proyecto coincide con el filtro"
+                    accion={{ href: "/proyectos", texto: "Ver todos los proyectos" }}
+                  />
+                )
               ) : (
                 <Table>
                   <TableHeader>
@@ -156,12 +164,11 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
                   <TableBody>
                     {filtrados.map((p) => {
                       const m = MATRICES.find((x) => x.clave === p.matriz)!;
-                      const Icono = m.icono;
                       return (
                         <TableRow key={p.id}>
                           <TableCell className="pl-4">
-                            <div className="flex items-start gap-2">
-                              <Icono className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-label={m.titulo} />
+                            <div className="flex items-center gap-2.5">
+                              <MatrizIcono matriz={p.matriz} size="sm" />
                               <div>
                                 <Link href={p.href} className="font-medium hover:underline">
                                   {p.nombre}
@@ -204,11 +211,11 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
                 <CardTitle>Otras matrices</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-2 text-sm">
-                <Link href="/aire" className="inline-flex items-center gap-1 hover:underline">
-                  <Wind className="size-4" /> Nuevo proyecto de calidad del aire <ArrowRight className="size-3" />
+                <Link href="/aire" className="inline-flex items-center gap-2 hover:underline">
+                  <MatrizIcono matriz="aire" size="sm" /> Nuevo proyecto de calidad del aire <ArrowRight className="size-3" />
                 </Link>
-                <Link href="/vertimientos" className="inline-flex items-center gap-1 hover:underline">
-                  <Droplets className="size-4" /> Nuevo proyecto de vertimientos <ArrowRight className="size-3" />
+                <Link href="/vertimientos" className="inline-flex items-center gap-2 hover:underline">
+                  <MatrizIcono matriz="vertimientos" size="sm" /> Nuevo proyecto de vertimientos <ArrowRight className="size-3" />
                 </Link>
               </CardContent>
             </Card>

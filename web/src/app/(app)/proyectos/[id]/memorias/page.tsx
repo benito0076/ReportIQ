@@ -78,7 +78,7 @@ export default async function MemoriesPage({ params }: PageProps<"/proyectos/[id
                         return (
                           <td key={e} className="px-1 py-1.5 align-middle">
                             {f ? (
-                              <div className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 ring-1 ring-emerald-200">
+                              <div className="flex items-center gap-1 rounded-md bg-exito-suave px-2 py-1 ring-1 ring-emerald-200">
                                 <div className="min-w-0 flex-1">
                                   <div className="truncate text-xs font-medium" title={f.fileName}>
                                     {f.fileName}
@@ -99,7 +99,7 @@ export default async function MemoriesPage({ params }: PageProps<"/proyectos/[id
                                   size="icon-sm"
                                   title="Quitar"
                                 >
-                                  <Trash2 className="text-red-600" />
+                                  <Trash2 className="text-peligro" />
                                 </ConfirmButton>
                               </div>
                             ) : (
