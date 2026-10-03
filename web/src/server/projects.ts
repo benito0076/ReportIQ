@@ -7,13 +7,45 @@ import type { DatosInforme, PointInput, ProjectInput } from "@/lib/validation";
 import { NotFoundError } from "@/lib/errors";
 import { deleteObject } from "@/lib/storage";
 
-export async function listProjects() {
-  const nPoints = db
-    .select({ projectId: points.projectId, n: count().as("n") })
+/** Matriz de un tipo de proyecto (para el listado unificado). */
+export function matrizDe(tipo: ProjectType): "ruido" | "aire" | "vertimientos" {
+  return tipo === "aire" ? "aire" : tipo === "vertimientos" ? "vertimientos" : "ruido";
+}
+
+/** Página del proyecto según su matriz. */
+export function hrefProyecto(p: { id: string; tipo: ProjectType }): string {
+  const m = matrizDe(p.tipo);
+  return m === "ruido" ? `/proyectos/${p.id}` : `/${m}/${p.id}`;
+}
+
+/**
+ * Todos los proyectos (ruido, calidad del aire y vertimientos) con el número de
+ * puntos o estaciones y la fecha del último entregable. Calidad del aire y
+ * vertimientos solo se incluyen para administradores (módulos en desarrollo).
+ */
+export async function listAllProjects(incluirEnDesarrollo: boolean) {
+  // Cada conteo con su propio nombre de columna (en la consulta unida no pueden repetirse).
+  const nPts = db
+    .select({ projectId: points.projectId, n: count().as("n_puntos") })
     .from(points)
     .groupBy(points.projectId)
     .as("np");
-  return db
+  const nEst = db
+    .select({ projectId: airStations.projectId, n: count().as("n_estaciones") })
+    .from(airStations)
+    .groupBy(airStations.projectId)
+    .as("ne");
+  const nAgua = db
+    .select({ projectId: waterPoints.projectId, n: count().as("n_agua") })
+    .from(waterPoints)
+    .groupBy(waterPoints.projectId)
+    .as("na");
+  const ultimo = db
+    .select({ projectId: reports.projectId, fecha: max(reports.createdAt).as("fecha") })
+    .from(reports)
+    .groupBy(reports.projectId)
+    .as("ur");
+  const filas = await db
     .select({
       id: projects.id,
       nombre: projects.nombre,
@@ -22,17 +54,28 @@ export async function listProjects() {
       codigoInforme: projects.codigoInforme,
       updatedAt: projects.updatedAt,
       procesadoAt: projects.procesadoAt,
-      puntos: nPoints.n,
+      puntos: nPts.n,
+      estaciones: nEst.n,
+      puntosAgua: nAgua.n,
+      ultimoInforme: ultimo.fecha,
       creadoPor: users.fullName,
-      creadoPorEmail: users.email,
     })
     .from(projects)
-    .leftJoin(nPoints, eq(nPoints.projectId, projects.id))
+    .leftJoin(nPts, eq(nPts.projectId, projects.id))
+    .leftJoin(nEst, eq(nEst.projectId, projects.id))
+    .leftJoin(nAgua, eq(nAgua.projectId, projects.id))
+    .leftJoin(ultimo, eq(ultimo.projectId, projects.id))
     .leftJoin(users, eq(users.id, projects.createdBy))
-    // Los de calidad del aire se listan en /aire y los de vertimientos en /vertimientos.
-    .where(notInArray(projects.tipo, ["aire", "vertimientos"]))
+    .where(incluirEnDesarrollo ? undefined : notInArray(projects.tipo, ["aire", "vertimientos"]))
     .orderBy(desc(projects.updatedAt));
+  return filas.map((f) => ({
+    ...f,
+    matriz: matrizDe(f.tipo),
+    href: hrefProyecto(f),
+    elementos: Number(f.puntos ?? f.estaciones ?? f.puntosAgua ?? 0),
+  }));
 }
+export type ProyectoListado = Awaited<ReturnType<typeof listAllProjects>>[number];
 
 export async function getProject(id: string) {
   if (!isUuid(id)) throw new NotFoundError("El proyecto no existe.");

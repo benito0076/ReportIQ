@@ -705,3 +705,20 @@ def generar_word_vertimiento(ctx: ContextoVertimiento) -> Entregable:
     advertencias = list(res.advertencias) + [f"Revisar en el informe: {t}" for t in faltantes]
     base = re.sub(r"[^\w\-. ]+", "_", ctx.proyecto.codigo or ctx.proyecto.nombre_proyecto or "proyecto").strip()
     return Entregable(contenido, f"{base[:80]} - Informe vertimientos.docx", MIME_DOCX, advertencias)
+
+
+def leer_reporte_laboratorio(archivo: ArchivoRemoto, carpeta: str) -> dict:
+    """Encabezado de un reporte del laboratorio: muestra, punto y fecha (para asignarlo a su punto)."""
+    from core.vertimientos import leer_informe_laboratorio
+
+    ruta = os.path.join(carpeta, "reporte.pdf")
+    with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0), follow_redirects=True) as cliente:
+        _descargar(cliente, archivo, ruta)
+    try:
+        inf = leer_informe_laboratorio(ruta)
+    except Exception as exc:  # noqa: BLE001 - PDF ilegible o sin la tabla de resultados
+        raise ErrorEntrada(f"{archivo.nombre or 'El reporte'}: {exc}") from exc
+    return {
+        "muestra": inf.muestra, "punto": inf.punto, "tipo_muestreo": inf.tipo_muestreo,
+        "fecha_muestreo": _valor(inf.fecha_muestreo), "ensayos": len(inf.resultados),
+    }

@@ -55,6 +55,12 @@ export const UPLOAD_RULES: Record<Exclude<FileKind, "informe">, UploadRule> = {
     signature: "pdf",
     label: "copia en PDF del reporte de resultados del laboratorio",
   },
+  laboratorioLote: {
+    maxBytes: 20 * MB,
+    accept: ".pdf,application/pdf",
+    signature: "pdf",
+    label: "copia en PDF del reporte de resultados del laboratorio",
+  },
   fp004: {
     maxBytes: 40 * MB,
     accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -105,7 +111,7 @@ export function matchesRule(type: SniffedType | null, rule: UploadRule): boolean
 /** Extensión para la clave de almacenamiento según el tipo de archivo. */
 export function extensionFor(kind: Exclude<FileKind, "informe">, fileName: string): string {
   if (kind === "memoria" || kind === "meteo" || kind === "barrido" || kind === "aire" || kind === "fp004") return "xlsx";
-  if (kind === "laboratorio") return "pdf";
+  if (kind === "laboratorio" || kind === "laboratorioLote") return "pdf";
   if (kind === "plantilla") return "docx";
   return /\.png$/i.test(fileName) ? "png" : "jpg";
 }

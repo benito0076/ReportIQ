@@ -13,6 +13,7 @@ cabecera `Authorization: Bearer <ENGINE_API_KEY>`.
     POST /v1/aire/procesar  calidad del aire (Res. 2254): resultados (JSON)
     POST /v1/aire/generar   calidad del aire: entregable (excel | word)
     GET  /v1/vertimientos/actividades  actividades de la Res. 0631 de 2015
+    POST /v1/vertimientos/reporte      vertimientos: encabezado de un reporte del laboratorio (PDF)
     POST /v1/vertimientos/procesar     vertimientos: resultados vs Res. 0631 (JSON)
     POST /v1/vertimientos/generar      vertimientos: entregable (excel | word)
 """
@@ -36,7 +37,7 @@ from core import norms
 
 from .errores import ErrorDescarga, ErrorEntrada
 from .schemas import (
-    GenerarAireIn, GenerarIn, GenerarVertimientoIn, ProcesarAireIn, ProcesarIn, ProcesarVertimientoIn,
+    GenerarAireIn, GenerarIn, GenerarVertimientoIn, LeerReporteIn, ProcesarAireIn, ProcesarIn, ProcesarVertimientoIn,
 )
 
 # Los avisos de core/ (p.ej. fallo del mapa satelital) salen en los logs del servicio.
@@ -136,6 +137,13 @@ def _trabajo_generar_aire(body: GenerarAireIn):
         return service.generar_word_aire(ctx) if body.tipo == "word" else service.generar_excel_aire(ctx)
 
 
+def _trabajo_leer_reporte(body: LeerReporteIn):
+    from . import service  # core/ solo se importa en el proceso de trabajo
+
+    with tempfile.TemporaryDirectory(prefix="rep_") as carpeta:
+        return service.leer_reporte_laboratorio(body.informe, carpeta)
+
+
 def _trabajo_procesar_vertimiento(proyecto):
     from . import service  # core/ solo se importa en el proceso de trabajo
 
@@ -191,6 +199,11 @@ def actividades_vertimientos():
     from core import res0631  # liviano: solo las tablas de la resolucion
 
     return res0631.actividades_por_articulo()
+
+
+@app.post("/v1/vertimientos/reporte", dependencies=[Depends(verificar_clave)])
+def leer_reporte(body: LeerReporteIn):
+    return _errores(_trabajo_leer_reporte, body)
 
 
 @app.post("/v1/vertimientos/procesar", dependencies=[Depends(verificar_clave)])

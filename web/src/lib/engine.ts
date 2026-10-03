@@ -218,6 +218,20 @@ export async function generarAire(proyecto: ProyectoAirePayload, tipo: "excel" |
   return entregable(await call("/v1/aire/generar", { proyecto, tipo }), tipo === "word" ? "docx" : "xlsx");
 }
 
+/** Encabezado de un reporte del laboratorio (PDF): muestra y punto de muestreo. */
+export interface EncabezadoReporte {
+  muestra: string;
+  punto: string;
+  tipo_muestreo: string;
+  fecha_muestreo: string | null;
+  ensayos: number;
+}
+
+export async function leerReporte(informe: ArchivoRemoto): Promise<EncabezadoReporte> {
+  const res = await call("/v1/vertimientos/reporte", { informe });
+  return (await res.json()) as EncabezadoReporte;
+}
+
 export async function procesarVertimiento(proyecto: ProyectoVertimientoPayload): Promise<ResultadosVertimiento> {
   const res = await call("/v1/vertimientos/procesar", { proyecto });
   return (await res.json()) as ResultadosVertimiento;

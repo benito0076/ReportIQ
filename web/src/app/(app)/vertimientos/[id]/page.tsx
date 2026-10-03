@@ -11,6 +11,7 @@ import {
 } from "@/app/actions/vertimientos";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Notice } from "@/components/notice";
+import { ListaVerificacion, ProgresoPasos } from "@/components/progreso";
 import { UploadButton } from "@/components/upload";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -18,12 +19,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
 import { formatBytes } from "@/lib/files";
+import { revisarVertimiento } from "@/lib/progreso";
+import { normalizarPunto } from "@/lib/puntos";
 import { requireAdminPage } from "@/lib/session";
 import { listReports } from "@/server/processing";
+import { getSettings } from "@/server/settings";
 import { isUuid } from "@/server/projects";
 import { configDe, getVertProject, listWaterPoints } from "@/server/vertimientos";
 import { InformeForm } from "../../proyectos/[id]/informe-form";
 import { VertProjectForm } from "../vert-project-form";
+import { LabBulkUpload } from "./lab-bulk-upload";
 import { NormaForm } from "./norma-form";
 import { PointForm } from "./point-form";
 import { VertButtons } from "./vert-buttons";
@@ -37,10 +42,24 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
   if (!isUuid(id)) notFound();
   const project = await getVertProject(id).catch(() => null);
   if (!project) notFound();
-  const [puntos, reps] = await Promise.all([listWaterPoints(id), listReports(id)]);
+  const [puntos, reps, settings] = await Promise.all([listWaterPoints(id), listReports(id), getSettings()]);
   const r = project.resultadosVertimiento;
   const config = configDe(project);
   const conReporte = puntos.some((p) => p.informeKey);
+  const revision = revisarVertimiento({
+    cliente: project.cliente,
+    codigo: project.codigoInforme,
+    actividades: config.actividades.length,
+    puntos,
+    fp004: !!project.fp004Key,
+    informe: project.informe,
+    procesado: !!(r && project.procesadoAt),
+    cruzados: (r?.puntos ?? [])
+      .filter((p) => p.punto_laboratorio && normalizarPunto(p.punto_laboratorio) !== normalizarPunto(p.nombre))
+      .map((p) => ({ punto: p.nombre, laboratorio: p.punto_laboratorio ?? "" })),
+    subcontratados: !!r?.filas.some((f) => f.subcontratado),
+    firmas: settings,
+  });
 
   return (
     <>
@@ -58,7 +77,8 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
       </div>
 
       <div className="grid gap-6">
-        <Card>
+        <ProgresoPasos pasos={revision.pasos} />
+        <Card id="paso-datos" className="scroll-mt-20">
           <CardHeader>
             <CardTitle>1. Datos del proyecto</CardTitle>
           </CardHeader>
@@ -76,7 +96,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-norma" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>2. Norma aplicable</CardTitle>
             <CardDescription>
@@ -88,7 +108,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-puntos" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>3. Puntos de muestreo</CardTitle>
             <CardDescription>
@@ -204,6 +224,9 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
               </Table>
             )}
             <div className="px-4">
+              <LabBulkUpload projectId={id} />
+            </div>
+            <div className="px-4">
               <div className="rounded-lg border">
                 <h3 className="border-b px-3 py-2 text-sm font-medium">Agregar punto</h3>
                 <div className="p-3">
@@ -214,7 +237,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-campo" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>4. Datos de campo (FP-004)</CardTitle>
             <CardDescription>
@@ -246,7 +269,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-informe" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>5. Datos del informe</CardTitle>
             <CardDescription>
@@ -259,7 +282,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
           </CardContent>
         </Card>
 
-        <Card>
+        <Card id="paso-procesar" className="scroll-mt-20">
           <CardHeader className="border-b">
             <CardTitle>6. Procesamiento y entregables</CardTitle>
             <CardDescription>
@@ -280,6 +303,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
                   : "El proyecto aún no se ha procesado."}
               </Notice>
             )}
+            <ListaVerificacion avisos={revision.avisos} />
             <VertButtons projectId={id} disabled={!conReporte} />
             {reps.length > 0 && (
               <Table>
