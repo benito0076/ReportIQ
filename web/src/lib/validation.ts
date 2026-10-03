@@ -133,6 +133,7 @@ export const INFORME_CAMPOS = [
   "clienteCiudad",
   "clienteDepartamento",
   "clienteActividad",
+  "laboratorioSubcontratado",
 ] as const;
 
 export const informeSchema = z.object({
@@ -151,6 +152,8 @@ export const informeSchema = z.object({
   clienteCiudad: optionalText(120),
   clienteDepartamento: optionalText(120),
   clienteActividad: optionalText(1000),
+  /** Vertimientos: laboratorio de los ensayos subcontratados (Tabla 2 y notas del informe). */
+  laboratorioSubcontratado: optionalText(300),
 });
 export type DatosInforme = z.output<typeof informeSchema>;
 

@@ -42,6 +42,23 @@ ACREDITACION = "Resolución 1004 del 24 de agosto de 2026"
 ACREDITACION_ANTERIOR = re.compile(r"Resolución 1096 del 11 de octubre de 2024")
 LAB_PROPIO = f"{EMPRESA} acreditado bajo la {ACREDITACION}"
 LAB_SUBCONTRATADO = "Laboratorio subcontratado acreditado por el IDEAM"
+
+
+def laboratorio_subcontratado(datos) -> str:
+    """Nombre del laboratorio subcontratado para la Tabla 2 ("WR S.A.S. acreditado ..." o el genérico)."""
+    nombre = (getattr(datos, "laboratorio_subcontratado", "") or "").strip()
+    if not nombre:
+        return LAB_SUBCONTRATADO
+    return nombre if "acredit" in _sin_tildes(nombre) else f"{nombre} acreditado por el IDEAM"
+
+
+def nota_subcontratado(datos) -> str:
+    nombre = (getattr(datos, "laboratorio_subcontratado", "") or "").strip()
+    if not nombre:
+        return "(1) Parámetro subcontratado con laboratorio acreditado por el IDEAM."
+    return f"(1) Parámetro subcontratado con el laboratorio {laboratorio_subcontratado(datos)}".rstrip(".") + "."
+
+
 NO_CUMPLE = "FFC7CE"
 SUBENCABEZADO = "D9E7A1"
 ANCHO = Cm(15.5)
@@ -359,7 +376,7 @@ def _parametros_por_laboratorio(ctx: Contexto) -> list[tuple[str, str]]:
         if nombre in vistos:
             continue
         vistos.add(nombre)
-        filas.append((LAB_SUBCONTRATADO if f.subcontratado else LAB_PROPIO, nombre))
+        filas.append((laboratorio_subcontratado(ctx.datos) if f.subcontratado else LAB_PROPIO, nombre))
     return sorted(filas, key=lambda x: (x[0] != LAB_PROPIO,))
 
 
@@ -399,7 +416,9 @@ def _introduccion(doc, ctx: Contexto, faltantes):
             "la acreditación a la sociedad para producir información cuantitativa física, química y biótica; y se "
             "toman otras determinaciones." + plan)
     params = _parametros_por_laboratorio(ctx)
-    sub = any(lab == LAB_SUBCONTRATADO for lab, _ in params)
+    sub = any(lab != LAB_PROPIO for lab, _ in params)
+    if sub and not (getattr(ctx.datos, "laboratorio_subcontratado", "") or "").strip():
+        faltantes.append("Laboratorio subcontratado: indique su nombre en los datos del informe")
     cuando = f" el {fecha_larga(ctx.fecha_muestreo)}" if ctx.fecha_muestreo else ""
     if not ctx.fecha_muestreo:
         faltantes.append("Fecha de muestreo: no se encontró en los reportes del laboratorio")
@@ -608,7 +627,7 @@ def _tabla_metodos(doc, ctx: Contexto, faltantes):
     if seccion_hap is not None:
         _combinar(t, 1 + seccion_hap, 0, 1 + seccion_hap, 6, "Hidrocarburos Aromáticos Policíclicos (HAP)",
                   SUBENCABEZADO, negrita=True)
-    notas = ["(1) Parámetro subcontratado con laboratorio acreditado por el IDEAM."] if sub else []
+    notas = [nota_subcontratado(ctx.datos)] if sub else []
     notas.append("N.A.: No Aplica. / N.E.: No Especifica. / L.C.M.: Límite de cuantificación del método.")
     for n in notas:
         cur.parrafo(n, "Nota Tabla")
@@ -794,7 +813,7 @@ def _tabla_laboratorio(cur: Cursor, ctx: Contexto) -> int:
                   "**Se aplican las mismas exigencias establecidas para el parámetro respectivo en la actividad "
                   "específica para los vertimientos puntuales a cuerpos de agua superficial."]
     if any(f.subcontratado for f in ctx.res.filas):
-        notas.append("(1) Parámetro subcontratado con laboratorio acreditado por el IDEAM.")
+        notas.append(nota_subcontratado(ctx.datos))
     if cols:
         notas.append("Temperatura: el Artículo 5 de la Resolución 0631 de 2015 establece un valor máximo permisible "
                      "de 40,00 °C.")

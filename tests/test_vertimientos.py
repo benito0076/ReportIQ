@@ -179,7 +179,7 @@ class TestInformeWord(unittest.TestCase):
             finally:
                 v.leer_informe_laboratorio = original
             datos = SimpleNamespace(municipio="Bogotá", departamento="Cundinamarca", version="1.0",
-                                    fecha="2026-04-28", **{k: "" for k in (
+                                    fecha="2026-04-28", laboratorio_subcontratado="WR S.A.S.", **{k: "" for k in (
                                         "area_estudio", "titulo", "expediente", "acto_administrativo", "cliente_nit",
                                         "cliente_direccion", "cliente_contacto", "cliente_ciudad",
                                         "cliente_departamento", "cliente_actividad", "elaboro_nombre", "elaboro_cargo",
@@ -199,6 +199,9 @@ class TestInformeWord(unittest.TestCase):
         self.assertIn("Tabla 9. Resultados del análisis de laboratorio vs Resolución 0631 de 2015", texto)
         self.assertIn("La Tabla 9 presenta los límites de referencia", texto)
         self.assertIsNone(re.search(r"\b[Dd]e el\b", texto))
+        celdas = {c.text for t in doc.tables for r in t.rows for c in r.cells}
+        self.assertIn("WR S.A.S. acreditado por el IDEAM", celdas)  # Tabla 2 (cianuro subcontratado)
+        self.assertIn("(1) Parámetro subcontratado con el laboratorio WR S.A.S. acreditado por el IDEAM.", texto)
         self.assertEqual(minus("Demanda Bioquímica de Oxígeno (DBO5)"), "demanda bioquímica de oxígeno (DBO5)")
 
 

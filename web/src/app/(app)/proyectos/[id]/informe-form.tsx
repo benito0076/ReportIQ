@@ -13,11 +13,14 @@ export function InformeForm({
   projectId,
   informe,
   aire = false,
+  vertimientos = false,
 }: {
   projectId: string;
   informe: Partial<DatosInforme>;
   /** Calidad del aire: agrega el acto administrativo del encabezado. */
   aire?: boolean;
+  /** Vertimientos: agrega el laboratorio de los ensayos subcontratados. */
+  vertimientos?: boolean;
 }) {
   const [state, action] = useActionState<ActionState, FormData>(updateInformeAction.bind(null, projectId), {});
   const fe = state.fieldErrors ?? {};
@@ -85,6 +88,24 @@ export function InformeForm({
           <Textarea id="clienteActividad" name="clienteActividad" rows={2} defaultValue={v.clienteActividad ?? ""} />
         </Field>
       </fieldset>
+
+      {vertimientos && (
+        <fieldset className="grid gap-4">
+          <legend className="mb-2 text-sm font-semibold">Laboratorio</legend>
+          <Field
+            label="Laboratorio subcontratado"
+            htmlFor="laboratorioSubcontratado"
+            error={fe.laboratorioSubcontratado}
+            hint="Para los ensayos marcados con * en el reporte. Ej.: WR S.A.S. acreditado bajo la Resolución 0014 del 09 de enero de 2026. Vacío = «laboratorio subcontratado acreditado por el IDEAM»."
+          >
+            <Input
+              id="laboratorioSubcontratado"
+              name="laboratorioSubcontratado"
+              defaultValue={v.laboratorioSubcontratado ?? ""}
+            />
+          </Field>
+        </fieldset>
+      )}
 
       <div>
         <SubmitButton>Guardar datos del informe</SubmitButton>
