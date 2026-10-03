@@ -6,10 +6,13 @@ import { AppNav, type ItemMenu } from "@/components/app-nav";
 import { SelectorTema } from "@/components/tema";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/session";
+import { ROLE_LABELS, puedeAprobar } from "@/db/enums";
+import { contarPendientes } from "@/server/aprobaciones";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const admin = user.role === "admin";
+  const pendientes = puedeAprobar(user.role) ? await contarPendientes() : 0;
   const items: ItemMenu[] = [
     { href: "/inicio", label: "Inicio" },
     {
@@ -21,6 +24,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         { href: "/vertimientos", label: "Vertimientos", descripcion: "Res. 0631 de 2015" },
       ],
     },
+    ...(puedeAprobar(user.role)
+      ? [{ href: "/aprobaciones", label: pendientes ? `Por aprobar (${pendientes})` : "Por aprobar" }]
+      : []),
     { href: "/equipos", label: "Equipos" },
     ...(admin
       ? [
@@ -59,7 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             >
               <span className="hidden lg:block">
                 <span className="block font-medium">{user.fullName ?? user.email}</span>
-                <span className="block text-muted-foreground">{user.cargo || (admin ? "Administrador" : "Usuario")}</span>
+                <span className="block text-muted-foreground">{user.cargo || ROLE_LABELS[user.role]}</span>
               </span>
               <UserRound className="size-4 lg:hidden" aria-label="Mi perfil" />
             </Link>

@@ -919,6 +919,32 @@ def _cuadro_control(doc, ctx: Contexto):
                 set_cell_text(c, fecha)
 
 
+def firmar_autorizacion(ruta_docx: str, ruta_salida: str, nombre: str, cargo: str, fecha: str) -> bool:
+    """Estampa «Autorizó» (nombre, cargo y fecha) en el cuadro de control de un
+    informe ya generado, sin tocar el resto del documento. Devuelve False si el
+    informe no tiene cuadro de control."""
+    from docx import Document
+
+    doc = Document(ruta_docx)
+    _, t = encontrar_tabla(doc, ["version", "elaboro", "autorizo"], filas_encabezado=6)
+    if t is None:
+        return False
+    filas = list(t.rows)
+    firmado = False
+    for i, fila in enumerate(filas):
+        if _sin_tildes(fila.cells[0].text.strip()) == "autorizo" and i + 1 < len(filas):
+            destino = filas[i + 1].cells
+            set_cell_text(destino[0], nombre.strip())
+            if len(destino) > 1:
+                set_cell_text(destino[1], cargo.strip())
+            if len(destino) > 2:
+                set_cell_text(destino[2], fecha)
+            firmado = True
+    if firmado:
+        doc.save(ruta_salida)
+    return firmado
+
+
 def _anio_fuentes(doc, ctx: Contexto):
     """Actualiza el ano de las lineas 'Fuente: ..., 2026.' (el ano mas repetido en
     ellas, que es el del informe; las citas como 'Resolucion 627 de 2006' no cambian)."""

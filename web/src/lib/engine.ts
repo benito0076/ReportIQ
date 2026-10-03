@@ -244,6 +244,11 @@ export async function generarVertimiento(
   return entregable(await call("/v1/vertimientos/generar", { proyecto, tipo }), tipo === "word" ? "docx" : "xlsx");
 }
 
+/** Informe Word aprobado: el mismo documento con «Autorizó» firmado. */
+export async function firmar(body: { informe: ArchivoRemoto; nombre: string; cargo: string; fecha: string }): Promise<Entregable> {
+  return entregable(await call("/v1/firmar", body), "docx");
+}
+
 export async function generar(payload: GenerarPayload): Promise<Entregable> {
   return entregable(await call("/v1/generar", payload), payload.tipo);
 }

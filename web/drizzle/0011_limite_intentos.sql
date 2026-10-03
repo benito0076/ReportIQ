@@ -1,0 +1,1 @@
+CREATE INDEX "activity_log_email_idx" ON "activity_log" USING btree ("email","created_at");

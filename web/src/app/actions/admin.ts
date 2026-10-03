@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { USER_ROLES, type UserRole } from "@/db/enums";
+import { ROLE_LABELS, USER_ROLES, type UserRole } from "@/db/enums";
 import { assertAdmin, assertUser } from "@/lib/session";
 import {
   equipmentSchema,
@@ -68,7 +68,7 @@ export async function createUserAction(_prev: ActionState, form: FormData): Prom
       role: str(form, "role"),
     });
     await createUser(input);
-    await logActivity("usuario_creado", admin, `${input.email} (${input.role === "admin" ? "administrador" : "usuario"})`);
+    await logActivity("usuario_creado", admin, `${input.email} (${ROLE_LABELS[input.role].toLowerCase()})`);
   } catch (e) {
     return toActionState(e, form);
   }
@@ -121,7 +121,7 @@ export async function setRoleAction(id: string, role: UserRole): Promise<ActionS
     const admin = await assertAdmin();
     if (!USER_ROLES.includes(role)) return { error: "Rol inválido." };
     await setRole(id, role, admin.id);
-    await logActivity("rol_cambiado", admin, `${await userEmail(id)} → ${role === "admin" ? "administrador" : "usuario"}`);
+    await logActivity("rol_cambiado", admin, `${await userEmail(id)} → ${ROLE_LABELS[role].toLowerCase()}`);
   } catch (e) {
     return toActionState(e);
   }
@@ -151,11 +151,9 @@ export async function updateSettingsAction(_prev: ActionState, form: FormData): 
         elaboradoPor: str(form, "elaboradoPor"),
         elaboroNombre: str(form, "elaboroNombre"),
         elaboroCargo: str(form, "elaboroCargo"),
-        autorizoNombre: str(form, "autorizoNombre"),
-        autorizoCargo: str(form, "autorizoCargo"),
       }),
     );
-    await logActivity("ajustes_cambiados", admin, "Firmas del informe y texto «Elaboró» de los planos");
+    await logActivity("ajustes_cambiados", admin, "Respaldo de «Elaboró» y texto «Elaboró» de los planos");
   } catch (e) {
     return toActionState(e, form);
   }

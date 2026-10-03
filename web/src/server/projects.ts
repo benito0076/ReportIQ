@@ -135,7 +135,10 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
   const mems = ids.length
     ? await db.select({ key: memoryFiles.fileKey }).from(memoryFiles).where(inArray(memoryFiles.pointId, ids))
     : [];
-  const reps = await db.select({ key: reports.fileKey }).from(reports).where(eq(reports.projectId, projectId));
+  const reps = await db
+    .select({ key: reports.fileKey, aprobado: reports.aprobadoKey })
+    .from(reports)
+    .where(eq(reports.projectId, projectId));
   const [proj] = await db
     .select({ meteo: projects.meteoKey, fp004: projects.fp004Key })
     .from(projects)
@@ -156,7 +159,7 @@ async function projectFileKeys(projectId: string): Promise<string[]> {
     ...agua.flatMap((a) => [a.informe, a.foto]),
     ...pts.map((p) => p.foto),
     ...mems.map((m) => m.key),
-    ...reps.map((r) => r.key),
+    ...reps.flatMap((r) => [r.key, r.aprobado]),
     ...barr.map((b) => b.key),
     ...aire.map((a) => a.key),
     ...fotosAire.map((f) => f.key),

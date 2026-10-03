@@ -29,8 +29,6 @@ export function SettingsForm({ settings }: { settings: SettingsInput }) {
           "Solo si quien genera el informe no tiene nombre en Mi perfil. Vacío = el de la plantilla.",
         )}
         {campo("elaboroCargo", "Cargo de quien elaboró (respaldo)")}
-        {campo("autorizoNombre", "Autorizó", "Vacío = se deja el nombre de la plantilla.")}
-        {campo("autorizoCargo", "Cargo de quien autorizó")}
       </fieldset>
       <fieldset className="grid gap-3">
         <legend className="mb-2 text-sm font-semibold">Mapas de isófonas y de localización</legend>

@@ -20,7 +20,7 @@ export default async function PerfilPage() {
           <CardTitle>Firma «Elaboró» de los informes</CardTitle>
           <CardDescription>
             Los informes Word que usted genere (ruido, calidad del aire y vertimientos) llevan este nombre y cargo en
-            «Elaboró» del cuadro de control. «Autorizó» lo configura el administrador en Ajustes.
+            «Elaboró» del cuadro de control. «Autorizó» lo firma el aprobador con su propio nombre y cargo cuando aprueba el informe.
             {!user.fullName?.trim() &&
               (respaldo
                 ? ` Mientras no escriba su nombre se usa el de Ajustes: ${respaldo}.`

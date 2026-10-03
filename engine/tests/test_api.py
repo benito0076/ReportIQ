@@ -136,6 +136,34 @@ class TestApiMotor(unittest.TestCase):
         self.assertIn("En el punto P1 se percibió el tránsito de camiones.", parrafos)
         self.assertIsInstance(json.loads(unquote(r.headers["x-advertencias"])), list)
 
+    def test_firmar_informe_aprobado(self):
+        proyecto = self._proyecto(n_puntos=1)
+        proyecto["informe"] = {"elaboro_nombre": "Ana Pérez", "elaboro_cargo": "Ingeniera",
+                               "autorizo_nombre": "Pendiente de aprobación"}
+        r = self.client.post("/v1/generar", json={"proyecto": proyecto, "tipo": "word"}, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        with open(os.path.join(self.tmp.name, "borrador.docx"), "wb") as f:
+            f.write(r.content)
+        cuerpo = {"informe": {"url": f"{self.base}/borrador.docx", "nombre": "ER-001-26 - Informe.docx"},
+                  "nombre": "Luis Rojas", "cargo": "Director técnico", "fecha": "2026-10-04"}
+        r = self.client.post("/v1/firmar", json=cuerpo, headers=AUTH)
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(unquote(r.headers["x-nombre-archivo"]), "ER-001-26 - Informe - aprobado.docx")
+        import docx
+        doc = docx.Document(io.BytesIO(r.content))
+        texto = "\n".join(c.text for t in doc.tables for row in t.rows for c in row.cells)
+        self.assertIn("Luis Rojas", texto)
+        self.assertIn("Director técnico", texto)
+        self.assertIn("Ana Pérez", texto)  # «Elaboró» no cambia
+        self.assertNotIn("Pendiente de aprobación", texto)
+
+    def test_firmar_archivo_que_no_es_word(self):
+        with open(os.path.join(self.tmp.name, "no.docx"), "wb") as f:
+            f.write(b"no es un docx")
+        cuerpo = {"informe": {"url": f"{self.base}/no.docx"}, "nombre": "X", "fecha": "2026-10-04"}
+        r = self.client.post("/v1/firmar", json=cuerpo, headers=AUTH)
+        self.assertEqual(r.status_code, 422, r.text)
+
     def _proyecto_emision(self):
         from datetime import datetime
 

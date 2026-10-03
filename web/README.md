@@ -74,10 +74,25 @@ puntos de medición. El Word usa la plantilla del informe ER-753-25
 (`templates/informe_emision_template.docx`).
 
 Además: **Equipos** (inventario de sonómetros por serial), **Usuarios** y
-**Ajustes** (plantilla Word propia, firma «Autorizó» del cuadro de control, respaldo de «Elaboró» y texto
-«Elaboró» de los planos) para los administradores. Solo los administradores pueden eliminar proyectos y equipos.
+**Ajustes** (plantilla Word propia, respaldo de «Elaboró» y texto «Elaboró» de los planos) para los
+administradores. Solo los administradores pueden eliminar proyectos y equipos.
 **Mi perfil**: cada usuario configura su nombre y cargo; con ellos se firma «Elaboró» en el cuadro de control de
 los informes Word que genera (si no tiene nombre, se usa el respaldo de Ajustes).
+
+**Duplicar** (en cualquier proyecto): crea una copia para un nuevo monitoreo del mismo cliente con los datos del
+cliente y del informe, la norma aplicable y los puntos o estaciones (coordenadas, descripciones y fotos). No copia
+mediciones, plantillas, reportes del laboratorio, resultados ni informes; el código y la fecha del informe quedan
+vacíos.
+
+**Aprobación de informes Word.** Roles: *Usuario*, *Aprobador* y *Administrador*. Cada Word se genera como
+**borrador** con «Autorizó: Pendiente de aprobación». Quien lo elaboró lo **envía a revisión**; un aprobador (o un
+administrador) distinto de quien lo generó lo revisa en **Por aprobar** y lo **aprueba** —el motor estampa su
+nombre, cargo y fecha en «Autorizó» del mismo documento y esa es la versión final que se descarga— o lo
+**devuelve** con observaciones, que el técnico ve en Inicio y en el historial. Los informes aprobados o en revisión
+solo los elimina un administrador.
+
+**Seguridad del inicio de sesión:** tras 5 intentos fallidos con un mismo correo (o 20 desde una misma IP) en
+15 minutos, el acceso se bloquea 15 minutos; un administrador lo desbloquea al restablecer la contraseña.
 **Actividad** (solo administradores): inicios de sesión (exitosos y fallidos, con IP
 y navegador), cierres de sesión y acciones importantes (proyectos creados y
 eliminados, informes generados, descargados y eliminados, cambios de usuarios,
@@ -110,6 +125,17 @@ Pruebas:
 python -m pytest tests engine/tests      # cálculo + API del motor
 cd web && npm run lint && npm run typecheck && npm test
 ```
+
+Prueba de extremo a extremo (Playwright, la corre la CI en cada PR): con el motor y la app (`next build && next
+start`) corriendo contra una **base de datos vacía**:
+
+```bash
+python web/e2e/generar_memorias.py       # memorias sintéticas del sonómetro
+cd web && npx playwright install chromium && npx playwright test
+```
+
+Recorre la configuración inicial, los usuarios, un proyecto de ruido (punto, memorias, procesamiento e informe
+Word), la aprobación (devolver, reenviar, aprobar), el duplicado y el bloqueo de inicio de sesión.
 
 ## Puesta en producción
 
@@ -150,6 +176,10 @@ entorno: todas las de `.env.example` con `STORAGE_DRIVER=s3`,
 
 Las rutas que llaman al motor tienen `maxDuration = 300` s (el informe Word con
 4 mapas de isófonas tarda normalmente de 30 s a 2 min).
+
+**Monitoreo de errores (Sentry):** con `SENTRY_DSN` (y `NEXT_PUBLIC_SENTRY_DSN` para el navegador) en Vercel y
+`SENTRY_DSN` en el motor (Render), los errores no controlados llegan a los proyectos `reportiq-web` y
+`reportiq-motor` de Sentry. Sin esas variables no se envía nada.
 
 Al abrir la URL por primera vez se muestra la pantalla de configuración inicial
 para crear el administrador (y se carga el inventario de equipos de `equipos.json`).

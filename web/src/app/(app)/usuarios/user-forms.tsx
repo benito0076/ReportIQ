@@ -7,7 +7,7 @@ import { Field, FormError, SubmitButton, selectClass } from "@/components/form";
 import { Notice } from "@/components/notice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { UserRole } from "@/db/enums";
+import { ROLE_LABELS, USER_ROLES, type UserRole } from "@/db/enums";
 import { ProfileForm } from "../perfil/profile-form";
 
 export function NewUserForm() {
@@ -29,10 +29,13 @@ export function NewUserForm() {
       <Field label="Contraseña inicial" htmlFor="password" required error={fe.password} hint="Mínimo 10 caracteres.">
         <Input id="password" name="password" type="text" autoComplete="off" required minLength={10} />
       </Field>
-      <Field label="Rol" htmlFor="role">
+      <Field label="Rol" htmlFor="role" hint="Aprobador: revisa y aprueba los informes Word (firma «Autorizó»).">
         <select id="role" name="role" className={selectClass} defaultValue={state.values?.role ?? "user"}>
-          <option value="user">Usuario</option>
-          <option value="admin">Administrador</option>
+          {USER_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABELS[r]}
+            </option>
+          ))}
         </select>
       </Field>
       <SubmitButton>Crear usuario</SubmitButton>
@@ -56,8 +59,11 @@ export function RoleSelect({ id, role, disabled }: { id: string; role: UserRole;
         });
       }}
     >
-      <option value="user">Usuario</option>
-      <option value="admin">Administrador</option>
+      {USER_ROLES.map((r) => (
+        <option key={r} value={r}>
+          {ROLE_LABELS[r]}
+        </option>
+      ))}
     </select>
   );
 }

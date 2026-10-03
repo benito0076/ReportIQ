@@ -36,7 +36,6 @@ function nombres(lista: string[], max = 3): string {
 
 interface Firmas {
   elaboroNombre: string;
-  autorizoNombre: string;
 }
 
 interface InformeDatos {
@@ -47,16 +46,11 @@ interface InformeDatos {
   laboratorioSubcontratado?: string;
 }
 
-/** «Elaboró» sale del perfil de quien genera el informe (o de Ajustes); «Autorizó», de Ajustes. */
+/** «Elaboró» sale del perfil de quien genera el informe (o de Ajustes); «Autorizó» lo firma el aprobador. */
 function avisosComunes(firmas: Firmas, ancla: string): Aviso[] {
-  const avisos: Aviso[] = [];
-  if (vacio(firmas.elaboroNombre)) {
-    avisos.push({ texto: "Falta la firma «Elaboró»: escriba su nombre y cargo en Mi perfil.", ancla, nivel: "revisar" });
-  }
-  if (vacio(firmas.autorizoNombre)) {
-    avisos.push({ texto: "Falta la firma «Autorizó» en Ajustes (administrador).", ancla, nivel: "revisar" });
-  }
-  return avisos;
+  return vacio(firmas.elaboroNombre)
+    ? [{ texto: "Falta la firma «Elaboró»: escriba su nombre y cargo en Mi perfil.", ancla, nivel: "revisar" }]
+    : [];
 }
 
 // ------------------------------------------------------------------ vertimientos

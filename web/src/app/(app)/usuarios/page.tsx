@@ -15,7 +15,7 @@ export default async function UsersPage() {
   const list = await listUsers();
   return (
     <>
-      <PageHeader title="Usuarios" description="Personas con acceso a la aplicación. El nombre y el cargo de cada uno firman «Elaboró» en los informes que genera." />
+      <PageHeader title="Usuarios" description="Personas con acceso a la aplicación. El nombre y el cargo de cada uno firman «Elaboró» en los informes que genera; los aprobadores firman «Autorizó» al aprobarlos." />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <Card>
           <CardContent className="grid gap-2">

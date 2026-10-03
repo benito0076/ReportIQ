@@ -40,7 +40,7 @@ export default async function ProjectPage({ params }: PageProps<"/proyectos/[id]
           <CardDescription>
             Con estos datos y los resultados se redactan la portada, el encabezado, el resumen, los objetivos, la
             información del cliente, el análisis de resultados y las conclusiones del Word. «Elaboró» es quien
-            genera el informe (nombre y cargo de <Link href="/perfil" className="underline">Mi perfil</Link>); «Autorizó» se configura en Ajustes.
+            genera el informe (nombre y cargo de <Link href="/perfil" className="underline">Mi perfil</Link>); «Autorizó» lo firma el aprobador al aprobar el informe.
           </CardDescription>
         </CardHeader>
         <CardContent>

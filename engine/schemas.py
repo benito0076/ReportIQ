@@ -173,6 +173,14 @@ class LeerReporteIn(BaseModel):
     informe: ArchivoRemoto
 
 
+class FirmarIn(BaseModel):
+    """Informe Word aprobado: se estampa «Autorizó» en su cuadro de control."""
+    informe: ArchivoRemoto
+    nombre: str = Field(min_length=1, max_length=255)
+    cargo: str = Field(default="", max_length=255)
+    fecha: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+
 class GenerarVertimientoIn(BaseModel):
     proyecto: ProyectoVertimientoIn
     tipo: Literal["excel", "word"] = "excel"

@@ -23,6 +23,8 @@ import type { CondicionBarrido } from "@/db/enums";
 import { deleteReport } from "@/server/processing";
 import { logActivity } from "@/server/activity";
 import { getProject } from "@/server/projects";
+import { duplicateProject } from "@/server/duplicar";
+import { aprobar, devolver, enviarRevision } from "@/server/aprobaciones";
 import { str, toActionState, type ActionState } from "./state";
 
 function projectInput(form: FormData) {
@@ -174,11 +176,76 @@ export async function removeBarridoAction(projectId: string, barridoId: string) 
   revalidatePath(`/proyectos/${projectId}/memorias`);
 }
 
-export async function deleteReportAction(projectId: string, reportId: string) {
-  const user = await assertUser();
-  await getProject(projectId);
-  const nombre = await deleteReport(projectId, reportId);
-  await logActivity("informe_eliminado", user, nombre);
+function revalidarInformes(projectId: string) {
   revalidatePath(`/proyectos/${projectId}/resultados`);
   revalidatePath(`/aire/${projectId}`);
+  revalidatePath(`/vertimientos/${projectId}`);
+  revalidatePath("/aprobaciones");
+  revalidatePath("/inicio");
+}
+
+export async function deleteReportAction(projectId: string, reportId: string): Promise<ActionState> {
+  try {
+    const user = await assertUser();
+    await getProject(projectId);
+    const nombre = await deleteReport(projectId, reportId, user.role);
+    await logActivity("informe_eliminado", user, nombre);
+  } catch (e) {
+    return toActionState(e);
+  }
+  revalidarInformes(projectId);
+  return { ok: true };
+}
+
+// ------------------------------------------------------- aprobación de informes
+export async function enviarRevisionAction(projectId: string, reportId: string): Promise<ActionState> {
+  try {
+    const user = await assertUser();
+    const nombre = await enviarRevision(projectId, reportId, user);
+    await logActivity("informe_enviado_revision", user, nombre);
+  } catch (e) {
+    return toActionState(e);
+  }
+  revalidarInformes(projectId);
+  return { ok: true, message: "Informe enviado al aprobador." };
+}
+
+export async function aprobarAction(projectId: string, reportId: string): Promise<ActionState> {
+  try {
+    const user = await assertUser();
+    const nombre = await aprobar(projectId, reportId, user);
+    await logActivity("informe_aprobado", user, nombre);
+  } catch (e) {
+    return toActionState(e);
+  }
+  revalidarInformes(projectId);
+  return { ok: true, message: "Informe aprobado." };
+}
+
+export async function devolverAction(projectId: string, reportId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const user = await assertUser();
+    const observaciones = str(form, "observaciones");
+    const nombre = await devolver(projectId, reportId, user, observaciones);
+    await logActivity("informe_devuelto", user, `${nombre}: ${observaciones.slice(0, 200)}`);
+  } catch (e) {
+    return toActionState(e, form);
+  }
+  revalidarInformes(projectId);
+  return { ok: true, message: "Informe devuelto con sus observaciones." };
+}
+
+/** Duplica un proyecto (cualquier matriz) para un nuevo monitoreo y abre la copia. */
+export async function duplicateProjectAction(projectId: string): Promise<ActionState> {
+  let href: string;
+  try {
+    const user = await assertUser();
+    const original = await getProject(projectId);
+    const copia = await duplicateProject(projectId, user.id);
+    await logActivity("proyecto_duplicado", user, `${original.nombre} → ${copia.nombre}`);
+    href = copia.href;
+  } catch (e) {
+    return toActionState(e);
+  }
+  redirect(href);
 }
