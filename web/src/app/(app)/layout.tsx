@@ -12,17 +12,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const admin = user.role === "admin";
   const items: ItemMenu[] = [
     { href: "/inicio", label: "Inicio" },
-    admin
-      ? {
-          label: "Proyectos",
-          items: [
-            { href: "/proyectos", label: "Todos los proyectos", descripcion: "Listado con filtros y búsqueda" },
-            { href: "/proyectos?matriz=ruido", label: "Ruido", descripcion: "Ambiental y emisión (Res. 0627 de 2006)" },
-            { href: "/aire", label: "Calidad del aire", descripcion: "Res. 2254 de 2017 · en desarrollo" },
-            { href: "/vertimientos", label: "Vertimientos", descripcion: "Res. 0631 de 2015 · en desarrollo" },
-          ],
-        }
-      : { href: "/proyectos", label: "Proyectos" },
+    {
+      label: "Proyectos",
+      items: [
+        { href: "/proyectos", label: "Todos los proyectos", descripcion: "Listado con filtros y búsqueda" },
+        { href: "/proyectos?matriz=ruido", label: "Ruido", descripcion: "Ambiental y emisión (Res. 0627 de 2006)" },
+        { href: "/aire", label: "Calidad del aire", descripcion: "Res. 2254 de 2017" },
+        { href: "/vertimientos", label: "Vertimientos", descripcion: "Res. 0631 de 2015" },
+      ],
+    },
     { href: "/equipos", label: "Equipos" },
     ...(admin
       ? [

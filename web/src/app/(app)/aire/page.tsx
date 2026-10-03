@@ -7,15 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
-import { requireAdminPage } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { listAireProjects } from "@/server/aire";
 import { AireProjectForm } from "./aire-project-form";
 
 export const metadata: Metadata = { title: "Calidad del aire" };
 
-/** Matriz en desarrollo: solo el administrador puede entrar. */
 export default async function AirePage() {
-  await requireAdminPage();
+  await requireUser();
   const projects = await listAireProjects();
   return (
     <>
@@ -23,7 +22,6 @@ export default async function AirePage() {
         title="Calidad del aire"
         description="Monitoreos de calidad del aire según la Resolución 2254 de 2017 (un proyecto por plan de muestreo)."
       >
-        <Badge variant="outline">En desarrollo · solo administrador</Badge>
       </PageHeader>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <Card>

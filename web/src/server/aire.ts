@@ -2,11 +2,10 @@ import "server-only";
 import { and, asc, count, desc, eq } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
 import type { PlantillaAire } from "@/db/enums";
-import { airFiles, airStations, projects, reports, users, type Project } from "@/db/schema";
+import { airFiles, airStations, projects, reports, users } from "@/db/schema";
 import * as engine from "@/lib/engine";
 import type { ResultadosAire } from "@/lib/engine-types";
 import { ConflictError, NotFoundError, ValidationError, isUniqueViolation } from "@/lib/errors";
-import type { CurrentUser } from "@/lib/session";
 import { deleteObject, downloadUrl, newKey, putObject } from "@/lib/storage";
 import type { AirStationInput, ProjectInput } from "@/lib/validation";
 import { informePayload } from "@/lib/informe";
@@ -14,9 +13,7 @@ import { getProject, isUuid } from "./projects";
 import { getSettings } from "./settings";
 
 /**
- * Proyectos de calidad del aire (Res. 2254 de 2017). Mientras el módulo está
- * en desarrollo, todas las operaciones son solo para administradores (las
- * acciones y rutas lo verifican con assertAdmin).
+ * Proyectos de calidad del aire (Res. 2254 de 2017).
  */
 
 const ENGINE_URL_TTL = 15 * 60;
@@ -49,13 +46,6 @@ export async function getAireProject(id: string) {
   const project = await getProject(id);
   if (project.tipo !== "aire") throw new NotFoundError("El proyecto no existe.");
   return project;
-}
-
-/** Los proyectos de calidad del aire y de vertimientos solo los ve el administrador (rutas compartidas). */
-export function assertProjectAccess(project: Pick<Project, "tipo">, user: CurrentUser) {
-  if ((project.tipo === "aire" || project.tipo === "vertimientos") && user.role !== "admin") {
-    throw new NotFoundError("El proyecto no existe.");
-  }
 }
 
 export async function createAireProject(input: ProjectInput, userId: string) {

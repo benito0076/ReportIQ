@@ -16,7 +16,6 @@ import { MatrizIcono } from "@/components/matriz";
 import { PasoCard } from "@/components/paso";
 import { ListaVerificacion, ProgresoPasos } from "@/components/progreso";
 import { UploadButton } from "@/components/upload";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
@@ -24,7 +23,7 @@ import { formatBytes } from "@/lib/files";
 import { revisarVertimiento } from "@/lib/progreso";
 import ACTIVIDADES_0631 from "@/lib/res0631-actividades.json";
 import { normalizarPunto } from "@/lib/puntos";
-import { requireAdminPage } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { listReports } from "@/server/processing";
 import { getSettings } from "@/server/settings";
 import { isUuid } from "@/server/projects";
@@ -40,7 +39,7 @@ import { VertResultados } from "./vert-results";
 export const metadata: Metadata = { title: "Vertimientos" };
 
 export default async function VertProjectPage({ params }: PageProps<"/vertimientos/[id]">) {
-  await requireAdminPage();
+  const user = await requireUser();
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const project = await getVertProject(id).catch(() => null);
@@ -86,7 +85,6 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
             </p>
           </div>
         </div>
-        <Badge variant="outline">En desarrollo · solo administrador</Badge>
       </div>
 
       <div className="grid gap-6">
@@ -95,15 +93,17 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
         <PasoCard id="paso-datos" numero={1} titulo="Datos del proyecto" paso={paso("paso-datos")} resumen={[project.cliente, project.codigoInforme].filter(Boolean).join(" · ")}>
           <div className="grid gap-4">
               <VertProjectForm project={project} />
-              <div className="border-t pt-3">
-                <ConfirmButton
-                  action={deleteVertProjectAction.bind(null, id)}
-                  confirm="¿Eliminar el proyecto con sus puntos, reportes e informes? No se puede deshacer."
-                  variant="outline"
-                >
-                  <Trash2 className="text-peligro" /> Eliminar proyecto
-                </ConfirmButton>
-              </div>
+              {user.role === "admin" && (
+                <div className="border-t pt-3">
+                  <ConfirmButton
+                    action={deleteVertProjectAction.bind(null, id)}
+                    confirm="¿Eliminar el proyecto con sus puntos, reportes e informes? No se puede deshacer."
+                    variant="outline"
+                  >
+                    <Trash2 className="text-peligro" /> Eliminar proyecto
+                  </ConfirmButton>
+                </div>
+              )}
           </div>
         </PasoCard>
 

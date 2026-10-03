@@ -16,14 +16,13 @@ import { MatrizIcono } from "@/components/matriz";
 import { PasoCard } from "@/components/paso";
 import { ListaVerificacion, ProgresoPasos } from "@/components/progreso";
 import { UploadButton } from "@/components/upload";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PLANTILLAS_AIRE, PLANTILLA_AIRE_LABELS } from "@/db/enums";
 import { formatBytes } from "@/lib/files";
 import { formatDateTime } from "@/lib/format";
 import { revisarAire } from "@/lib/progreso";
-import { requireAdminPage } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { getAireProject, listAirFiles, listStations } from "@/server/aire";
 import { listReports } from "@/server/processing";
 import { getSettings } from "@/server/settings";
@@ -37,7 +36,7 @@ import { StationForm } from "./station-form";
 export const metadata: Metadata = { title: "Calidad del aire" };
 
 export default async function AireProjectPage({ params }: PageProps<"/aire/[id]">) {
-  await requireAdminPage();
+  const user = await requireUser();
   const { id } = await params;
   if (!isUuid(id)) notFound();
   const project = await getAireProject(id).catch(() => null);
@@ -77,7 +76,6 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
             </p>
           </div>
         </div>
-        <Badge variant="outline">En desarrollo · solo administrador</Badge>
       </div>
 
       <div className="grid gap-6">
@@ -86,15 +84,17 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
         <PasoCard id="paso-datos" numero={1} titulo="Datos del proyecto" paso={paso("paso-datos")} resumen={[project.cliente, project.codigoInforme].filter(Boolean).join(" · ")}>
           <div className="grid gap-4">
               <AireProjectForm project={project} />
-              <div className="border-t pt-3">
-                <ConfirmButton
-                  action={deleteAireProjectAction.bind(null, id)}
-                  confirm="¿Eliminar el proyecto con sus estaciones, plantillas e informes? No se puede deshacer."
-                  variant="outline"
-                >
-                  <Trash2 className="text-peligro" /> Eliminar proyecto
-                </ConfirmButton>
-              </div>
+              {user.role === "admin" && (
+                <div className="border-t pt-3">
+                  <ConfirmButton
+                    action={deleteAireProjectAction.bind(null, id)}
+                    confirm="¿Eliminar el proyecto con sus estaciones, plantillas e informes? No se puede deshacer."
+                    variant="outline"
+                  >
+                    <Trash2 className="text-peligro" /> Eliminar proyecto
+                  </ConfirmButton>
+                </div>
+              )}
           </div>
         </PasoCard>
 

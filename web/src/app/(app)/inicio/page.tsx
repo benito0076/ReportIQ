@@ -3,12 +3,11 @@ import Link from "next/link";
 import { ArrowRight, Clock, FileText, FolderOpen, Plus } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { MATRIZ_UI, MatrizIcono } from "@/components/matriz";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { REPORT_LABELS } from "@/db/enums";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { matricesVisibles } from "@/lib/matrices";
+import { MATRICES } from "@/lib/matrices";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 import { listAllProjects, recentReports, type ProyectoListado } from "@/server/projects";
@@ -39,13 +38,12 @@ function estado(p: ProyectoListado) {
 
 export default async function InicioPage() {
   const user = await requireUser();
-  const admin = user.role === "admin";
   const ahora = new Date();
   const [proyectos, informes] = await Promise.all([
-    listAllProjects(admin),
-    recentReports(new Date(ahora.getTime() - 7 * DIA), admin),
+    listAllProjects(),
+    recentReports(new Date(ahora.getTime() - 7 * DIA)),
   ]);
-  const matrices = matricesVisibles(user.role);
+  const matrices = MATRICES;
   const enPreparacion = proyectos.filter((p) => !p.procesadoAt && !p.ultimoInforme);
   const recientes = proyectos.slice(0, 6);
   const nombre = (user.fullName ?? user.email).split(/[ @]/)[0];
@@ -87,7 +85,7 @@ export default async function InicioPage() {
 
       <section className="grid gap-3">
         <h2 className="text-lg font-semibold tracking-tight">Matrices</h2>
-        <div className={cn("grid gap-4", matrices.length > 1 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
+        <div className="grid gap-4 sm:grid-cols-3">
           {matrices.map((m) => {
             const ui = MATRIZ_UI[m.clave];
             const n = proyectos.filter((p) => p.matriz === m.clave).length;
@@ -101,7 +99,6 @@ export default async function InicioPage() {
                   <CardHeader>
                     <div className="mb-2 flex items-center justify-between gap-2">
                       <MatrizIcono matriz={m.clave} size="lg" />
-                      {m.soloAdmin && <Badge variant="outline">En desarrollo</Badge>}
                     </div>
                     <CardTitle className="flex items-center gap-2 text-base">
                       {m.titulo}

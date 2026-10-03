@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { assertAdmin } from "@/lib/session";
+import { assertAdmin, assertUser } from "@/lib/session";
 import { configVertimientoSchema, parseOrThrow, projectSchema, waterPointSchema } from "@/lib/validation";
 import { logActivity } from "@/server/activity";
 import { deleteProject, updateProject } from "@/server/projects";
@@ -18,7 +18,7 @@ import {
 } from "@/server/vertimientos";
 import { str, toActionState, type ActionState } from "./state";
 
-/** Vertimientos está en desarrollo: todas las acciones son solo para administradores. */
+/** Vertimientos: cualquier usuario crea y procesa proyectos; eliminarlos es solo para administradores. */
 
 function projectInput(form: FormData) {
   return parseOrThrow(projectSchema, {
@@ -43,7 +43,7 @@ function pointInput(form: FormData) {
 export async function createVertProjectAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   let id: string;
   try {
-    const user = await assertAdmin();
+    const user = await assertUser();
     const input = projectInput(form);
     id = await createVertProject(input, user.id);
     await logActivity("proyecto_creado", user, `${input.nombre} (vertimientos)`);
@@ -55,7 +55,7 @@ export async function createVertProjectAction(_prev: ActionState, form: FormData
 
 export async function updateVertProjectAction(projectId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertAdmin();
+    await assertUser();
     await getVertProject(projectId);
     await updateProject(projectId, projectInput(form));
   } catch (e) {
@@ -75,7 +75,7 @@ export async function deleteVertProjectAction(projectId: string) {
 
 export async function saveNormaAction(projectId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertAdmin();
+    await assertUser();
     await setConfigVertimiento(
       projectId,
       parseOrThrow(configVertimientoSchema, {
@@ -93,7 +93,7 @@ export async function saveNormaAction(projectId: string, _prev: ActionState, for
 
 export async function createWaterPointAction(projectId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertAdmin();
+    await assertUser();
     await createWaterPoint(projectId, pointInput(form));
   } catch (e) {
     return toActionState(e, form);
@@ -109,7 +109,7 @@ export async function updateWaterPointAction(
   form: FormData,
 ): Promise<ActionState> {
   try {
-    await assertAdmin();
+    await assertUser();
     await updateWaterPoint(projectId, pointId, pointInput(form));
   } catch (e) {
     return toActionState(e, form);
@@ -119,19 +119,19 @@ export async function updateWaterPointAction(
 }
 
 export async function deleteWaterPointAction(projectId: string, pointId: string) {
-  await assertAdmin();
+  await assertUser();
   await deleteWaterPoint(projectId, pointId);
   revalidatePath(`/vertimientos/${projectId}`);
 }
 
 export async function removeWaterPointFileAction(projectId: string, pointId: string, archivo: "informe" | "foto") {
-  await assertAdmin();
+  await assertUser();
   await removeWaterPointFile(projectId, pointId, archivo === "foto" ? "foto" : "informe");
   revalidatePath(`/vertimientos/${projectId}`);
 }
 
 export async function removeFp004Action(projectId: string) {
-  await assertAdmin();
+  await assertUser();
   await removeFp004(projectId);
   revalidatePath(`/vertimientos/${projectId}`);
 }

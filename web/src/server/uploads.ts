@@ -58,29 +58,22 @@ async function checkTarget(target: UploadTarget, user: CurrentUser) {
     return;
   }
   if (target.kind === "meteo") {
-    const project = await getProject(target.projectId);
-    // Calidad del aire está en desarrollo: solo el administrador.
-    if ((project.tipo === "aire" || project.tipo === "vertimientos") && user.role !== "admin") throw new ForbiddenError();
+    await getProject(target.projectId);
     return;
   }
   if (target.kind === "aire") {
-    if (user.role !== "admin") throw new ForbiddenError();
     await getAireProject(target.projectId);
     return;
   }
   if (target.kind === "fotoAire") {
-    if (user.role !== "admin") throw new ForbiddenError();
     await getStation(target.projectId, target.stationId);
     return;
   }
   if (target.kind === "laboratorio" || target.kind === "fotoAgua") {
-    // Vertimientos está en desarrollo: solo el administrador.
-    if (user.role !== "admin") throw new ForbiddenError();
     await getWaterPoint(target.projectId, target.pointId);
     return;
   }
   if (target.kind === "fp004" || target.kind === "laboratorioLote") {
-    if (user.role !== "admin") throw new ForbiddenError();
     await getVertProject(target.projectId);
     return;
   }
