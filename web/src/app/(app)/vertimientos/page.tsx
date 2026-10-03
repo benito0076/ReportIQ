@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { EnfocarNuevo } from "@/components/enfocar-nuevo";
 import Link from "next/link";
 import { Droplets } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
@@ -18,6 +19,7 @@ export default async function VertimientosPage() {
   const projects = await listVertProjects();
   return (
     <>
+      <EnfocarNuevo />
       <PageHeader
         title="Vertimientos"
         description="Caracterización de vertimientos frente a la Resolución 0631 de 2015 (un proyecto por plan de muestreo)."
@@ -61,7 +63,7 @@ export default async function VertimientosPage() {
             )}
           </CardContent>
         </Card>
-        <Card className="self-start">
+        <Card id="nuevo" className="scroll-mt-20 self-start">
           <CardHeader>
             <CardTitle>Nuevo proyecto</CardTitle>
           </CardHeader>

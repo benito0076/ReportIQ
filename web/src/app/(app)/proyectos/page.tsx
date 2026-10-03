@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { EnfocarNuevo } from "@/components/enfocar-nuevo";
 import Link from "next/link";
 import { ArrowRight, FolderOpen, Search, SearchX } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { MatrizIcono } from "@/components/matriz";
+import { NuevoProyecto } from "@/components/nuevo-proyecto";
 import { PageHeader } from "@/components/page-header";
 import { selectClass } from "@/components/form";
 import { Badge } from "@/components/ui/badge";
@@ -92,10 +94,10 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
 
   return (
     <>
-      <PageHeader
-        title="Proyectos"
-        description="Todos los proyectos: ruido, calidad del aire y vertimientos."
-      />
+      <EnfocarNuevo />
+      <PageHeader title="Proyectos" description="Todos los proyectos: ruido, calidad del aire y vertimientos.">
+        <NuevoProyecto />
+      </PageHeader>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="grid min-w-0 gap-4 self-start">
           {matrices.length > 1 && (
@@ -196,7 +198,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
           </Card>
         </div>
         <div className="grid gap-6 self-start">
-          <Card>
+          <Card id="nuevo" className="scroll-mt-20">
             <CardHeader>
               <CardTitle>Nuevo proyecto de ruido</CardTitle>
             </CardHeader>
@@ -209,10 +211,10 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
               <CardTitle>Otras matrices</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2 text-sm">
-              <Link href="/aire" className="inline-flex items-center gap-2 hover:underline">
+              <Link href="/aire?nuevo=1" className="inline-flex items-center gap-2 hover:underline">
                 <MatrizIcono matriz="aire" size="sm" /> Nuevo proyecto de calidad del aire <ArrowRight className="size-3" />
               </Link>
-              <Link href="/vertimientos" className="inline-flex items-center gap-2 hover:underline">
+              <Link href="/vertimientos?nuevo=1" className="inline-flex items-center gap-2 hover:underline">
                 <MatrizIcono matriz="vertimientos" size="sm" /> Nuevo proyecto de vertimientos <ArrowRight className="size-3" />
               </Link>
             </CardContent>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { EnfocarNuevo } from "@/components/enfocar-nuevo";
 import Link from "next/link";
 import { Wind } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
@@ -18,6 +19,7 @@ export default async function AirePage() {
   const projects = await listAireProjects();
   return (
     <>
+      <EnfocarNuevo />
       <PageHeader
         title="Calidad del aire"
         description="Monitoreos de calidad del aire según la Resolución 2254 de 2017 (un proyecto por plan de muestreo)."
@@ -61,7 +63,7 @@ export default async function AirePage() {
             )}
           </CardContent>
         </Card>
-        <Card className="self-start">
+        <Card id="nuevo" className="scroll-mt-20 self-start">
           <CardHeader>
             <CardTitle>Nuevo proyecto</CardTitle>
           </CardHeader>
