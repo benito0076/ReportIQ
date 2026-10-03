@@ -13,9 +13,7 @@ import { getProject, isUuid } from "./projects";
 import { getSettings } from "./settings";
 
 /**
- * Proyectos de vertimientos (matriz agua, Res. 0631 de 2015). Mientras el
- * módulo está en desarrollo, todas las operaciones son solo para
- * administradores (las acciones y rutas lo verifican con assertAdmin).
+ * Proyectos de vertimientos (matriz agua, Res. 0631 de 2015).
  */
 
 const ENGINE_URL_TTL = 15 * 60;

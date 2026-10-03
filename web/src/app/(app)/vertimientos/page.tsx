@@ -7,15 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
-import { requireAdminPage } from "@/lib/session";
+import { requireUser } from "@/lib/session";
 import { listVertProjects } from "@/server/vertimientos";
 import { VertProjectForm } from "./vert-project-form";
 
 export const metadata: Metadata = { title: "Vertimientos" };
 
-/** Matriz en desarrollo: solo el administrador puede entrar. */
 export default async function VertimientosPage() {
-  await requireAdminPage();
+  await requireUser();
   const projects = await listVertProjects();
   return (
     <>
@@ -23,7 +22,6 @@ export default async function VertimientosPage() {
         title="Vertimientos"
         description="Caracterización de vertimientos frente a la Resolución 0631 de 2015 (un proyecto por plan de muestreo)."
       >
-        <Badge variant="outline">En desarrollo · solo administrador</Badge>
       </PageHeader>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <Card>

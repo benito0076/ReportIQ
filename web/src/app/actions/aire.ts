@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { PLANTILLAS_AIRE, type PlantillaAire } from "@/db/enums";
 import { ValidationError } from "@/lib/errors";
-import { assertAdmin } from "@/lib/session";
+import { assertAdmin, assertUser } from "@/lib/session";
 import { airStationSchema, parseOrThrow, projectSchema } from "@/lib/validation";
 import { logActivity } from "@/server/activity";
 import {
@@ -19,7 +19,7 @@ import {
 import { deleteProject, updateProject } from "@/server/projects";
 import { str, toActionState, type ActionState } from "./state";
 
-/** Calidad del aire está en desarrollo: todas las acciones son solo para administradores. */
+/** Calidad del aire: cualquier usuario crea y procesa proyectos; eliminarlos es solo para administradores. */
 
 function projectInput(form: FormData) {
   return parseOrThrow(projectSchema, {
@@ -44,7 +44,7 @@ function stationInput(form: FormData) {
 export async function createAireProjectAction(_prev: ActionState, form: FormData): Promise<ActionState> {
   let id: string;
   try {
-    const user = await assertAdmin();
+    const user = await assertUser();
     const input = projectInput(form);
     id = await createAireProject(input, user.id);
     await logActivity("proyecto_creado", user, `${input.nombre} (calidad del aire)`);
@@ -56,7 +56,7 @@ export async function createAireProjectAction(_prev: ActionState, form: FormData
 
 export async function updateAireProjectAction(projectId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertAdmin();
+    await assertUser();
     await getAireProject(projectId);
     await updateProject(projectId, projectInput(form));
   } catch (e) {
@@ -76,7 +76,7 @@ export async function deleteAireProjectAction(projectId: string) {
 
 export async function createStationAction(projectId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    await assertAdmin();
+    await assertUser();
     await createStation(projectId, stationInput(form));
   } catch (e) {
     return toActionState(e, form);
@@ -92,7 +92,7 @@ export async function updateStationAction(
   form: FormData,
 ): Promise<ActionState> {
   try {
-    await assertAdmin();
+    await assertUser();
     await updateStation(projectId, stationId, stationInput(form));
   } catch (e) {
     return toActionState(e, form);
@@ -102,19 +102,19 @@ export async function updateStationAction(
 }
 
 export async function deleteStationAction(projectId: string, stationId: string) {
-  await assertAdmin();
+  await assertUser();
   await deleteStation(projectId, stationId);
   revalidatePath(`/aire/${projectId}`);
 }
 
 export async function removeStationPhotoAction(projectId: string, stationId: string) {
-  await assertAdmin();
+  await assertUser();
   await removeStationPhoto(projectId, stationId);
   revalidatePath(`/aire/${projectId}`);
 }
 
 export async function removeAirFileAction(projectId: string, plantilla: string) {
-  await assertAdmin();
+  await assertUser();
   if (!(PLANTILLAS_AIRE as readonly string[]).includes(plantilla)) throw new ValidationError("Plantilla inválida.");
   await removeAirFile(projectId, plantilla as PlantillaAire);
   revalidatePath(`/aire/${projectId}`);

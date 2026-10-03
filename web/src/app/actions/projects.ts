@@ -23,7 +23,6 @@ import type { CondicionBarrido } from "@/db/enums";
 import { deleteReport } from "@/server/processing";
 import { logActivity } from "@/server/activity";
 import { getProject } from "@/server/projects";
-import { assertProjectAccess } from "@/server/aire";
 import { str, toActionState, type ActionState } from "./state";
 
 function projectInput(form: FormData) {
@@ -74,8 +73,8 @@ export async function updateProjectAction(projectId: string, _prev: ActionState,
 
 export async function updateInformeAction(projectId: string, _prev: ActionState, form: FormData): Promise<ActionState> {
   try {
-    const user = await assertUser();
-    assertProjectAccess(await getProject(projectId), user);
+    await assertUser();
+    await getProject(projectId);
     const input = parseOrThrow(informeSchema, Object.fromEntries(INFORME_CAMPOS.map((k) => [k, str(form, k)])));
     await updateProjectInforme(projectId, input);
   } catch (e) {
@@ -142,8 +141,8 @@ export async function removePhotoAction(projectId: string, pointId: string) {
 }
 
 export async function removeMeteoAction(projectId: string) {
-  const user = await assertUser();
-  assertProjectAccess(await getProject(projectId), user);
+  await assertUser();
+  await getProject(projectId);
   await setProjectMeteo(projectId, null, null);
   revalidatePath(`/proyectos/${projectId}`);
   revalidatePath(`/aire/${projectId}`);
@@ -177,7 +176,7 @@ export async function removeBarridoAction(projectId: string, barridoId: string) 
 
 export async function deleteReportAction(projectId: string, reportId: string) {
   const user = await assertUser();
-  assertProjectAccess(await getProject(projectId), user);
+  await getProject(projectId);
   const nombre = await deleteReport(projectId, reportId);
   await logActivity("informe_eliminado", user, nombre);
   revalidatePath(`/proyectos/${projectId}/resultados`);

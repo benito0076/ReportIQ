@@ -63,15 +63,14 @@ function Estado({ p }: { p: ProyectoListado }) {
 }
 
 export default async function ProjectsPage({ searchParams }: PageProps<"/proyectos">) {
-  const user = await requireUser();
-  const admin = user.role === "admin";
+  await requireUser();
   const sp = await searchParams;
-  const matrices = MATRICES.filter((m) => admin || m.clave === "ruido");
+  const matrices = MATRICES;
   const matriz = matrices.some((m) => m.clave === texto(sp.matriz)) ? texto(sp.matriz) : "";
   const q = texto(sp.q);
   const orden: Orden = texto(sp.orden) in ORDENES ? (texto(sp.orden) as Orden) : "actualizado";
 
-  const todos = await listAllProjects(admin);
+  const todos = await listAllProjects();
   const busqueda = sinTildes(q);
   const filtrados = ordenar(
     todos.filter(
@@ -95,7 +94,7 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
     <>
       <PageHeader
         title="Proyectos"
-        description={admin ? "Todos los proyectos: ruido, calidad del aire y vertimientos." : "Monitoreos de ruido ambiental según la Resolución 0627 de 2006."}
+        description="Todos los proyectos: ruido, calidad del aire y vertimientos."
       />
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="grid min-w-0 gap-4 self-start">
@@ -205,21 +204,19 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
               <ProjectForm />
             </CardContent>
           </Card>
-          {admin && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Otras matrices</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-2 text-sm">
-                <Link href="/aire" className="inline-flex items-center gap-2 hover:underline">
-                  <MatrizIcono matriz="aire" size="sm" /> Nuevo proyecto de calidad del aire <ArrowRight className="size-3" />
-                </Link>
-                <Link href="/vertimientos" className="inline-flex items-center gap-2 hover:underline">
-                  <MatrizIcono matriz="vertimientos" size="sm" /> Nuevo proyecto de vertimientos <ArrowRight className="size-3" />
-                </Link>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Otras matrices</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-2 text-sm">
+              <Link href="/aire" className="inline-flex items-center gap-2 hover:underline">
+                <MatrizIcono matriz="aire" size="sm" /> Nuevo proyecto de calidad del aire <ArrowRight className="size-3" />
+              </Link>
+              <Link href="/vertimientos" className="inline-flex items-center gap-2 hover:underline">
+                <MatrizIcono matriz="vertimientos" size="sm" /> Nuevo proyecto de vertimientos <ArrowRight className="size-3" />
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </>

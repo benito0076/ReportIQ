@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, desc, eq, gte, inArray, max, notInArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, max } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
 import type { CondicionBarrido, Direccion, Esquema, ProjectType } from "@/db/enums";
 import { airFiles, airStations, barridoFiles, memoryFiles, points, projects, reports, users, waterPoints } from "@/db/schema";
@@ -20,10 +20,9 @@ export function hrefProyecto(p: { id: string; tipo: ProjectType }): string {
 
 /**
  * Todos los proyectos (ruido, calidad del aire y vertimientos) con el número de
- * puntos o estaciones y la fecha del último entregable. Calidad del aire y
- * vertimientos solo se incluyen para administradores (módulos en desarrollo).
+ * puntos o estaciones y la fecha del último entregable.
  */
-export async function listAllProjects(incluirEnDesarrollo: boolean) {
+export async function listAllProjects() {
   // Cada conteo con su propio nombre de columna (en la consulta unida no pueden repetirse).
   const nPts = db
     .select({ projectId: points.projectId, n: count().as("n_puntos") })
@@ -66,7 +65,6 @@ export async function listAllProjects(incluirEnDesarrollo: boolean) {
     .leftJoin(nAgua, eq(nAgua.projectId, projects.id))
     .leftJoin(ultimo, eq(ultimo.projectId, projects.id))
     .leftJoin(users, eq(users.id, projects.createdBy))
-    .where(incluirEnDesarrollo ? undefined : notInArray(projects.tipo, ["aire", "vertimientos"]))
     .orderBy(desc(projects.updatedAt));
   return filas.map((f) => ({
     ...f,
@@ -78,7 +76,7 @@ export async function listAllProjects(incluirEnDesarrollo: boolean) {
 export type ProyectoListado = Awaited<ReturnType<typeof listAllProjects>>[number];
 
 /** Informes generados desde una fecha (tablero de inicio), con su proyecto. */
-export async function recentReports(desde: Date, incluirEnDesarrollo: boolean) {
+export async function recentReports(desde: Date) {
   const filas = await db
     .select({
       id: reports.id,
@@ -93,9 +91,7 @@ export async function recentReports(desde: Date, incluirEnDesarrollo: boolean) {
     .innerJoin(projects, eq(projects.id, reports.projectId))
     .where(gte(reports.createdAt, desde))
     .orderBy(desc(reports.createdAt));
-  return filas
-    .filter((f) => incluirEnDesarrollo || matrizDe(f.tipo) === "ruido")
-    .map((f) => ({ ...f, matriz: matrizDe(f.tipo), href: hrefProyecto({ id: f.projectId, tipo: f.tipo }) }));
+  return filas.map((f) => ({ ...f, matriz: matrizDe(f.tipo), href: hrefProyecto({ id: f.projectId, tipo: f.tipo }) }));
 }
 
 export async function getProject(id: string) {
