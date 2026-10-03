@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MatrizIcono } from "@/components/matriz";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { ProjectTabs } from "./project-tabs";
@@ -25,11 +26,14 @@ export default async function ProjectLayout({ children, params }: LayoutProps<"/
       <Link href="/proyectos" className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="size-4" /> Proyectos
       </Link>
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold tracking-tight">{project.nombre}</h1>
-        <p className="text-sm text-muted-foreground">
-          {[PROJECT_TYPE_LABELS[project.tipo], project.codigo, project.cliente].filter(Boolean).join(" · ")}
-        </p>
+      <div className="mb-4 flex items-start gap-3">
+        <MatrizIcono matriz="ruido" size="lg" />
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">{project.nombre}</h1>
+          <p className="text-sm text-muted-foreground">
+            {[PROJECT_TYPE_LABELS[project.tipo], project.codigo, project.cliente].filter(Boolean).join(" · ")}
+          </p>
+        </div>
       </div>
       <ProjectTabs projectId={id} />
       <div className="mt-6">{children}</div>

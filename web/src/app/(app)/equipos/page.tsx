@@ -35,7 +35,7 @@ export default async function EquipmentPage() {
                     size="icon-sm"
                     title="Eliminar"
                   >
-                    <Trash2 className="text-red-600" />
+                    <Trash2 className="text-peligro" />
                   </ConfirmButton>
                 )}
               </div>

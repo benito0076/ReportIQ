@@ -40,6 +40,29 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  /* Marca Ambienciq (logo: azul marino y verde lima) y color de cada matriz. */
+  --color-marca: var(--marca);
+  --color-marca-foreground: var(--marca-foreground);
+  --color-ruido: var(--ruido);
+  --color-aire: var(--aire);
+  --color-agua: var(--agua);
+  /* Estados (cumple, avisos, errores, información) con versión clara y oscura. */
+  --color-exito-suave: var(--exito-suave);
+  --color-exito-borde: var(--exito-borde);
+  --color-exito: var(--exito);
+  --color-exito-texto: var(--exito-texto);
+  --color-aviso-suave: var(--aviso-suave);
+  --color-aviso-borde: var(--aviso-borde);
+  --color-aviso: var(--aviso);
+  --color-aviso-texto: var(--aviso-texto);
+  --color-peligro-suave: var(--peligro-suave);
+  --color-peligro-borde: var(--peligro-borde);
+  --color-peligro: var(--peligro);
+  --color-peligro-texto: var(--peligro-texto);
+  --color-info-suave: var(--info-suave);
+  --color-info-borde: var(--info-borde);
+  --color-info: var(--info);
+  --color-info-texto: var(--info-texto);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -56,9 +79,9 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.36 0.16 268);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.96 0.01 268);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
@@ -67,7 +90,28 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.62 0.14 268);
+  --marca: oklch(0.84 0.2 128);
+  --marca-foreground: oklch(0.25 0.06 128);
+  --ruido: oklch(0.52 0.2 300);
+  --aire: oklch(0.6 0.12 225);
+  --agua: oklch(0.5 0.16 250);
+  --exito-suave: oklch(0.96 0.04 155);
+  --exito-borde: oklch(0.85 0.08 155);
+  --exito: oklch(0.55 0.14 155);
+  --exito-texto: oklch(0.35 0.08 155);
+  --aviso-suave: oklch(0.97 0.05 85);
+  --aviso-borde: oklch(0.86 0.1 85);
+  --aviso: oklch(0.66 0.15 70);
+  --aviso-texto: oklch(0.4 0.09 60);
+  --peligro-suave: oklch(0.95 0.04 25);
+  --peligro-borde: oklch(0.85 0.08 25);
+  --peligro: oklch(0.58 0.2 27);
+  --peligro-texto: oklch(0.42 0.14 27);
+  --info-suave: oklch(0.96 0.03 230);
+  --info-borde: oklch(0.86 0.06 230);
+  --info: oklch(0.58 0.12 235);
+  --info-texto: oklch(0.38 0.08 240);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -91,8 +135,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.78 0.11 268);
+  --primary-foreground: oklch(0.18 0.03 268);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -102,7 +146,28 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.6 0.1 268);
+  --marca: oklch(0.8 0.19 128);
+  --marca-foreground: oklch(0.2 0.05 128);
+  --ruido: oklch(0.72 0.15 300);
+  --aire: oklch(0.75 0.11 225);
+  --agua: oklch(0.7 0.13 250);
+  --exito-suave: oklch(0.3 0.06 155);
+  --exito-borde: oklch(0.45 0.09 155);
+  --exito: oklch(0.75 0.15 155);
+  --exito-texto: oklch(0.88 0.08 155);
+  --aviso-suave: oklch(0.32 0.06 75);
+  --aviso-borde: oklch(0.5 0.1 75);
+  --aviso: oklch(0.8 0.14 80);
+  --aviso-texto: oklch(0.9 0.08 85);
+  --peligro-suave: oklch(0.32 0.08 25);
+  --peligro-borde: oklch(0.48 0.12 25);
+  --peligro: oklch(0.72 0.17 25);
+  --peligro-texto: oklch(0.88 0.07 25);
+  --info-suave: oklch(0.3 0.05 235);
+  --info-borde: oklch(0.45 0.08 235);
+  --info: oklch(0.75 0.11 230);
+  --info-texto: oklch(0.88 0.06 230);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -128,4 +193,9 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Desplazamiento a las tarjetas enlazadas (#paso-…) bajo el encabezado fijo. */
+html {
+  scroll-padding-top: 5rem;
 }

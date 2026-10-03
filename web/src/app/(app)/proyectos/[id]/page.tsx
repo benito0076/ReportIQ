@@ -113,7 +113,7 @@ export default async function ProjectPage({ params }: PageProps<"/proyectos/[id]
                       </Link>
                       {p.fotoKey && <ImageIcon className="ml-1.5 inline size-3.5 text-muted-foreground" aria-label="Con foto" />}
                     </TableCell>
-                    <TableCell className={p.sector ? "" : "text-amber-700"}>{sectorCorto(p.sector)}</TableCell>
+                    <TableCell className={p.sector ? "" : "text-aviso"}>{sectorCorto(p.sector)}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {p.este && p.norte ? `${p.este} / ${p.norte}` : "—"}
                     </TableCell>
@@ -140,7 +140,7 @@ export default async function ProjectPage({ params }: PageProps<"/proyectos/[id]
                           size="icon-sm"
                           title="Eliminar"
                         >
-                          <Trash2 className="text-red-600" />
+                          <Trash2 className="text-peligro" />
                         </ConfirmButton>
                       </div>
                     </TableCell>

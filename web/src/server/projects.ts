@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, count, desc, eq, inArray, max, notInArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, max, notInArray } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
 import type { CondicionBarrido, Direccion, Esquema, ProjectType } from "@/db/enums";
 import { airFiles, airStations, barridoFiles, memoryFiles, points, projects, reports, users, waterPoints } from "@/db/schema";
@@ -76,6 +76,27 @@ export async function listAllProjects(incluirEnDesarrollo: boolean) {
   }));
 }
 export type ProyectoListado = Awaited<ReturnType<typeof listAllProjects>>[number];
+
+/** Informes generados desde una fecha (tablero de inicio), con su proyecto. */
+export async function recentReports(desde: Date, incluirEnDesarrollo: boolean) {
+  const filas = await db
+    .select({
+      id: reports.id,
+      kind: reports.kind,
+      fileName: reports.fileName,
+      createdAt: reports.createdAt,
+      projectId: projects.id,
+      nombre: projects.nombre,
+      tipo: projects.tipo,
+    })
+    .from(reports)
+    .innerJoin(projects, eq(projects.id, reports.projectId))
+    .where(gte(reports.createdAt, desde))
+    .orderBy(desc(reports.createdAt));
+  return filas
+    .filter((f) => incluirEnDesarrollo || matrizDe(f.tipo) === "ruido")
+    .map((f) => ({ ...f, matriz: matrizDe(f.tipo), href: hrefProyecto({ id: f.projectId, tipo: f.tipo }) }));
+}
 
 export async function getProject(id: string) {
   if (!isUuid(id)) throw new NotFoundError("El proyecto no existe.");

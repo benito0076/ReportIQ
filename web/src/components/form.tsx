@@ -27,12 +27,12 @@ export function Field({
     <div className={cn("grid gap-1.5", className)}>
       <Label htmlFor={htmlFor}>
         {label}
-        {required && <span className="text-red-600">*</span>}
+        {required && <span className="text-peligro">*</span>}
       </Label>
       {children}
       {hint && !error?.length && <p className="text-xs text-muted-foreground">{hint}</p>}
       {error?.map((e) => (
-        <p key={e} className="text-xs text-red-600">
+        <p key={e} className="text-xs text-peligro">
           {e}
         </p>
       ))}
@@ -66,7 +66,7 @@ export function SubmitButton({
 export function FormError({ message }: { message?: string }) {
   if (!message) return null;
   return (
-    <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+    <p role="alert" className="rounded-lg border border-peligro-borde bg-peligro-suave px-3 py-2 text-sm text-peligro-texto">
       {message}
     </p>
   );

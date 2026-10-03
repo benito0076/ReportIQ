@@ -12,7 +12,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           priority
           className="h-auto w-full max-w-xs"
         />
-        <span className="text-sm font-medium text-muted-foreground">Ruido Ambiental · Res. 0627 de 2006</span>
+        <span className="text-sm font-medium text-muted-foreground">
+          Report<span className="text-primary">IQ</span> · informes de ruido, calidad del aire y vertimientos
+        </span>
       </div>
       <div className="w-full max-w-sm">{children}</div>
     </main>

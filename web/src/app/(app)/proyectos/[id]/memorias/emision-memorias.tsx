@@ -21,7 +21,7 @@ const RANURA_LABEL: Record<RanuraEmision, string> = {
 
 function Celda({ projectId, f }: { projectId: string; f: Memoria }) {
   return (
-    <div className="flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-1 ring-1 ring-emerald-200">
+    <div className="flex items-center gap-1 rounded-md bg-exito-suave px-2 py-1 ring-1 ring-emerald-200">
       <div className="min-w-0 flex-1">
         <div className="truncate text-xs font-medium" title={f.fileName}>
           {f.fileName}
@@ -42,7 +42,7 @@ function Celda({ projectId, f }: { projectId: string; f: Memoria }) {
         size="icon-sm"
         title="Quitar"
       >
-        <Trash2 className="text-red-600" />
+        <Trash2 className="text-peligro" />
       </ConfirmButton>
     </div>
   );
@@ -84,7 +84,7 @@ export function EmisionMemorias({
                   key={b.id}
                   className={cn(
                     "flex flex-wrap items-center gap-2 rounded-md border px-3 py-1.5 text-sm",
-                    b.seleccionado && "border-emerald-300 bg-emerald-50",
+                    b.seleccionado && "border-exito-borde bg-exito-suave",
                   )}
                 >
                   <span className="min-w-32 flex-1 font-medium">{b.nombre}</span>
@@ -111,7 +111,7 @@ export function EmisionMemorias({
                     size="icon-sm"
                     title="Quitar"
                   >
-                    <Trash2 className="text-red-600" />
+                    <Trash2 className="text-peligro" />
                   </ConfirmButton>
                 </li>
               ))}
