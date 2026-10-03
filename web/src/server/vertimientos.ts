@@ -10,7 +10,7 @@ import { normalizarPunto, puntoParaReporte } from "@/lib/puntos";
 import { deleteObject, downloadUrl, newKey, putObject } from "@/lib/storage";
 import type { ConfigVertimientoInput, ProjectInput, WaterPointInput } from "@/lib/validation";
 import { getProject, isUuid } from "./projects";
-import { getSettings } from "./settings";
+import { firmasInforme } from "./settings";
 
 /**
  * Proyectos de vertimientos (matriz agua, Res. 0631 de 2015).
@@ -222,11 +222,11 @@ export async function removeFp004(projectId: string) {
 }
 
 // ------------------------------------------------------------ procesamiento
-async function buildPayload(projectId: string): Promise<engine.ProyectoVertimientoPayload> {
-  const [project, puntos, settings] = await Promise.all([
+async function buildPayload(projectId: string, userId?: string): Promise<engine.ProyectoVertimientoPayload> {
+  const [project, puntos, firmas] = await Promise.all([
     getVertProject(projectId),
     listWaterPoints(projectId),
-    getSettings(),
+    firmasInforme(userId),
   ]);
   if (puntos.length === 0) throw new ValidationError("Agregue al menos un punto de muestreo.");
   if (!puntos.some((p) => p.informeKey)) {
@@ -255,12 +255,7 @@ async function buildPayload(projectId: string): Promise<engine.ProyectoVertimien
     actividades: config.actividades,
     alcantarillado: config.alcantarillado,
     consumo_humano: config.consumoHumano,
-    informe: informePayload(project.informe, {
-      elaboroNombre: settings.elaboroNombre,
-      elaboroCargo: settings.elaboroCargo,
-      autorizoNombre: settings.autorizoNombre,
-      autorizoCargo: settings.autorizoCargo,
-    }),
+    informe: informePayload(project.informe, firmas),
   };
 }
 
@@ -274,7 +269,7 @@ export async function processVertimiento(projectId: string): Promise<ResultadosV
 }
 
 export async function generateVertReport(projectId: string, kind: "excel" | "word", userId: string) {
-  const result = await engine.generarVertimiento(await buildPayload(projectId), kind);
+  const result = await engine.generarVertimiento(await buildPayload(projectId, userId), kind);
   const key = newKey("informe", projectId, kind === "word" ? "docx" : "xlsx");
   await putObject(key, result.bytes, result.contentType);
   const [row] = await db

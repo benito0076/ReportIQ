@@ -25,7 +25,7 @@ import { revisarAire } from "@/lib/progreso";
 import { requireUser } from "@/lib/session";
 import { getAireProject, listAirFiles, listStations } from "@/server/aire";
 import { listReports } from "@/server/processing";
-import { getSettings } from "@/server/settings";
+import { firmasInforme } from "@/server/settings";
 import { isUuid } from "@/server/projects";
 import { InformeForm } from "../../proyectos/[id]/informe-form";
 import { AireProjectForm } from "../aire-project-form";
@@ -41,11 +41,11 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
   if (!isUuid(id)) notFound();
   const project = await getAireProject(id).catch(() => null);
   if (!project) notFound();
-  const [estaciones, archivos, reps, settings] = await Promise.all([
+  const [estaciones, archivos, reps, firmas] = await Promise.all([
     listStations(id),
     listAirFiles(id),
     listReports(id),
-    getSettings(),
+    firmasInforme(user.id),
   ]);
   const r = project.resultadosAire;
   const revision = revisarAire({
@@ -56,7 +56,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
     meteo: !!project.meteoKey,
     informe: project.informe,
     procesado: !!(r && project.procesadoAt),
-    firmas: settings,
+    firmas,
   });
   const siguiente = Math.max(0, ...estaciones.map((e) => e.numero)) + 1;
 
@@ -278,7 +278,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
             </Table>
         </PasoCard>
 
-        <PasoCard id="paso-informe" numero={4} titulo="Datos del informe" paso={paso("paso-informe")} descripcion={<>Portada, encabezado y cliente del informe Word. Las firmas del cuadro de control se toman de Ajustes.</>}>
+        <PasoCard id="paso-informe" numero={4} titulo="Datos del informe" paso={paso("paso-informe")} descripcion={<>Portada, encabezado y cliente del informe Word. «Elaboró» es quien genera el informe (nombre y cargo de <Link href="/perfil" className="underline">Mi perfil</Link>); «Autorizó» se toma de Ajustes.</>}>
             <InformeForm projectId={id} informe={project.informe} aire />
         </PasoCard>
 

@@ -74,8 +74,10 @@ puntos de medición. El Word usa la plantilla del informe ER-753-25
 (`templates/informe_emision_template.docx`).
 
 Además: **Equipos** (inventario de sonómetros por serial), **Usuarios** y
-**Ajustes** (plantilla Word propia, firmas del cuadro de control y texto «Elaboró» de los planos) para los
-administradores. Solo los administradores pueden eliminar proyectos y equipos.
+**Ajustes** (plantilla Word propia, firma «Autorizó» del cuadro de control, respaldo de «Elaboró» y texto
+«Elaboró» de los planos) para los administradores. Solo los administradores pueden eliminar proyectos y equipos.
+**Mi perfil**: cada usuario configura su nombre y cargo; con ellos se firma «Elaboró» en el cuadro de control de
+los informes Word que genera (si no tiene nombre, se usa el respaldo de Ajustes).
 **Actividad** (solo administradores): inicios de sesión (exitosos y fallidos, con IP
 y navegador), cierres de sesión y acciones importantes (proyectos creados y
 eliminados, informes generados, descargados y eliminados, cambios de usuarios,

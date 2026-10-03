@@ -8,12 +8,13 @@ import {
   newUserSchema,
   parseOrThrow,
   passwordSchema,
+  profileSchema,
   settingsSchema,
 } from "@/lib/validation";
 import { createEquipment, deleteEquipment, updateEquipment } from "@/server/equipment";
 import { updateSettings } from "@/server/settings";
 import { logActivity } from "@/server/activity";
-import { createUser, deleteUser, setPassword, setRole, userEmail } from "@/server/users";
+import { createUser, deleteUser, setPassword, setProfile, setRole, userEmail } from "@/server/users";
 import { str, toActionState, type ActionState } from "./state";
 
 // --------------------------------------------------------------- equipos
@@ -61,6 +62,7 @@ export async function createUserAction(_prev: ActionState, form: FormData): Prom
     const admin = await assertAdmin();
     const input = parseOrThrow(newUserSchema, {
       fullName: str(form, "fullName"),
+      cargo: str(form, "cargo"),
       email: str(form, "email"),
       password: str(form, "password"),
       role: str(form, "role"),
@@ -84,6 +86,34 @@ export async function resetPasswordAction(id: string, _prev: ActionState, form: 
     return toActionState(e);
   }
   return { ok: true, message: "Contraseña actualizada." };
+}
+
+function profileInput(form: FormData) {
+  return parseOrThrow(profileSchema, { fullName: str(form, "fullName"), cargo: str(form, "cargo") });
+}
+
+/** Cada usuario edita su propio nombre y cargo. */
+export async function updateMyProfileAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    const user = await assertUser();
+    await setProfile(user.id, profileInput(form));
+  } catch (e) {
+    return toActionState(e, form);
+  }
+  revalidatePath("/", "layout");
+  return { ok: true, message: "Perfil guardado." };
+}
+
+/** El administrador edita el nombre y el cargo de cualquier usuario. */
+export async function updateUserProfileAction(id: string, _prev: ActionState, form: FormData): Promise<ActionState> {
+  try {
+    await assertAdmin();
+    await setProfile(id, profileInput(form));
+  } catch (e) {
+    return toActionState(e, form);
+  }
+  revalidatePath("/usuarios");
+  return { ok: true, message: "Datos guardados." };
 }
 
 export async function setRoleAction(id: string, role: UserRole): Promise<ActionState> {

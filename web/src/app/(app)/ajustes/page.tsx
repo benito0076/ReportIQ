@@ -54,8 +54,8 @@ export default async function SettingsPage() {
           <CardHeader>
             <CardTitle>Firmas y planos</CardTitle>
             <CardDescription>
-              Nombres y cargos del cuadro de control del informe Word (con la fecha del informe) y texto de respaldo
-              del cuadro «Elaboró» de los planos.
+              Cuadro de control del informe Word: «Elaboró» se llena con el nombre y cargo de quien genera el informe
+              (cada usuario los configura en Mi perfil); aquí se define «Autorizó» y un respaldo para «Elaboró».
             </CardDescription>
           </CardHeader>
           <CardContent>

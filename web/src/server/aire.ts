@@ -10,7 +10,7 @@ import { deleteObject, downloadUrl, newKey, putObject } from "@/lib/storage";
 import type { AirStationInput, ProjectInput } from "@/lib/validation";
 import { informePayload } from "@/lib/informe";
 import { getProject, isUuid } from "./projects";
-import { getSettings } from "./settings";
+import { firmasInforme } from "./settings";
 
 /**
  * Proyectos de calidad del aire (Res. 2254 de 2017).
@@ -179,12 +179,12 @@ export async function removeAirFile(projectId: string, plantilla: PlantillaAire)
 }
 
 // ------------------------------------------------------------ procesamiento
-async function buildPayload(projectId: string): Promise<engine.ProyectoAirePayload> {
-  const [project, estaciones, archivos, settings] = await Promise.all([
+async function buildPayload(projectId: string, userId?: string): Promise<engine.ProyectoAirePayload> {
+  const [project, estaciones, archivos, firmas] = await Promise.all([
     getAireProject(projectId),
     listStations(projectId),
     listAirFiles(projectId),
-    getSettings(),
+    firmasInforme(userId),
   ]);
   if (archivos.length === 0) throw new ValidationError("Suba al menos una plantilla de procesamiento (FP).");
   const plantillas: engine.ProyectoAirePayload["plantillas"] = {};
@@ -211,12 +211,7 @@ async function buildPayload(projectId: string): Promise<engine.ProyectoAirePaylo
     meteorologia: project.meteoKey
       ? { url: await downloadUrl(project.meteoKey, { ttl: ENGINE_URL_TTL }), nombre: project.meteoNombre ?? "meteorologia.xlsx" }
       : null,
-    informe: informePayload(project.informe, {
-      elaboroNombre: settings.elaboroNombre,
-      elaboroCargo: settings.elaboroCargo,
-      autorizoNombre: settings.autorizoNombre,
-      autorizoCargo: settings.autorizoCargo,
-    }),
+    informe: informePayload(project.informe, firmas),
   };
 }
 
@@ -227,7 +222,7 @@ export async function processAire(projectId: string): Promise<ResultadosAire> {
 }
 
 export async function generateAireReport(projectId: string, kind: "excel" | "word", userId: string) {
-  const result = await engine.generarAire(await buildPayload(projectId), kind);
+  const result = await engine.generarAire(await buildPayload(projectId, userId), kind);
   const key = newKey("informe", projectId, kind === "word" ? "docx" : "xlsx");
   await putObject(key, result.bytes, result.contentType);
   const [row] = await db

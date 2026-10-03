@@ -194,6 +194,7 @@ const password = z.string().min(10, "La contraseña debe tener al menos 10 carac
 
 export const newUserSchema = z.object({
   fullName: optionalText(255),
+  cargo: optionalText(255),
   email,
   password,
   role: z.enum(USER_ROLES),
@@ -202,6 +203,9 @@ export const newUserSchema = z.object({
 export const setupSchema = z.object({ fullName: optionalText(255), email, password });
 
 export const passwordSchema = z.object({ password });
+
+/** Nombre y cargo de un usuario: firman «Elaboró» en los informes que genera. */
+export const profileSchema = z.object({ fullName: optionalText(255), cargo: optionalText(255) });
 
 export const settingsSchema = z.object({
   elaboradoPor: optionalText(255),
