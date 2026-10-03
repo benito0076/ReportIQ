@@ -37,8 +37,23 @@ from core import norms
 
 from .errores import ErrorDescarga, ErrorEntrada
 from .schemas import (
-    GenerarAireIn, GenerarIn, GenerarVertimientoIn, LeerReporteIn, ProcesarAireIn, ProcesarIn, ProcesarVertimientoIn,
+    FirmarIn, GenerarAireIn, GenerarIn, GenerarVertimientoIn, LeerReporteIn, ProcesarAireIn, ProcesarIn,
+    ProcesarVertimientoIn,
 )
+
+# Errores en producción: se reportan a Sentry si SENTRY_DSN está definida (Render).
+# Los 5xx (incluidos los trabajos que se quedan sin memoria) llegan como incidentes;
+# los 422 de datos de entrada inválidos no, porque los corrige el usuario.
+if os.environ.get("SENTRY_DSN"):
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=os.environ["SENTRY_DSN"],
+        environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+        release=os.environ.get("RENDER_GIT_COMMIT") or None,
+        traces_sample_rate=0.0,
+        send_default_pii=False,
+    )
 
 # Los avisos de core/ (p.ej. fallo del mapa satelital) salen en los logs del servicio.
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
@@ -144,6 +159,13 @@ def _trabajo_leer_reporte(body: LeerReporteIn):
         return service.leer_reporte_laboratorio(body.informe, carpeta)
 
 
+def _trabajo_firmar(body: FirmarIn):
+    from . import service  # core/ solo se importa en el proceso de trabajo
+
+    with tempfile.TemporaryDirectory(prefix="firma_") as carpeta:
+        return service.firmar_informe(body, carpeta)
+
+
 def _trabajo_procesar_vertimiento(proyecto):
     from . import service  # core/ solo se importa en el proceso de trabajo
 
@@ -199,6 +221,12 @@ def actividades_vertimientos():
     from core import res0631  # liviano: solo las tablas de la resolucion
 
     return res0631.actividades_por_articulo()
+
+
+@app.post("/v1/firmar", dependencies=[Depends(verificar_clave)])
+def firmar(body: FirmarIn):
+    """Informe Word aprobado: estampa «Autorizó» en el cuadro de control."""
+    return _respuesta_archivo(_errores(_trabajo_firmar, body))
 
 
 @app.post("/v1/vertimientos/reporte", dependencies=[Depends(verificar_clave)])

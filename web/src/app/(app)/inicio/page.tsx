@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Clock, FileText, FolderOpen } from "lucide-react";
+import { ArrowRight, ClipboardCheck, Clock, FileText, FolderOpen, Undo2 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { NuevoProyecto } from "@/components/nuevo-proyecto";
 import { MATRIZ_UI, MatrizIcono } from "@/components/matriz";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { REPORT_LABELS } from "@/db/enums";
+import { puedeAprobar, REPORT_LABELS } from "@/db/enums";
+import { contarPendientes, listDevueltos } from "@/server/aprobaciones";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { MATRICES } from "@/lib/matrices";
 import { requireUser } from "@/lib/session";
@@ -39,14 +40,17 @@ function estado(p: ProyectoListado) {
 export default async function InicioPage() {
   const user = await requireUser();
   const ahora = new Date();
-  const [proyectos, informes] = await Promise.all([
+  const [proyectos, informes, pendientes, devueltos] = await Promise.all([
     listAllProjects(),
     recentReports(new Date(ahora.getTime() - 7 * DIA)),
+    puedeAprobar(user.role) ? contarPendientes() : 0,
+    listDevueltos(user.id),
   ]);
   const matrices = MATRICES;
   const enPreparacion = proyectos.filter((p) => !p.procesadoAt && !p.ultimoInforme);
   const recientes = proyectos.slice(0, 6);
-  const nombre = (user.fullName ?? user.email).split(/[ @]/)[0];
+  // Primer nombre, sin títulos como «Ing.» o «Dr.».
+  const nombre = (user.fullName ?? user.email).split(/[ @]/).find((w) => w && !w.endsWith(".")) ?? user.email;
   // El servidor corre en UTC: la hora y la fecha se muestran en la de Colombia.
   const hora = Number(new Intl.DateTimeFormat("es-CO", { hour: "numeric", hourCycle: "h23", timeZone: "America/Bogota" }).format(ahora));
   const saludo = hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
@@ -64,6 +68,40 @@ export default async function InicioPage() {
         </div>
         <NuevoProyecto />
       </div>
+
+      {(pendientes > 0 || devueltos.length > 0) && (
+        <div className="grid gap-2">
+          {pendientes > 0 && (
+            <Link
+              href="/aprobaciones"
+              className="flex items-center gap-2 rounded-lg border border-info-borde bg-info-suave px-3 py-2 text-sm text-info-texto hover:brightness-95"
+            >
+              <ClipboardCheck className="size-4 shrink-0" />
+              <span>
+                <span className="font-medium">
+                  {pendientes} informe{pendientes === 1 ? "" : "s"} por aprobar.
+                </span>{" "}
+                Revíselos en la bandeja de aprobación.
+              </span>
+              <ArrowRight className="ml-auto size-4" />
+            </Link>
+          )}
+          {devueltos.map((d) => (
+            <Link
+              key={d.id}
+              href={d.href}
+              className="flex items-start gap-2 rounded-lg border border-aviso-borde bg-aviso-suave px-3 py-2 text-sm text-aviso-texto hover:brightness-95"
+            >
+              <Undo2 className="mt-0.5 size-4 shrink-0" />
+              <span className="min-w-0">
+                <span className="font-medium">Informe devuelto: {d.nombre}.</span>{" "}
+                {d.revisor ?? "El aprobador"} pide: «{d.observaciones}»
+              </span>
+              <ArrowRight className="ml-auto mt-0.5 size-4 shrink-0" />
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Indicador titulo="Proyectos" valor={proyectos.length} detalle="En todas las matrices" href="/proyectos" />

@@ -37,6 +37,78 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+  e2e:
+    name: Extremo a extremo (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: reportiq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/reportiq
+      AUTH_SECRET: secreto-de-prueba-e2e-solo-para-ci-0123456789
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: http://localhost:3000
+      APP_URL: http://localhost:3000
+      STORAGE_DRIVER: local
+      ENGINE_URL: http://127.0.0.1:8000
+      ENGINE_API_KEY: clave-de-prueba-e2e
+      BCRYPT_ROUNDS: "4"
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: engine/requirements.txt
+      - run: pip install -r engine/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - name: Memorias sintéticas del sonómetro
+        run: python web/e2e/generar_memorias.py
+      - name: Base de datos
+        run: npx drizzle-kit migrate
+        working-directory: web
+      - run: npx next build
+        working-directory: web
+      - run: npx playwright install --with-deps chromium
+        working-directory: web
+      - name: Motor y aplicación
+        run: |
+          nohup python -m uvicorn engine.app:app --port 8000 > engine.log 2>&1 &
+          (cd web && nohup npx next start -p 3000 > ../web.log 2>&1 &)
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8000/health > /dev/null && curl -sf -o /dev/null http://localhost:3000/login && exit 0
+            sleep 2
+          done
+          echo "El motor o la aplicación no arrancaron"; tail -50 engine.log web.log; exit 1
+      - run: npx playwright test
+        working-directory: web
+      - name: Registros y reporte de Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e
+          path: |
+            engine.log
+            web.log
+            web/playwright-report
+            web/test-results
+          retention-days: 7
+
   docker:
     name: Imagen Docker del motor
     runs-on: ubuntu-latest

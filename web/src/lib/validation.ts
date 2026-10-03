@@ -211,8 +211,6 @@ export const settingsSchema = z.object({
   elaboradoPor: optionalText(255),
   elaboroNombre: optionalText(255),
   elaboroCargo: optionalText(255),
-  autorizoNombre: optionalText(255),
-  autorizoCargo: optionalText(255),
 });
 export type SettingsInput = z.output<typeof settingsSchema>;
 

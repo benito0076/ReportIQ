@@ -1,8 +1,9 @@
 import "server-only";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -179,6 +180,19 @@ export async function readHead(key: string, bytes = 16): Promise<Uint8Array> {
     new GetObjectCommand({ Bucket: bucket(), Key: key, Range: `bytes=0-${bytes - 1}` }),
   );
   return (await res.Body?.transformToByteArray()) ?? new Uint8Array();
+}
+
+/** Copia un objeto dentro del almacenamiento (p. ej. las fotos al duplicar un proyecto). */
+export async function copyObject(origen: string, destino: string): Promise<void> {
+  if (isLocalStorage()) {
+    const target = resolveLocalPath(destino);
+    await mkdir(path.dirname(target), { recursive: true });
+    await copyFile(resolveLocalPath(origen), target);
+    return;
+  }
+  await client().send(
+    new CopyObjectCommand({ Bucket: bucket(), Key: destino, CopySource: `${bucket()}/${encodeURI(origen)}` }),
+  );
 }
 
 export async function deleteObject(key: string | null | undefined): Promise<void> {

@@ -55,7 +55,7 @@ export default async function SettingsPage() {
             <CardTitle>Firmas y planos</CardTitle>
             <CardDescription>
               Cuadro de control del informe Word: «Elaboró» se llena con el nombre y cargo de quien genera el informe
-              (cada usuario los configura en Mi perfil); aquí se define «Autorizó» y un respaldo para «Elaboró».
+              (cada usuario los configura en Mi perfil); aquí se define un respaldo para «Elaboró». «Autorizó» lo firma el aprobador al aprobar cada informe.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -64,8 +64,6 @@ export default async function SettingsPage() {
                 elaboradoPor: s.elaboradoPor,
                 elaboroNombre: s.elaboroNombre,
                 elaboroCargo: s.elaboroCargo,
-                autorizoNombre: s.autorizoNombre,
-                autorizoCargo: s.autorizoCargo,
               }}
             />
           </CardContent>

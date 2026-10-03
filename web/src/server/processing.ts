@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import type { ReportKind } from "@/db/enums";
+import type { ReportKind, UserRole } from "@/db/enums";
 import { equipment, reports } from "@/db/schema";
 import * as engine from "@/lib/engine";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -137,15 +137,28 @@ async function getReport(projectId: string, reportId: string) {
   return row;
 }
 
+/** Un informe aprobado se descarga en su versión final (con «Autorizó» firmado). */
 export async function reportDownloadUrl(projectId: string, reportId: string) {
   const row = await getReport(projectId, reportId);
-  return { url: await downloadUrl(row.fileKey, { fileName: row.fileName }), fileName: row.fileName };
+  const [key, fileName] =
+    row.estado === "aprobado" && row.aprobadoKey ? [row.aprobadoKey, row.aprobadoNombre ?? row.fileName] : [row.fileKey, row.fileName];
+  return { url: await downloadUrl(key, { fileName }), fileName };
 }
 
-/** Elimina un entregable del historial; devuelve su nombre de archivo. */
-export async function deleteReport(projectId: string, reportId: string) {
+/**
+ * Elimina un entregable del historial; devuelve su nombre de archivo. Los
+ * informes aprobados o en revisión solo los elimina un administrador.
+ */
+export async function deleteReport(projectId: string, reportId: string, role: UserRole) {
   const row = await getReport(projectId, reportId);
+  if ((row.estado === "aprobado" || row.estado === "revision") && role !== "admin") {
+    throw new ValidationError(
+      row.estado === "aprobado"
+        ? "Un informe aprobado solo lo puede eliminar un administrador."
+        : "El informe está en revisión: espere a que el aprobador lo apruebe o lo devuelva.",
+    );
+  }
   await db.delete(reports).where(eq(reports.id, reportId));
-  await deleteObject(row.fileKey);
+  await Promise.all([deleteObject(row.fileKey), deleteObject(row.aprobadoKey)]);
   return row.fileName;
 }

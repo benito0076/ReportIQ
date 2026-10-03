@@ -43,3 +43,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pruebas de extremo a extremo (Playwright)
+/e2e/.fixtures
+/test-results
+/playwright-report
+/e2e/*.png

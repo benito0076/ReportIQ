@@ -1,6 +1,6 @@
 "use server";
 
-import { AuthError } from "next-auth";
+import { AuthError, CredentialsSignin } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { parseOrThrow, setupSchema } from "@/lib/validation";
 import { getCurrentUser } from "@/lib/session";
@@ -23,7 +23,11 @@ export async function loginAction(_prev: ActionState, form: FormData): Promise<A
     return { ok: true };
   } catch (e) {
     if (e instanceof AuthError) {
-      return { error: "Correo o contraseña incorrectos.", values: { email: str(form, "email") } };
+      const bloqueo = e instanceof CredentialsSignin ? /^bloqueado:(\d+)$/.exec(e.code) : null;
+      const error = bloqueo
+        ? `Demasiados intentos fallidos. Por seguridad, espere ${bloqueo[1]} minuto${bloqueo[1] === "1" ? "" : "s"} e inténtelo de nuevo, o pida a un administrador que restablezca su contraseña.`
+        : "Correo o contraseña incorrectos.";
+      return { error, values: { email: str(form, "email") } };
     }
     throw e; // la redirección de éxito es una excepción interna de Next.js
   }

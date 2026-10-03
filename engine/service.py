@@ -707,6 +707,31 @@ def generar_word_vertimiento(ctx: ContextoVertimiento) -> Entregable:
     return Entregable(contenido, f"{base[:80]} - Informe vertimientos.docx", MIME_DOCX, advertencias)
 
 
+def firmar_informe(body, carpeta: str) -> Entregable:
+    """Informe Word aprobado: el mismo documento con «Autorizó» firmado."""
+    from core.informe_textos import firmar_autorizacion
+
+    ruta = os.path.join(carpeta, "informe.docx")
+    with httpx.Client(timeout=httpx.Timeout(60.0, connect=10.0), follow_redirects=True) as cliente:
+        _descargar(cliente, body.informe, ruta)
+    salida = os.path.join(carpeta, "aprobado.docx")
+    try:
+        firmado = firmar_autorizacion(ruta, salida, body.nombre, body.cargo, body.fecha)
+    except Exception as exc:  # noqa: BLE001 - archivo que no es un .docx válido
+        raise ErrorEntrada(f"No se pudo abrir el informe Word: {exc}") from exc
+    if not firmado:
+        raise ErrorEntrada("El informe no tiene el cuadro de control (Elaboró / Autorizó) para firmarlo.")
+    with open(salida, "rb") as f:
+        contenido = f.read()
+    nombre = os.path.splitext(body.informe.nombre or "informe.docx")[0]
+    return Entregable(
+        contenido=contenido,
+        nombre_archivo=f"{nombre} - aprobado.docx",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        advertencias=[],
+    )
+
+
 def leer_reporte_laboratorio(archivo: ArchivoRemoto, carpeta: str) -> dict:
     """Encabezado de un reporte del laboratorio: muestra, punto y fecha (para asignarlo a su punto)."""
     from core.vertimientos import leer_informe_laboratorio

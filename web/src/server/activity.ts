@@ -1,6 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
-import { and, desc, eq, gte, lt, lte, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gt, gte, lt, lte, max, or, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import { ACTIVITY_EVENTS, ACTIVITY_LABELS, type ActivityEvent } from "@/db/enums";
 import { activityLog } from "@/db/schema";
@@ -18,6 +18,50 @@ async function origen(): Promise<{ ip: string; userAgent: string }> {
   } catch {
     return { ip: "", userAgent: "" }; // fuera de una petición (pruebas, tareas)
   }
+}
+
+/** Límite de intentos: tras MAX_FALLIDOS seguidos, el correo queda bloqueado BLOQUEO_MIN minutos. */
+export const MAX_FALLIDOS = 5;
+export const BLOQUEO_MIN = 15;
+/** Desde una misma IP (varias cuentas): más tolerante, para oficinas con IP compartida. */
+export const MAX_FALLIDOS_IP = 20;
+
+/**
+ * Minutos que faltan para poder volver a intentar, o 0 si no está bloqueado.
+ * Cuenta los intentos fallidos de los últimos BLOQUEO_MIN minutos posteriores
+ * al último inicio de sesión correcto (por correo) y, aparte, por IP.
+ */
+export async function minutosBloqueo(email: string): Promise<number> {
+  const ventana = new Date(Date.now() - BLOQUEO_MIN * 60 * 1000);
+  const { ip } = await origen();
+  // Un inicio correcto o un restablecimiento de contraseña (por un administrador) desbloquean.
+  const [ultimoOk] = await db
+    .select({ t: max(activityLog.createdAt) })
+    .from(activityLog)
+    .where(
+      and(
+        gte(activityLog.createdAt, ventana),
+        or(
+          and(eq(activityLog.email, email), eq(activityLog.event, "login_ok")),
+          and(eq(activityLog.detail, email), eq(activityLog.event, "contrasena_restablecida")),
+        ),
+      ),
+    );
+  const desde = ultimoOk?.t && ultimoOk.t > ventana ? ultimoOk.t : ventana;
+  const fallidos = (where: SQL | undefined) =>
+    db
+      .select({ n: count(), ultimo: max(activityLog.createdAt) })
+      .from(activityLog)
+      .where(and(eq(activityLog.event, "login_fallido"), gt(activityLog.createdAt, desde), where))
+      .then((r) => r[0]);
+  const [porCorreo, porIp] = await Promise.all([
+    fallidos(eq(activityLog.email, email)),
+    ip ? fallidos(eq(activityLog.ip, ip)) : Promise.resolve({ n: 0, ultimo: null }),
+  ]);
+  const bloqueadoHasta = (f: { n: number; ultimo: Date | null }, limite: number) =>
+    f.n >= limite && f.ultimo ? f.ultimo.getTime() + BLOQUEO_MIN * 60 * 1000 : 0;
+  const hasta = Math.max(bloqueadoHasta(porCorreo, MAX_FALLIDOS), bloqueadoHasta(porIp, MAX_FALLIDOS_IP));
+  return hasta > Date.now() ? Math.ceil((hasta - Date.now()) / 60000) : 0;
 }
 
 /**

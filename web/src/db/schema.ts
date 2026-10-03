@@ -21,6 +21,7 @@ import type {
   TipoAgua,
   ProjectType,
   ReportKind,
+  ReportState,
   UserRole,
 } from "./enums";
 import type { ResultadosAire, ResultadosProyecto, ResultadosVertimiento } from "@/lib/engine-types";
@@ -232,8 +233,20 @@ export const reports = pgTable(
     advertencias: jsonb("advertencias").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
     createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Flujo de aprobación (solo informes Word). */
+    estado: varchar("estado", { length: 12 }).$type<ReportState>().notNull().default("borrador"),
+    enviadoBy: uuid("enviado_by").references(() => users.id, { onDelete: "set null" }),
+    enviadoAt: timestamp("enviado_at", { withTimezone: true }),
+    /** Aprobador que aprobó o devolvió el informe. */
+    revisadoBy: uuid("revisado_by").references(() => users.id, { onDelete: "set null" }),
+    revisadoAt: timestamp("revisado_at", { withTimezone: true }),
+    /** Observaciones del aprobador al devolver el informe. */
+    observaciones: text("observaciones").notNull().default(""),
+    /** Versión final: el mismo Word con «Autorizó» firmado por el aprobador. */
+    aprobadoKey: text("aprobado_key"),
+    aprobadoNombre: varchar("aprobado_nombre", { length: 255 }),
   },
-  (t) => [index("reports_project_idx").on(t.projectId, t.createdAt)],
+  (t) => [index("reports_project_idx").on(t.projectId, t.createdAt), index("reports_estado_idx").on(t.estado)],
 );
 
 /** Inventario de sonómetros (búsqueda por número de serie). */
@@ -276,7 +289,12 @@ export const activityLog = pgTable(
     ip: varchar("ip", { length: 64 }).notNull().default(""),
     userAgent: text("user_agent").notNull().default(""),
   },
-  (t) => [index("activity_log_created_idx").on(t.createdAt), index("activity_log_user_idx").on(t.userId)],
+  (t) => [
+    index("activity_log_created_idx").on(t.createdAt),
+    index("activity_log_user_idx").on(t.userId),
+    // Límite de intentos de inicio de sesión (fallidos recientes por correo).
+    index("activity_log_email_idx").on(t.email, t.createdAt),
+  ],
 );
 
 export type Project = typeof projects.$inferSelect;

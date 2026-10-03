@@ -1,5 +1,30 @@
-export const USER_ROLES = ["admin", "user"] as const;
+export const USER_ROLES = ["admin", "aprobador", "user"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Administrador",
+  aprobador: "Aprobador",
+  user: "Usuario",
+};
+
+/** Quién puede aprobar informes Word (firma «Autorizó»). */
+export function puedeAprobar(role: UserRole): boolean {
+  return role === "aprobador" || role === "admin";
+}
+
+/**
+ * Estado de un informe Word: borrador (recién generado) → en revisión (enviado
+ * al aprobador) → aprobado (firmado «Autorizó») o devuelto (con observaciones).
+ */
+export const REPORT_STATES = ["borrador", "revision", "aprobado", "devuelto"] as const;
+export type ReportState = (typeof REPORT_STATES)[number];
+
+export const REPORT_STATE_LABELS: Record<ReportState, string> = {
+  borrador: "Borrador",
+  revision: "En revisión",
+  aprobado: "Aprobado",
+  devuelto: "Devuelto",
+};
 
 export const ESQUEMAS = ["DH", "DNH", "NDH", "NDNH"] as const;
 export type Esquema = (typeof ESQUEMAS)[number];
@@ -55,12 +80,17 @@ export type CondicionBarrido = (typeof CONDICIONES_BARRIDO)[number];
 export const ACTIVITY_EVENTS = [
   "login_ok",
   "login_fallido",
+  "login_bloqueado",
   "logout",
   "proyecto_creado",
   "proyecto_eliminado",
+  "proyecto_duplicado",
   "informe_generado",
   "informe_descargado",
   "informe_eliminado",
+  "informe_enviado_revision",
+  "informe_aprobado",
+  "informe_devuelto",
   "usuario_creado",
   "usuario_eliminado",
   "rol_cambiado",
@@ -75,12 +105,17 @@ export type ActivityEvent = (typeof ACTIVITY_EVENTS)[number];
 export const ACTIVITY_LABELS: Record<ActivityEvent, string> = {
   login_ok: "Inicio de sesión",
   login_fallido: "Intento de inicio de sesión fallido",
+  login_bloqueado: "Inicio de sesión bloqueado",
   logout: "Cierre de sesión",
   proyecto_creado: "Proyecto creado",
   proyecto_eliminado: "Proyecto eliminado",
+  proyecto_duplicado: "Proyecto duplicado",
   informe_generado: "Informe generado",
   informe_descargado: "Informe descargado",
   informe_eliminado: "Informe eliminado",
+  informe_enviado_revision: "Informe enviado a revisión",
+  informe_aprobado: "Informe aprobado",
+  informe_devuelto: "Informe devuelto",
   usuario_creado: "Usuario creado",
   usuario_eliminado: "Usuario eliminado",
   rol_cambiado: "Rol cambiado",

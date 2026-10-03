@@ -3,6 +3,9 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { settings, users } from "@/db/schema";
 import { deleteObject } from "@/lib/storage";
+
+/** Texto de «Autorizó» en los borradores: lo reemplaza la firma del aprobador. */
+export const AUTORIZO_PENDIENTE = "Pendiente de aprobación";
 import type { SettingsInput } from "@/lib/validation";
 
 export async function getSettings() {
@@ -45,7 +48,7 @@ export interface Firmas {
 /**
  * Firmas del cuadro de control: «Elaboró» es el usuario que genera el informe
  * (nombre y cargo de su perfil); si no tiene nombre, se usa el de Ajustes.
- * «Autorizó» siempre sale de Ajustes.
+ * «Autorizó» queda «Pendiente de aprobación» hasta que un aprobador lo firma.
  */
 export async function firmasInforme(userId?: string | null): Promise<Firmas> {
   const [s, usuario] = await Promise.all([
@@ -63,7 +66,8 @@ export async function firmasInforme(userId?: string | null): Promise<Firmas> {
   return {
     elaboroNombre: propio || s.elaboroNombre,
     elaboroCargo: propio ? usuario!.cargo.trim() : s.elaboroCargo,
-    autorizoNombre: s.autorizoNombre,
-    autorizoCargo: s.autorizoCargo,
+    // «Autorizó» lo firma el aprobador al aprobar el informe (server/aprobaciones.ts).
+    autorizoNombre: AUTORIZO_PENDIENTE,
+    autorizoCargo: "",
   };
 }

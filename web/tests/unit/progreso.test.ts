@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { revisarAire, revisarVertimiento } from "@/lib/progreso";
 import { normalizarPunto, puntoParaReporte } from "@/lib/puntos";
 
-const firmas = { elaboroNombre: "Ing. A", autorizoNombre: "Dir. B" };
+const firmas = { elaboroNombre: "Ing. A" };
 const punto = (nombre: string, extra: Partial<Parameters<typeof revisarVertimiento>[0]["puntos"][number]> = {}) => ({
   nombre,
   informeKey: "k.pdf",
@@ -61,12 +61,11 @@ describe("revisarAire", () => {
       meteo: false,
       informe: {},
       procesado: false,
-      firmas: { elaboroNombre: "", autorizoNombre: "" },
+      firmas: { elaboroNombre: "" },
     });
     expect(r.avisos[0]).toMatchObject({ nivel: "bloquea" });
     expect(r.avisos.map((a) => a.texto).join(" ")).toContain("Estación 1");
-    expect(r.avisos.at(-2)?.texto).toContain("Mi perfil");
-    expect(r.avisos.at(-1)?.texto).toContain("Autorizó");
+    expect(r.avisos.at(-1)?.texto).toContain("Mi perfil");
   });
 });
 

@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { logActivity } from "@/server/activity";
+import { logActivity, minutosBloqueo } from "@/server/activity";
 
 const credentialsSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email()),
@@ -20,6 +20,14 @@ class InvalidCredentials extends CredentialsSignin {
   code = "invalid_credentials";
 }
 
+/** Demasiados intentos fallidos: el código lleva los minutos de espera ("bloqueado:15"). */
+class TooManyAttempts extends CredentialsSignin {
+  constructor(minutos: number) {
+    super();
+    this.code = `bloqueado:${minutos}`;
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
   pages: { signIn: "/login" },
@@ -32,6 +40,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const intento = typeof raw?.email === "string" ? raw.email.trim().toLowerCase() : "";
           await logActivity("login_fallido", { email: intento }, "Datos incompletos o correo inválido");
           throw new InvalidCredentials();
+        }
+        const espera = await minutosBloqueo(parsed.data.email);
+        if (espera > 0) {
+          await logActivity("login_bloqueado", { email: parsed.data.email }, `Demasiados intentos fallidos; espera de ${espera} min`);
+          throw new TooManyAttempts(espera);
         }
         const [user] = await db
           .select({ id: users.id, email: users.email, name: users.fullName, hash: users.passwordHash })

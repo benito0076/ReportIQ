@@ -1,18 +1,15 @@
+import { InformesTabla } from "@/components/informes-tabla";
+import { listReportsDetalle } from "@/server/aprobaciones";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Download, Trash2 } from "lucide-react";
-import { deleteReportAction } from "@/app/actions/projects";
-import { ConfirmButton } from "@/components/confirm-button";
 import { Notice } from "@/components/notice";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ESQUEMAS, ESQUEMA_LABELS, reportLabel, type Esquema } from "@/db/enums";
 import type { ResultadoPunto, ResultadosAmbiental } from "@/lib/engine-types";
-import { formatBytes } from "@/lib/files";
 import { fmtNum, formatDateTime } from "@/lib/format";
 import { listEquipment, normalizeSerial } from "@/server/equipment";
-import { listReports } from "@/server/processing";
+import { requireUser } from "@/lib/session";
 import { getProject, listMemoryFiles } from "@/server/projects";
 import { GenerateButtons, ProcessButton } from "./engine-buttons";
 import { Cumple } from "./cumple";
@@ -131,11 +128,12 @@ function AmbientalDetalle({ r }: { r: ResultadosAmbiental }) {
 }
 
 export default async function ResultsPage({ params }: PageProps<"/proyectos/[id]/resultados">) {
+  const user = await requireUser();
   const { id } = await params;
   const [project, files, reps, inventory] = await Promise.all([
     getProject(id),
     listMemoryFiles(id),
-    listReports(id),
+    listReportsDetalle(id),
     listEquipment(),
   ]);
   const r = project.resultados;
@@ -238,55 +236,7 @@ export default async function ResultsPage({ params }: PageProps<"/proyectos/[id]
         </CardHeader>
         <CardContent className="grid gap-4">
           <GenerateButtons projectId={id} tipo={project.tipo} disabled={sinMemorias} />
-          {reps.length > 0 && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Archivo</TableHead>
-                  <TableHead>Generado</TableHead>
-                  <TableHead>Tamaño</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {reps.map((rep) => (
-                  <TableRow key={rep.id}>
-                    <TableCell className="whitespace-normal">
-                      <div className="font-medium">{rep.fileName}</div>
-                      <div className="text-xs text-muted-foreground">{reportLabel(rep.kind, project.tipo)}</div>
-                      {rep.advertencias.length > 0 && (
-                        <details className="text-xs text-aviso-texto">
-                          <summary className="cursor-pointer">{rep.advertencias.length} advertencia(s)</summary>
-                          <ul className="list-disc pl-4">
-                            {rep.advertencias.map((a, i) => (
-                              <li key={i}>{a}</li>
-                            ))}
-                          </ul>
-                        </details>
-                      )}
-                    </TableCell>
-                    <TableCell>{formatDateTime(rep.createdAt)}</TableCell>
-                    <TableCell>{formatBytes(rep.size)}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="inline-flex gap-1">
-                        <a href={`/api/proyectos/${id}/informes/${rep.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                          <Download /> Descargar
-                        </a>
-                        <ConfirmButton
-                          action={deleteReportAction.bind(null, id, rep.id)}
-                          confirm="¿Eliminar este archivo del historial?"
-                          size="icon-sm"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="text-peligro" />
-                        </ConfirmButton>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <InformesTabla projectId={id} informes={reps} user={user} etiqueta={(k) => reportLabel(k, project.tipo)} />
         </CardContent>
       </Card>
     </div>

@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { InformesTabla } from "@/components/informes-tabla";
+import { listReportsDetalle } from "@/server/aprobaciones";
+import { DuplicarProyecto } from "@/components/duplicar-proyecto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Download, Pencil, Trash2 } from "lucide-react";
-import { deleteReportAction } from "@/app/actions/projects";
+import { ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import {
   deleteVertProjectAction,
   deleteWaterPointAction,
@@ -16,15 +18,12 @@ import { MatrizIcono } from "@/components/matriz";
 import { PasoCard } from "@/components/paso";
 import { ListaVerificacion, ProgresoPasos } from "@/components/progreso";
 import { UploadButton } from "@/components/upload";
-import { buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
-import { formatBytes } from "@/lib/files";
 import { revisarVertimiento } from "@/lib/progreso";
 import ACTIVIDADES_0631 from "@/lib/res0631-actividades.json";
 import { normalizarPunto } from "@/lib/puntos";
 import { requireUser } from "@/lib/session";
-import { listReports } from "@/server/processing";
 import { firmasInforme } from "@/server/settings";
 import { isUuid } from "@/server/projects";
 import { configDe, getVertProject, listWaterPoints } from "@/server/vertimientos";
@@ -44,7 +43,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
   if (!isUuid(id)) notFound();
   const project = await getVertProject(id).catch(() => null);
   if (!project) notFound();
-  const [puntos, reps, firmas] = await Promise.all([listWaterPoints(id), listReports(id), firmasInforme(user.id)]);
+  const [puntos, reps, firmas] = await Promise.all([listWaterPoints(id), listReportsDetalle(id), firmasInforme(user.id)]);
   const r = project.resultadosVertimiento;
   const config = configDe(project);
   const conReporte = puntos.some((p) => p.informeKey);
@@ -85,6 +84,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
             </p>
           </div>
         </div>
+        <DuplicarProyecto projectId={id} />
       </div>
 
       <div className="grid gap-6">
@@ -261,7 +261,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
         </PasoCard>
 
         <PasoCard id="paso-informe" numero={5} titulo="Datos del informe" paso={paso("paso-informe")} descripcion={<>Portada, encabezado y cliente del informe Word. Si faltan el NIT, la dirección, el contacto o el municipio,
-              se toman del reporte del laboratorio. «Elaboró» es quien genera el informe (nombre y cargo de <Link href="/perfil" className="underline">Mi perfil</Link>); «Autorizó» se toma de Ajustes.</>}>
+              se toman del reporte del laboratorio. «Elaboró» es quien genera el informe (nombre y cargo de <Link href="/perfil" className="underline">Mi perfil</Link>); «Autorizó» lo firma el aprobador al aprobar el informe.</>}>
             <InformeForm projectId={id} informe={project.informe} vertimientos />
         </PasoCard>
 
@@ -282,57 +282,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
               )}
               <ListaVerificacion avisos={revision.avisos} />
               <VertButtons projectId={id} disabled={!conReporte} />
-              {reps.length > 0 && (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Archivo</TableHead>
-                      <TableHead>Generado</TableHead>
-                      <TableHead>Tamaño</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reps.map((rep) => (
-                      <TableRow key={rep.id}>
-                        <TableCell className="whitespace-normal">
-                          <div className="font-medium">{rep.fileName}</div>
-                          {rep.advertencias.length > 0 && (
-                            <details className="text-xs text-aviso-texto">
-                              <summary className="cursor-pointer">{rep.advertencias.length} advertencia(s)</summary>
-                              <ul className="list-disc pl-4">
-                                {rep.advertencias.map((a, i) => (
-                                  <li key={i}>{a}</li>
-                                ))}
-                              </ul>
-                            </details>
-                          )}
-                        </TableCell>
-                        <TableCell>{formatDateTime(rep.createdAt)}</TableCell>
-                        <TableCell>{formatBytes(rep.size)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="inline-flex gap-1">
-                            <a
-                              href={`/api/proyectos/${id}/informes/${rep.id}`}
-                              className={buttonVariants({ variant: "outline", size: "sm" })}
-                            >
-                              <Download /> Descargar
-                            </a>
-                            <ConfirmButton
-                              action={deleteReportAction.bind(null, id, rep.id)}
-                              confirm="¿Eliminar este archivo del historial?"
-                              size="icon-sm"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="text-peligro" />
-                            </ConfirmButton>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              <InformesTabla projectId={id} informes={reps} user={user} />
           </div>
         </PasoCard>
 

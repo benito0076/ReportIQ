@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { InformesTabla } from "@/components/informes-tabla";
+import { listReportsDetalle } from "@/server/aprobaciones";
+import { DuplicarProyecto } from "@/components/duplicar-proyecto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Download, Pencil, Trash2 } from "lucide-react";
@@ -8,7 +11,7 @@ import {
   removeAirFileAction,
   removeStationPhotoAction,
 } from "@/app/actions/aire";
-import { deleteReportAction, removeMeteoAction } from "@/app/actions/projects";
+import { removeMeteoAction } from "@/app/actions/projects";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Notice } from "@/components/notice";
 import { AbrirAncla } from "@/components/abrir-ancla";
@@ -24,7 +27,6 @@ import { formatDateTime } from "@/lib/format";
 import { revisarAire } from "@/lib/progreso";
 import { requireUser } from "@/lib/session";
 import { getAireProject, listAirFiles, listStations } from "@/server/aire";
-import { listReports } from "@/server/processing";
 import { firmasInforme } from "@/server/settings";
 import { isUuid } from "@/server/projects";
 import { InformeForm } from "../../proyectos/[id]/informe-form";
@@ -44,7 +46,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
   const [estaciones, archivos, reps, firmas] = await Promise.all([
     listStations(id),
     listAirFiles(id),
-    listReports(id),
+    listReportsDetalle(id),
     firmasInforme(user.id),
   ]);
   const r = project.resultadosAire;
@@ -76,6 +78,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
             </p>
           </div>
         </div>
+        <DuplicarProyecto projectId={id} />
       </div>
 
       <div className="grid gap-6">
@@ -278,7 +281,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
             </Table>
         </PasoCard>
 
-        <PasoCard id="paso-informe" numero={4} titulo="Datos del informe" paso={paso("paso-informe")} descripcion={<>Portada, encabezado y cliente del informe Word. «Elaboró» es quien genera el informe (nombre y cargo de <Link href="/perfil" className="underline">Mi perfil</Link>); «Autorizó» se toma de Ajustes.</>}>
+        <PasoCard id="paso-informe" numero={4} titulo="Datos del informe" paso={paso("paso-informe")} descripcion={<>Portada, encabezado y cliente del informe Word. «Elaboró» es quien genera el informe (nombre y cargo de <Link href="/perfil" className="underline">Mi perfil</Link>); «Autorizó» lo firma el aprobador al aprobar el informe.</>}>
             <InformeForm projectId={id} informe={project.informe} aire />
         </PasoCard>
 
@@ -298,57 +301,7 @@ export default async function AireProjectPage({ params }: PageProps<"/aire/[id]"
               )}
               <ListaVerificacion avisos={revision.avisos} />
               <AireButtons projectId={id} disabled={archivos.length === 0} />
-              {reps.length > 0 && (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Archivo</TableHead>
-                      <TableHead>Generado</TableHead>
-                      <TableHead>Tamaño</TableHead>
-                      <TableHead className="text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {reps.map((rep) => (
-                      <TableRow key={rep.id}>
-                        <TableCell className="whitespace-normal">
-                          <div className="font-medium">{rep.fileName}</div>
-                          {rep.advertencias.length > 0 && (
-                            <details className="text-xs text-aviso-texto">
-                              <summary className="cursor-pointer">{rep.advertencias.length} advertencia(s)</summary>
-                              <ul className="list-disc pl-4">
-                                {rep.advertencias.map((a, i) => (
-                                  <li key={i}>{a}</li>
-                                ))}
-                              </ul>
-                            </details>
-                          )}
-                        </TableCell>
-                        <TableCell>{formatDateTime(rep.createdAt)}</TableCell>
-                        <TableCell>{formatBytes(rep.size)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="inline-flex gap-1">
-                            <a
-                              href={`/api/proyectos/${id}/informes/${rep.id}`}
-                              className={buttonVariants({ variant: "outline", size: "sm" })}
-                            >
-                              <Download /> Descargar
-                            </a>
-                            <ConfirmButton
-                              action={deleteReportAction.bind(null, id, rep.id)}
-                              confirm="¿Eliminar este archivo del historial?"
-                              size="icon-sm"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="text-peligro" />
-                            </ConfirmButton>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              <InformesTabla projectId={id} informes={reps} user={user} />
           </div>
         </PasoCard>
 

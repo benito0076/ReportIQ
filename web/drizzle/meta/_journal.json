@@ -71,6 +71,20 @@
       "when": 1791031526872,
       "tag": "0009_usuario_cargo",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791041109256,
+      "tag": "0010_aprobacion_informes",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791041485253,
+      "tag": "0011_limite_intentos",
+      "breakpoints": true
     }
   ]
 }
