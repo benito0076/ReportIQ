@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Clock, FileText, FolderOpen, Plus } from "lucide-react";
+import { ArrowRight, Clock, FileText, FolderOpen } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
+import { NuevoProyecto } from "@/components/nuevo-proyecto";
 import { MATRIZ_UI, MatrizIcono } from "@/components/matriz";
-import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { REPORT_LABELS } from "@/db/enums";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -62,9 +62,7 @@ export default async function InicioPage() {
             {new Intl.DateTimeFormat("es-CO", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Bogota" }).format(ahora)}
           </p>
         </div>
-        <Link href="/proyectos" className={buttonVariants()}>
-          <Plus /> Nuevo proyecto
-        </Link>
+        <NuevoProyecto />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
