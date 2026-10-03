@@ -255,7 +255,7 @@ export default async function VertProjectPage({ params }: PageProps<"/vertimient
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <InformeForm projectId={id} informe={project.informe} />
+            <InformeForm projectId={id} informe={project.informe} vertimientos />
           </CardContent>
         </Card>
 

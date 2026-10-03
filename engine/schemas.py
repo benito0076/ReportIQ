@@ -56,6 +56,7 @@ class InformeIn(BaseModel):
     cliente_ciudad: str = ""
     cliente_departamento: str = ""
     cliente_actividad: str = ""
+    laboratorio_subcontratado: str = ""  # vertimientos: laboratorio de los ensayos subcontratados
     elaboro_nombre: str = ""
     elaboro_cargo: str = ""
     autorizo_nombre: str = ""

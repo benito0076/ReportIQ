@@ -70,6 +70,8 @@ class DatosInforme:
     cliente_ciudad: str = ""
     cliente_departamento: str = ""
     cliente_actividad: str = ""
+    # Vertimientos: laboratorio de los ensayos subcontratados, p. ej. "WR S.A.S.".
+    laboratorio_subcontratado: str = ""
     elaboro_nombre: str = ""
     elaboro_cargo: str = ""
     autorizo_nombre: str = ""
