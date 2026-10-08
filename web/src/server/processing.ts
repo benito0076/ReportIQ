@@ -32,12 +32,17 @@ export async function buildPayload(projectId: string, userId?: string): Promise<
   const puntos = await Promise.all(
     pts.map(async (p) => {
       const memorias: engine.PuntoPayload["memorias"] = {};
-      for (const m of mems.filter((m) => m.pointId === p.id)) {
-        (memorias[m.esquema] ??= {})[m.direccion] = {
-          url: await downloadUrl(m.fileKey, { ttl: ENGINE_URL_TTL }),
-          nombre: m.fileName,
-        };
-      }
+      await Promise.all(
+        mems
+          .filter((m) => m.pointId === p.id)
+          .map(async (m) => {
+            const url = await downloadUrl(m.fileKey, { ttl: ENGINE_URL_TTL });
+            (memorias[m.esquema] ??= {})[m.direccion] = {
+              url,
+              nombre: m.fileName,
+            };
+          }),
+      );
       return {
         no_punto: p.orden,
         nombre: p.nombre,
