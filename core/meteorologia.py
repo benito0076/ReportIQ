@@ -174,6 +174,34 @@ def _en_rango(var, valor) -> bool:
     return valor is None or lo <= valor <= hi
 
 
+def _procesar_fila(fila, cols) -> tuple[Optional[Registro], Optional[datetime]]:
+    """Procesa una fila y devuelve (Registro, None) si es valida, o (None, fecha) si se descarta."""
+    fecha = _fecha(fila[cols["fecha"][0]]) if cols["fecha"][0] < len(fila) else None
+    if fecha is None:
+        return None, None
+    r = Registro(fecha=fecha)
+    valido = True
+    for var in ("temperatura", "humedad", "presion", "viento", "lluvia"):
+        if var not in cols:
+            continue
+        idx, factor = cols[var]
+        v = _numero(fila[idx]) if idx < len(fila) else None
+        if v is not None:
+            v = (v - 32) * 5 / 9 if factor == "F" else v * factor
+        if not _en_rango(var, v):
+            valido = False
+        setattr(r, var, v)
+    if "direccion" in cols and cols["direccion"][0] < len(fila):
+        crudo = fila[cols["direccion"][0]]
+        r.direccion = _direccion(crudo)
+        # Un numero fuera de 0-360 donde va la direccion delata una fila desplazada.
+        if isinstance(crudo, (int, float)) and r.direccion is None:
+            valido = False
+    if valido:
+        return r, None
+    return None, fecha
+
+
 def leer_datos_meteorologicos(ruta: str) -> tuple[list, list]:
     """Lee el archivo de la estacion. Devuelve (registros, advertencias)."""
     try:
@@ -206,31 +234,11 @@ def leer_datos_meteorologicos(ruta: str) -> tuple[list, list]:
     for n, fila in enumerate(ws.iter_rows(values_only=True)):
         if n <= fila_encabezado or not fila:
             continue
-        fecha = _fecha(fila[cols["fecha"][0]]) if cols["fecha"][0] < len(fila) else None
-        if fecha is None:
-            continue
-        r = Registro(fecha=fecha)
-        valido = True
-        for var in ("temperatura", "humedad", "presion", "viento", "lluvia"):
-            if var not in cols:
-                continue
-            idx, factor = cols[var]
-            v = _numero(fila[idx]) if idx < len(fila) else None
-            if v is not None:
-                v = (v - 32) * 5 / 9 if factor == "F" else v * factor
-            if not _en_rango(var, v):
-                valido = False
-            setattr(r, var, v)
-        if "direccion" in cols and cols["direccion"][0] < len(fila):
-            crudo = fila[cols["direccion"][0]]
-            r.direccion = _direccion(crudo)
-            # Un numero fuera de 0-360 donde va la direccion delata una fila desplazada.
-            if isinstance(crudo, (int, float)) and r.direccion is None:
-                valido = False
-        if valido:
+        r, fecha_desc = _procesar_fila(fila, cols)
+        if r is not None:
             registros.append(r)
-        else:
-            descartadas.append(fecha)
+        elif fecha_desc is not None:
+            descartadas.append(fecha_desc)
     wb.close()
 
     advertencias = []
