@@ -120,8 +120,8 @@ export default async function ProjectsPage({ searchParams }: PageProps<"/proyect
           <form className="flex flex-wrap items-center gap-2" action="/proyectos">
             {matriz && <input type="hidden" name="matriz" value={matriz} />}
             <div className="relative min-w-48 flex-1">
-              <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" />
-              <Input name="q" defaultValue={q} placeholder="Buscar por nombre, cliente o código" className="pl-8" />
+              <Search className="pointer-events-none absolute top-2.5 left-2.5 size-4 text-muted-foreground" aria-hidden="true" />
+              <Input name="q" defaultValue={q} placeholder="Buscar por nombre, cliente o código" className="pl-8" aria-label="Buscar proyectos" />
             </div>
             <select name="orden" defaultValue={orden} className={cn(selectClass, "w-auto")} aria-label="Ordenar por">
               {Object.entries(ORDENES).map(([k, v]) => (
