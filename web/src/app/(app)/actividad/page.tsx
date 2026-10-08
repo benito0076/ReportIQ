@@ -71,9 +71,9 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activid
         <CardContent>
           {/* key: al cambiar los filtros por navegación, los campos muestran los valores nuevos. */}
           <form key={query({})} className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto_auto_auto]">
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid gap-1.5 text-sm" htmlFor="usuario">
               Usuario
-              <select name="usuario" defaultValue={filtros.email} className={selectClass}>
+              <select id="usuario" name="usuario" defaultValue={filtros.email} className={selectClass} aria-label="Usuario">
                 <option value="">Todos</option>
                 {emails.map((e) => (
                   <option key={e} value={e}>
@@ -82,9 +82,9 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activid
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid gap-1.5 text-sm" htmlFor="evento">
               Evento
-              <select name="evento" defaultValue={filtros.event} className={selectClass}>
+              <select id="evento" name="evento" defaultValue={filtros.event} className={selectClass} aria-label="Evento">
                 <option value="">Todos</option>
                 {ACTIVITY_EVENTS.map((e) => (
                   <option key={e} value={e}>
@@ -93,13 +93,13 @@ export default async function ActivityPage({ searchParams }: PageProps<"/activid
                 ))}
               </select>
             </label>
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid gap-1.5 text-sm" htmlFor="desde">
               Desde
-              <Input type="date" name="desde" defaultValue={filtros.desde} />
+              <Input id="desde" type="date" name="desde" defaultValue={filtros.desde} />
             </label>
-            <label className="grid gap-1.5 text-sm">
+            <label className="grid gap-1.5 text-sm" htmlFor="hasta">
               Hasta
-              <Input type="date" name="hasta" defaultValue={filtros.hasta} />
+              <Input id="hasta" type="date" name="hasta" defaultValue={filtros.hasta} />
             </label>
             <div className="flex gap-2">
               <button type="submit" className={buttonVariants()}>
