@@ -19,7 +19,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import Optional, Any
 
 import openpyxl
 
@@ -174,14 +174,7 @@ def _en_rango(var, valor) -> bool:
     return valor is None or lo <= valor <= hi
 
 
-def leer_datos_meteorologicos(ruta: str) -> tuple[list, list]:
-    """Lee el archivo de la estacion. Devuelve (registros, advertencias)."""
-    try:
-        wb = openpyxl.load_workbook(ruta, data_only=True, read_only=True)
-    except Exception as exc:  # noqa: BLE001
-        raise ErrorMeteorologia(f"No se pudo abrir el archivo de datos meteorologicos: {exc}") from exc
-
-    mejor = None
+def _buscar_encabezado(wb: openpyxl.Workbook) -> tuple[Any, int, dict] | tuple[None, None, None]:
     for ws in wb.worksheets:
         filas = ws.iter_rows(values_only=True)
         for n, fila in enumerate(filas):
@@ -189,50 +182,51 @@ def leer_datos_meteorologicos(ruta: str) -> tuple[list, list]:
                 break
             cols = _columnas(fila or ())
             if "fecha" in cols and len(cols) >= 3:
-                mejor = (ws, n, cols)
-                break
-        if mejor:
-            break
-    if not mejor:
-        wb.close()
-        raise ErrorMeteorologia(
-            "No se reconocieron las columnas del archivo de datos meteorologicos. Se espera una fila de "
-            "encabezado con la fecha/hora y al menos dos variables (p.ej. 'Date & Time', 'Temp - °C', "
-            "'Hum - %', 'Barometer - mm Hg', 'Wind Speed - m/s', 'Wind Direction', 'Rain - mm')."
-        )
+                return ws, n, cols
+    return None, None, None
 
-    ws, fila_encabezado, cols = mejor
+
+def _procesar_fila(fila: tuple, cols: dict) -> tuple[Optional[Registro], bool]:
+    fecha = _fecha(fila[cols["fecha"][0]]) if cols["fecha"][0] < len(fila) else None
+    if fecha is None:
+        return None, False
+    r = Registro(fecha=fecha)
+    valido = True
+    for var in ("temperatura", "humedad", "presion", "viento", "lluvia"):
+        if var not in cols:
+            continue
+        idx, factor = cols[var]
+        v = _numero(fila[idx]) if idx < len(fila) else None
+        if v is not None:
+            v = (v - 32) * 5 / 9 if factor == "F" else v * factor
+        if not _en_rango(var, v):
+            valido = False
+        setattr(r, var, v)
+    if "direccion" in cols and cols["direccion"][0] < len(fila):
+        crudo = fila[cols["direccion"][0]]
+        r.direccion = _direccion(crudo)
+        # Un numero fuera de 0-360 donde va la direccion delata una fila desplazada.
+        if isinstance(crudo, (int, float)) and r.direccion is None:
+            valido = False
+    return r, valido
+
+
+def _procesar_filas(ws: Any, fila_encabezado: int, cols: dict) -> tuple[list[Registro], list[datetime]]:
     registros, descartadas = [], []
     for n, fila in enumerate(ws.iter_rows(values_only=True)):
         if n <= fila_encabezado or not fila:
             continue
-        fecha = _fecha(fila[cols["fecha"][0]]) if cols["fecha"][0] < len(fila) else None
-        if fecha is None:
+        r, valido = _procesar_fila(fila, cols)
+        if r is None:
             continue
-        r = Registro(fecha=fecha)
-        valido = True
-        for var in ("temperatura", "humedad", "presion", "viento", "lluvia"):
-            if var not in cols:
-                continue
-            idx, factor = cols[var]
-            v = _numero(fila[idx]) if idx < len(fila) else None
-            if v is not None:
-                v = (v - 32) * 5 / 9 if factor == "F" else v * factor
-            if not _en_rango(var, v):
-                valido = False
-            setattr(r, var, v)
-        if "direccion" in cols and cols["direccion"][0] < len(fila):
-            crudo = fila[cols["direccion"][0]]
-            r.direccion = _direccion(crudo)
-            # Un numero fuera de 0-360 donde va la direccion delata una fila desplazada.
-            if isinstance(crudo, (int, float)) and r.direccion is None:
-                valido = False
         if valido:
             registros.append(r)
         else:
-            descartadas.append(fecha)
-    wb.close()
+            descartadas.append(r.fecha)
+    return registros, descartadas
 
+
+def _generar_advertencias(descartadas: list[datetime], cols: dict) -> list[str]:
     advertencias = []
     if descartadas:
         advertencias.append(
@@ -243,6 +237,30 @@ def leer_datos_meteorologicos(ruta: str) -> tuple[list, list]:
     faltan = [v for v in ("temperatura", "humedad", "presion", "viento", "direccion", "lluvia") if v not in cols]
     if faltan:
         advertencias.append("Datos meteorologicos: no se encontraron las columnas de " + ", ".join(faltan) + ".")
+    return advertencias
+
+
+def leer_datos_meteorologicos(ruta: str) -> tuple[list, list]:
+    """Lee el archivo de la estacion. Devuelve (registros, advertencias)."""
+    try:
+        wb = openpyxl.load_workbook(ruta, data_only=True, read_only=True)
+    except Exception as exc:  # noqa: BLE001
+        raise ErrorMeteorologia(f"No se pudo abrir el archivo de datos meteorologicos: {exc}") from exc
+
+    ws, fila_encabezado, cols = _buscar_encabezado(wb)
+
+    if not ws:
+        wb.close()
+        raise ErrorMeteorologia(
+            "No se reconocieron las columnas del archivo de datos meteorologicos. Se espera una fila de "
+            "encabezado con la fecha/hora y al menos dos variables (p.ej. 'Date & Time', 'Temp - °C', "
+            "'Hum - %', 'Barometer - mm Hg', 'Wind Speed - m/s', 'Wind Direction', 'Rain - mm')."
+        )
+
+    registros, descartadas = _procesar_filas(ws, fila_encabezado, cols)
+    wb.close()
+
+    advertencias = _generar_advertencias(descartadas, cols)
     return registros, advertencias
 
 
