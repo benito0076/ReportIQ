@@ -196,5 +196,107 @@ class TestMeteorologia(unittest.TestCase):
         self.assertEqual(_norm("DirecciÃ³n del viento(Â°)"), "direccion del viento()")
 
 
+import os
+import tempfile
+import unittest
+from datetime import datetime, time, timedelta
+import openpyxl
+
+from core.aire import leer_fp021, ErrorPlantillaAire
+
+class TestFP021(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_fp021_sin_hojas_validas(self):
+        ruta = os.path.join(self.tmp.name, "sin_hojas.xlsx")
+        wb = openpyxl.Workbook()
+        wb.active.title = "Sheet1"
+        wb.save(ruta)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron hojas de estación"):
+            leer_fp021(ruta)
+
+    def test_fp021_hoja_oculta(self):
+        ruta = os.path.join(self.tmp.name, "oculta.xlsx")
+        wb = openpyxl.Workbook()
+        ws_hidden = wb.active
+        ws_hidden.title = "ESTACION 1_CO"
+        ws_hidden.sheet_state = "hidden"
+        # openpyxl won't save if the only sheet is hidden
+        wb.create_sheet("Sheet2")
+        wb.save(ruta)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron hojas de estación"):
+            leer_fp021(ruta)
+
+    def test_fp021_sin_columnas(self):
+        ruta = os.path.join(self.tmp.name, "sin_columnas.xlsx")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "ESTACION 1_CO"
+        # No ponemos los encabezados de fecha/hora/concentración
+        wb.save(ruta)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "no tiene las columnas Fecha / Hora / Concentración"):
+            leer_fp021(ruta)
+
+    def test_fp021_sin_unidad_concentracion(self):
+        ruta = os.path.join(self.tmp.name, "sin_unidad.xlsx")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "ESTACION 1_CO"
+        ws["A1"], ws["B1"], ws["C1"] = "Fecha", "Hora", "Concentración"
+        wb.save(ruta)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "no tiene la columna de concentración en ppm/ppb"):
+            leer_fp021(ruta)
+
+
+    def test_fp021_sin_hora_inicio(self):
+        ruta = os.path.join(self.tmp.name, "sin_hora_inicio.xlsx")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "ESTACION 1_CO"
+        ws["A1"], ws["B1"], ws["C1"] = "Fecha", "Hora", "Concentración (ppm)"
+        # Falta hora al inicio (h is None and not lecturas)
+        ws["A2"], ws["B2"], ws["C2"] = datetime(2026, 1, 1), None, 1.5
+        # Datos válidos
+        ws["A3"], ws["B3"], ws["C3"] = datetime(2026, 1, 1), time(2, 0), 1.6
+
+        # Guardar para que se genere
+        wb.save(ruta)
+
+        # Leer archivo
+        series = leer_fp021(ruta)
+        self.assertEqual(len(series), 1)
+        self.assertEqual(len(series[0].horas), 1)
+        self.assertAlmostEqual(series[0].horas[0][1], 1.6 * 1140)
+
+    def test_fp021_interrupcion_lecturas(self):
+        ruta = os.path.join(self.tmp.name, "interrupcion.xlsx")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "ESTACION 1_CO"
+        ws["A1"], ws["B1"], ws["C1"] = "Fecha", "Hora", "Concentración (ppm)"
+        # Datos válidos
+        ws["A2"], ws["B2"], ws["C2"] = datetime(2026, 1, 1), time(1, 0), 1.5
+        ws["A3"], ws["B3"], ws["C3"] = datetime(2026, 1, 1), time(2, 0), 1.6
+        # Espacio en blanco en la hora
+        ws["A4"], ws["B4"], ws["C4"] = datetime(2026, 1, 1), None, 1.7
+        # Más datos
+        ws["A5"], ws["B5"], ws["C5"] = datetime(2026, 1, 1), time(4, 0), 1.8
+
+        # Guardar para que se genere
+        wb.save(ruta)
+
+        # Leer archivo
+        series = leer_fp021(ruta)
+        self.assertEqual(len(series), 1)
+        self.assertEqual(len(series[0].horas), 2)  # Debe haberse interrumpido tras la fila 3
+        # La lectura del 4 no se debe incluir
+
+
 if __name__ == "__main__":
     unittest.main()
