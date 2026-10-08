@@ -217,3 +217,41 @@ def test_catalogo_web_sincronizado():
     ruta = os.path.join(os.path.dirname(__file__), "..", "web", "src", "lib", "res0631-actividades.json")
     with open(ruta, encoding="utf-8") as f:
         assert json.load(f) == res0631.actividades_por_articulo()
+
+class TestVertimientosGraficas(unittest.TestCase):
+    def test_in_situ_empty(self):
+        from core.vertimientos_graficas import in_situ
+
+        self.assertIsNone(in_situ([], [], "pH", "ruta.png"))
+        self.assertIsNone(in_situ(["10:00"], [None], "pH", "ruta.png"))
+
+    def test_in_situ_basic(self):
+        from core.vertimientos_graficas import in_situ
+
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "grafica.png")
+            horas = ["08:00", "09:00", "10:00"]
+            valores = [6.5, 7.2, 8.1]
+            limites = [("pH Mínimo (6.0)", 6.0), ("pH Máximo (9.0)", 9.0)]
+            bajos = [False, False, False]
+
+            res_ruta = in_situ(horas, valores, "pH", ruta, limites=limites, bajos=bajos)
+
+            self.assertEqual(res_ruta, ruta)
+            self.assertTrue(os.path.exists(ruta))
+            self.assertGreater(os.path.getsize(ruta), 0)
+
+    def test_in_situ_zeros(self):
+        from core.vertimientos_graficas import in_situ
+
+        with tempfile.TemporaryDirectory() as d:
+            ruta = os.path.join(d, "grafica_zeros.png")
+            horas = ["08:00"]
+            valores = [0.0]
+            bajos = [True]  # Tests '<LCM' functionality as well
+
+            res_ruta = in_situ(horas, valores, "Parámetro", ruta, bajos=bajos)
+
+            self.assertEqual(res_ruta, ruta)
+            self.assertTrue(os.path.exists(ruta))
+            self.assertGreater(os.path.getsize(ruta), 0)
