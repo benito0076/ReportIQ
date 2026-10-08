@@ -217,3 +217,37 @@ def test_catalogo_web_sincronizado():
     ruta = os.path.join(os.path.dirname(__file__), "..", "web", "src", "lib", "res0631-actividades.json")
     with open(ruta, encoding="utf-8") as f:
         assert json.load(f) == res0631.actividades_por_articulo()
+
+class TestGraficas(unittest.TestCase):
+    def test_nombre_archivo(self):
+        from core.vertimientos_graficas import nombre_archivo
+
+        # Normal parts combinations
+        self.assertEqual(nombre_archivo("dir", "a", "b"), os.path.join("dir", "vert_a_b.png"))
+
+        # Handling of special characters and spacing
+        self.assertEqual(
+            nombre_archivo("dir", "Hello World!", "test@123"),
+            os.path.join("dir", "vert_hello_world_test_123.png")
+        )
+
+        # Handling of empty strings and None values
+        self.assertEqual(
+            nombre_archivo("dir", "a", "", None, "b"),
+            os.path.join("dir", "vert_a_b.png")
+        )
+
+        # Trimming underscores/non-words at boundaries
+        self.assertEqual(
+            nombre_archivo("dir", "__hello__", "--world--"),
+            os.path.join("dir", "vert_hello_world.png")
+        )
+
+        # Truncation to 80 characters
+        long_part1 = "a" * 50
+        long_part2 = "b" * 50
+        base = f"{long_part1}_{long_part2}"[:80]
+        self.assertEqual(
+            nombre_archivo("dir", long_part1, long_part2),
+            os.path.join("dir", f"vert_{base}.png")
+        )
