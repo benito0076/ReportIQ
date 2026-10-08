@@ -209,7 +209,7 @@ def _dibujar_elaborado(fig, rect, texto, logo_ruta=None):
             sub.imshow(imagen)
             sub.axis("off")
             return
-        except Exception:  # noqa: BLE001  (logo danado: se usa el texto)
+        except (IOError, OSError, ValueError):
             pass
     ax.text(0.5, (1 - alto_titulo) / 2, texto, ha="center", va="center", fontsize=7.5,
             fontweight="bold", transform=ax.transAxes, wrap=True)
