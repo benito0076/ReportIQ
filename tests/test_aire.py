@@ -196,5 +196,49 @@ class TestMeteorologia(unittest.TestCase):
         self.assertEqual(_norm("DirecciÃ³n del viento(Â°)"), "direccion del viento()")
 
 
+class TestReporteAnalizador(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.ruta = os.path.join(cls.tmp.name, "reporte.xlsx")
+        from datetime import datetime
+        cls.datos = [
+            (datetime(2026, 2, 8, 12, 0), 1.5),
+            (datetime(2026, 2, 8, 13, 0), 1.6),
+            (datetime(2026, 2, 8, 14, 0), 1.7),
+        ]
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_leer_reporte_valido(self):
+        from core.aire import leer_reporte_analizador
+        fp.reporte_analizador(self.ruta, self.datos, time_col="Time", gas_col="CO ppm")
+        serie = leer_reporte_analizador(self.ruta, CO, 1, "Estacion 1")
+
+        self.assertEqual(serie.contaminante, CO)
+        self.assertEqual(serie.estacion, 1)
+        self.assertEqual(serie.nombre_estacion, "Estacion 1")
+        self.assertEqual(len(serie.horas), 3)
+        self.assertEqual(serie.horas[0][0], self.datos[0][0])
+        # valor convertido a ug/m3: 1.5 ppm * 1.14 * 1000 = 1710
+        self.assertEqual(serie.horas[0][1], 1.5 * 1.14 * 1000)
+
+    def test_error_sin_columna_time(self):
+        from core.aire import leer_reporte_analizador, ErrorPlantillaAire
+        fp.reporte_analizador(self.ruta, self.datos, time_col=None, gas_col="CO ppm")
+        with self.assertRaises(ErrorPlantillaAire) as context:
+            leer_reporte_analizador(self.ruta, CO, 1)
+        self.assertIn("no tiene las columnas 'Time' y 'CO'", str(context.exception))
+
+    def test_error_sin_columna_gas(self):
+        from core.aire import leer_reporte_analizador, ErrorPlantillaAire
+        fp.reporte_analizador(self.ruta, self.datos, time_col="Time", gas_col=None)
+        with self.assertRaises(ErrorPlantillaAire) as context:
+            leer_reporte_analizador(self.ruta, CO, 1)
+        self.assertIn("no tiene las columnas 'Time' y 'CO'", str(context.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

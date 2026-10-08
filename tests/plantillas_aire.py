@@ -102,3 +102,21 @@ def fp021_automaticos(ruta, horas_co, horas_no2):
         no2.cell(10 + i, 3, time(t.hour))
         no2.cell(10 + i, 4, v)
     wb.save(ruta)
+
+
+def reporte_analizador(ruta, datos, time_col="Time", gas_col="CO ppm"):
+    """Exportacion de un analizador automatico."""
+    wb, (ws,) = _libro(["Hoja1"])
+    cols = []
+    if time_col:
+        cols.append(time_col)
+    if gas_col:
+        cols.append(gas_col)
+    for c, val in enumerate(cols, start=1):
+        ws.cell(1, c, val)
+
+    for r, f in enumerate(datos, start=2):
+        for c, val in enumerate(f, start=1):
+            ws.cell(r, c, val)
+
+    wb.save(ruta)
