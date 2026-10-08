@@ -1,18 +1,18 @@
 """Calidad del aire: lectura de las plantillas FP y calculos (Res. 2254 de 2017)."""
 import os
-import openpyxl
-import datetime
 import sys
 import tempfile
 import unittest
-from datetime import date
+from datetime import date, datetime, time
+
+import openpyxl
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
 
 from core.aire import (  # noqa: E402
-    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, leer_fp021, estadistica, ica, leer_pm10_hivol,
-    percentil_exc, procesar_aire, redondear,
+    CO, COV, NO2, O3, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, categoria_ica, estadistica, ica, leer_cov,
+    leer_fp021, leer_pm10_hivol, leer_pm25_lowvol, percentil_exc, procesar_aire, redondear, serie_automatica,
 )
 from core.meteorologia import _norm  # noqa: E402
 from tests import plantillas_aire as fp  # noqa: E402
@@ -121,6 +121,39 @@ class TestCalculos(unittest.TestCase):
         wb_formato.save(ruta_error_formato)
         with self.assertRaisesRegex(ErrorPlantillaAire, "no tiene el formato"):
             leer_so2(ruta_error_formato)
+
+    def test_leer_pm25_lowvol_missing_sheets(self):
+        import openpyxl
+        ruta_falsa = os.path.join(self.tmp.name, "pm25_falsa_missing.xlsx")
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+        wb.create_sheet("Hoja1")
+        wb.save(ruta_falsa)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron hojas de estacion"):
+            leer_pm25_lowvol(ruta_falsa)
+
+    def test_leer_pm25_lowvol_invalid_format(self):
+        import openpyxl
+        ruta_falsa = os.path.join(self.tmp.name, "pm25_falsa_invalid.xlsx")
+        wb = openpyxl.load_workbook(self.rutas["pm25"])
+        # In the valid PM25 file, cell C45 contains "Inicial"
+        wb["CA-1"]["C45"] = "Invalido"
+        wb.save(ruta_falsa)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "no tiene el formato de la FP-032"):
+            leer_pm25_lowvol(ruta_falsa)
+
+    def test_leer_pm25_lowvol_valid_file(self):
+        series = leer_pm25_lowvol(self.rutas["pm25"])
+        self.assertEqual(len(series), 1)
+        serie = series[0]
+        self.assertEqual(serie.contaminante, PM25)
+        self.assertEqual(serie.estacion, 1)
+        self.assertEqual(len(serie.muestras), 1)
+
+        m = serie.muestras[0]
+        self.assertAlmostEqual(m.concentracion, 16.93, places=2)
+        self.assertAlmostEqual(m.minutos, 1430)
+        self.assertAlmostEqual(m.volumen, 23.82, places=2)
 
 
 class TestInformeWord(unittest.TestCase):
@@ -269,6 +302,136 @@ class TestReporteAnalizador(unittest.TestCase):
             leer_reporte_analizador(self.ruta, CO, 1)
         self.assertIn("no tiene las columnas 'Time' y 'CO'", str(context.exception))
 
+class TestCategoriaIca(unittest.TestCase):
+    def test_categoria_ica(self):
+        # Boundaries:
+        # (0, 50, "Buena", "Verde"),
+        # (51, 100, "Aceptable", "Amarillo"),
+        # (101, 150, "Dañina a la salud para grupos sensibles", "Naranja"),
+        # (151, 200, "Dañina a la salud", "Rojo"),
+        # (201, 300, "Muy dañina a la salud", "Púrpura"),
+        # (301, 500, "Peligrosa", "Marrón"),
+
+        # Happy Paths
+        self.assertEqual(categoria_ica(25), "Buena")
+        self.assertEqual(categoria_ica(75), "Aceptable")
+        self.assertEqual(categoria_ica(400), "Peligrosa")
+
+        # Edge cases and boundaries
+        self.assertEqual(categoria_ica(0), "Buena")
+        self.assertEqual(categoria_ica(50), "Buena")
+        self.assertEqual(categoria_ica(50.1), "Aceptable")
+        self.assertEqual(categoria_ica(100), "Aceptable")
+        self.assertEqual(categoria_ica(500), "Peligrosa")
+
+        # Out-of-bounds (fallback to the last category)
+        self.assertEqual(categoria_ica(600), "Peligrosa")
+
+    def test_categoria_ica_mocked(self):
+        import unittest.mock as mock
+
+        mock_categorias = (
+            (0, 10, "Baja", "Azul"),
+            (11, 20, "Media", "Amarillo"),
+            (21, 30, "Alta", "Rojo"),
+        )
+
+        with mock.patch("core.aire.CATEGORIAS_ICA", mock_categorias):
+            # Happy Paths
+            self.assertEqual(categoria_ica(5), "Baja")
+            self.assertEqual(categoria_ica(15), "Media")
+            self.assertEqual(categoria_ica(25), "Alta")
+
+            # Boundaries
+            self.assertEqual(categoria_ica(0), "Baja")
+            self.assertEqual(categoria_ica(10), "Baja")
+            self.assertEqual(categoria_ica(10.1), "Media")
+            self.assertEqual(categoria_ica(20), "Media")
+            self.assertEqual(categoria_ica(30), "Alta")
+
+            # Out of bounds fallback to last
+            self.assertEqual(categoria_ica(100), "Alta")
+
+class TestSerieAutomatica(unittest.TestCase):
+    def test_basic_calculation_and_factors(self):
+        from datetime import datetime
+        # CO factor is 1.14 * 1000 = 1140.0
+        lecturas = [
+            (datetime(2026, 2, 8, 1, 0), 1.0),
+            (datetime(2026, 2, 8, 2, 0), 2.0),
+        ]
+        serie = serie_automatica(CO, 1, "Estacion 1", lecturas)
+        self.assertEqual(serie.contaminante, CO)
+        self.assertEqual(serie.estacion, 1)
+        self.assertEqual(serie.nombre_estacion, "Estacion 1")
+        self.assertEqual(serie.horas[0][1], 1140.0)
+        self.assertEqual(serie.horas[1][1], 2280.0)
+        self.assertEqual(serie.filas, 2)
+        self.assertEqual(serie.medias_8h, [])
+
+    def test_moving_average_calculation(self):
+        from datetime import datetime, timedelta
+        # NO2 factor is 1.88
+        base_time = datetime(2026, 2, 8, 1, 0)
+        # Create 9 readings, 1.0 ppb each. Output should be 1.88 * 1.0 = 1.88
+        lecturas = [(base_time + timedelta(hours=i), 1.0) for i in range(9)]
+        serie = serie_automatica(NO2, 1, "Estacion 1", lecturas)
+        self.assertEqual(len(serie.horas), 9)
+        self.assertEqual(len(serie.medias_8h), 2)
+
+        # At index 7 (8th reading, which is 8 hours after base if we count base as hour 1)
+        self.assertEqual(serie.medias_8h[0][0], base_time + timedelta(hours=7))
+        self.assertAlmostEqual(serie.medias_8h[0][1], 1.88)
+
+        # At index 8 (9th reading)
+        self.assertEqual(serie.medias_8h[1][0], base_time + timedelta(hours=8))
+        self.assertAlmostEqual(serie.medias_8h[1][1], 1.88)
+
+    def test_less_than_8_readings(self):
+        from datetime import datetime, timedelta
+        base_time = datetime(2026, 2, 8, 1, 0)
+        # 7 readings
+        lecturas = [(base_time + timedelta(hours=i), 1.0) for i in range(7)]
+        serie = serie_automatica(NO2, 1, "Estacion 1", lecturas)
+        self.assertEqual(len(serie.horas), 7)
+        self.assertEqual(serie.medias_8h, [])
+
+    def test_unsorted_readings_are_sorted(self):
+        from datetime import datetime
+        lecturas = [
+            (datetime(2026, 2, 8, 3, 0), 3.0),
+            (datetime(2026, 2, 8, 1, 0), 1.0),
+            (datetime(2026, 2, 8, 2, 0), 2.0),
+        ]
+        serie = serie_automatica(O3, 1, "Estacion 1", lecturas)
+        # O3 factor is 1.96
+        self.assertEqual(serie.horas[0][0], datetime(2026, 2, 8, 1, 0))
+        self.assertAlmostEqual(serie.horas[0][1], 1.96 * 1.0)
+
+        self.assertEqual(serie.horas[1][0], datetime(2026, 2, 8, 2, 0))
+        self.assertAlmostEqual(serie.horas[1][1], 1.96 * 2.0)
+
+        self.assertEqual(serie.horas[2][0], datetime(2026, 2, 8, 3, 0))
+        self.assertAlmostEqual(serie.horas[2][1], 1.96 * 3.0)
+
+    def test_filas_parameter(self):
+        from datetime import datetime
+        lecturas = [
+            (datetime(2026, 2, 8, 1, 0), 1.0),
+            (datetime(2026, 2, 8, 2, 0), 2.0),
+        ]
+        # None
+        serie1 = serie_automatica(CO, 1, "Est", lecturas, filas=None)
+        self.assertEqual(serie1.filas, 2)
+
+        # Smaller than len(lecturas)
+        serie2 = serie_automatica(CO, 1, "Est", lecturas, filas=1)
+        self.assertEqual(serie2.filas, 2)
+
+        # Larger than len(lecturas)
+        serie3 = serie_automatica(CO, 1, "Est", lecturas, filas=10)
+        self.assertEqual(serie3.filas, 10)
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -332,16 +495,16 @@ class TestLeerFP021(unittest.TestCase):
         # Row 7 is empty
 
         # Valid row 8
-        ws1.cell(8, 1).value = datetime.date(2026, 2, 8)
-        ws1.cell(8, 2).value = datetime.time(12, 0)
+        ws1.cell(8, 1).value = date(2026, 2, 8)
+        ws1.cell(8, 2).value = time(12, 0)
         ws1.cell(8, 3).value = 2.5
 
         # Blank row after data, stops reading (break)
         # Row 9 is empty
 
         # Row 10 (should be skipped because of break)
-        ws1.cell(10, 1).value = datetime.date(2026, 2, 8)
-        ws1.cell(10, 2).value = datetime.time(13, 0)
+        ws1.cell(10, 1).value = date(2026, 2, 8)
+        ws1.cell(10, 2).value = time(13, 0)
         ws1.cell(10, 3).value = 3.5
 
         wb.save(ruta)
@@ -350,3 +513,92 @@ class TestLeerFP021(unittest.TestCase):
         self.assertEqual(len(series), 1)
         self.assertEqual(len(series[0].horas), 1)
         self.assertEqual(series[0].horas[0][1], 2.5 * 1140) # factor for CO is 1140
+
+class TestLeerCov(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_leer_cov_excepciones_y_casos_especiales(self):
+        wb = openpyxl.Workbook()
+        ruta_sin_hojas = os.path.join(self.tmp.name, "cov_vacio.xlsx")
+        wb.save(ruta_sin_hojas)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron hojas de estacion"):
+            leer_cov(ruta_sin_hojas)
+
+        wb.create_sheet("CA1")
+        ruta_sin_bloques = os.path.join(self.tmp.name, "cov_sin_bloques.xlsx")
+        wb.save(ruta_sin_bloques)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron bloques de compuestos"):
+            leer_cov(ruta_sin_bloques)
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "CA1"
+        ws["H27"] = "Estacion 1"
+
+        # Bloque 1: Benceno (alto flujo)
+        ws.cell(2, 2, "VOC´S - BENCENO")
+        ws.cell(3, 2, "ID")
+        valores = {2: 1, 3: datetime(2026, 2, 8), 4: datetime(2026, 2, 8), 5: time(16), 6: time(17), 12: 60,
+                   13: 750.3, 14: 752.5, 16: 28.2, 17: 28.5,
+                   31: 66.7, 32: 66.5,
+                   9: 0.05}
+        for col, v in valores.items():
+            ws.cell(4, col, v)
+
+        # Bloque 2: o-xileno (bajo flujo, sin masa en alto flujo)
+        ws.cell(6, 2, "VOC´S - o-xileno")
+        ws.cell(7, 2, "ID")
+        valores2 = {2: 2, 3: datetime(2026, 2, 8), 4: datetime(2026, 2, 8), 5: time(17), 6: time(18), 12: 60,
+                   13: 750.3, 14: 752.5, 16: 28.2, 17: 28.5,
+                   26: 33.3, 27: 33.5,
+                   8: 0.1, 9: None}
+        for col, v in valores2.items():
+            ws.cell(8, col, v)
+
+        # Bloque 3: Etilbenceno sin ID (debe saltarlo)
+        ws.cell(10, 2, "VOC´S - Etilbenceno")
+        ws.cell(11, 2, "OTRA COSA")
+
+        # Bloque 4: Compuesto desconocido (debe saltarlo)
+        ws.cell(13, 2, "VOC´S - DESCONOCIDO")
+        ws.cell(14, 2, "ID")
+
+        # Bloque 5: Tolueno (faltan datos, referenciar primera)
+        ws.cell(16, 2, "VOC´S - TOLUENO")
+        ws.cell(17, 2, "ID")
+        ws.cell(18, 2, 1)
+        ws.cell(18, 9, 0.08)
+        ws.cell(18, 3, datetime(2026, 2, 8))
+        ws.cell(18, 31, 60.0) # q_alto 1
+        ws.cell(18, 32, 60.0) # q_alto 2
+        # Faltan datos que tomará de la primera fila (Bloque 1)
+
+        ruta_varios = os.path.join(self.tmp.name, "cov_varios.xlsx")
+        wb.save(ruta_varios)
+
+        series = leer_cov(ruta_varios)
+
+        self.assertEqual(len(series), 3)
+        self.assertEqual(series[0].contaminante, "Benceno")
+        self.assertEqual(series[1].contaminante, "o-Xileno")
+        self.assertEqual(series[2].contaminante, "Tolueno")
+
+        # Benceno: alto flujo
+        m_benceno = series[0].muestras[0]
+        self.assertEqual(m_benceno.masa, 0.05)
+        self.assertAlmostEqual(m_benceno.caudal, 66.6 / 1000)
+
+        # o-Xileno: bajo flujo (masa_alto es None)
+        m_oxileno = series[1].muestras[0]
+        self.assertEqual(m_oxileno.masa, 0.1)
+        self.assertAlmostEqual(m_oxileno.caudal, 33.4 / 1000)
+
+        # Tolueno: datos referenciados de la primera
+        m_tolueno = series[2].muestras[0]
+        self.assertEqual(m_tolueno.masa, 0.08)
+        self.assertAlmostEqual(m_tolueno.minutos, 60)
+        self.assertAlmostEqual(m_tolueno.temperatura, 28.35)
