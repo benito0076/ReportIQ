@@ -4,3 +4,4 @@ build/
 dist/
 *.spec
 selftest_isofonas.*
+venv/

@@ -9,8 +9,8 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
 
 from core.aire import (  # noqa: E402
-    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_pm10_hivol,
-    percentil_exc, procesar_aire, redondear,
+    CO, COV, NO2, O3, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_pm10_hivol,
+    percentil_exc, procesar_aire, redondear, serie_automatica,
 )
 from core.meteorologia import _norm  # noqa: E402
 from tests import plantillas_aire as fp  # noqa: E402
@@ -194,6 +194,87 @@ class TestMeteorologia(unittest.TestCase):
     def test_encabezados_con_tildes_danadas(self):
         self.assertEqual(_norm("PresiÃ³n absoluta(hpa)"), "presion absoluta(hpa)")
         self.assertEqual(_norm("DirecciÃ³n del viento(Â°)"), "direccion del viento()")
+
+
+class TestSerieAutomatica(unittest.TestCase):
+    def test_basic_calculation_and_factors(self):
+        from datetime import datetime
+        # CO factor is 1.14 * 1000 = 1140.0
+        lecturas = [
+            (datetime(2026, 2, 8, 1, 0), 1.0),
+            (datetime(2026, 2, 8, 2, 0), 2.0),
+        ]
+        serie = serie_automatica(CO, 1, "Estacion 1", lecturas)
+        self.assertEqual(serie.contaminante, CO)
+        self.assertEqual(serie.estacion, 1)
+        self.assertEqual(serie.nombre_estacion, "Estacion 1")
+        self.assertEqual(serie.horas[0][1], 1140.0)
+        self.assertEqual(serie.horas[1][1], 2280.0)
+        self.assertEqual(serie.filas, 2)
+        self.assertEqual(serie.medias_8h, [])
+
+    def test_moving_average_calculation(self):
+        from datetime import datetime, timedelta
+        # NO2 factor is 1.88
+        base_time = datetime(2026, 2, 8, 1, 0)
+        # Create 9 readings, 1.0 ppb each. Output should be 1.88 * 1.0 = 1.88
+        lecturas = [(base_time + timedelta(hours=i), 1.0) for i in range(9)]
+        serie = serie_automatica(NO2, 1, "Estacion 1", lecturas)
+        self.assertEqual(len(serie.horas), 9)
+        self.assertEqual(len(serie.medias_8h), 2)
+
+        # At index 7 (8th reading, which is 8 hours after base if we count base as hour 1)
+        self.assertEqual(serie.medias_8h[0][0], base_time + timedelta(hours=7))
+        self.assertAlmostEqual(serie.medias_8h[0][1], 1.88)
+
+        # At index 8 (9th reading)
+        self.assertEqual(serie.medias_8h[1][0], base_time + timedelta(hours=8))
+        self.assertAlmostEqual(serie.medias_8h[1][1], 1.88)
+
+    def test_less_than_8_readings(self):
+        from datetime import datetime, timedelta
+        base_time = datetime(2026, 2, 8, 1, 0)
+        # 7 readings
+        lecturas = [(base_time + timedelta(hours=i), 1.0) for i in range(7)]
+        serie = serie_automatica(NO2, 1, "Estacion 1", lecturas)
+        self.assertEqual(len(serie.horas), 7)
+        self.assertEqual(serie.medias_8h, [])
+
+    def test_unsorted_readings_are_sorted(self):
+        from datetime import datetime
+        lecturas = [
+            (datetime(2026, 2, 8, 3, 0), 3.0),
+            (datetime(2026, 2, 8, 1, 0), 1.0),
+            (datetime(2026, 2, 8, 2, 0), 2.0),
+        ]
+        serie = serie_automatica(O3, 1, "Estacion 1", lecturas)
+        # O3 factor is 1.96
+        self.assertEqual(serie.horas[0][0], datetime(2026, 2, 8, 1, 0))
+        self.assertAlmostEqual(serie.horas[0][1], 1.96 * 1.0)
+
+        self.assertEqual(serie.horas[1][0], datetime(2026, 2, 8, 2, 0))
+        self.assertAlmostEqual(serie.horas[1][1], 1.96 * 2.0)
+
+        self.assertEqual(serie.horas[2][0], datetime(2026, 2, 8, 3, 0))
+        self.assertAlmostEqual(serie.horas[2][1], 1.96 * 3.0)
+
+    def test_filas_parameter(self):
+        from datetime import datetime
+        lecturas = [
+            (datetime(2026, 2, 8, 1, 0), 1.0),
+            (datetime(2026, 2, 8, 2, 0), 2.0),
+        ]
+        # None
+        serie1 = serie_automatica(CO, 1, "Est", lecturas, filas=None)
+        self.assertEqual(serie1.filas, 2)
+
+        # Smaller than len(lecturas)
+        serie2 = serie_automatica(CO, 1, "Est", lecturas, filas=1)
+        self.assertEqual(serie2.filas, 2)
+
+        # Larger than len(lecturas)
+        serie3 = serie_automatica(CO, 1, "Est", lecturas, filas=10)
+        self.assertEqual(serie3.filas, 10)
 
 
 if __name__ == "__main__":
