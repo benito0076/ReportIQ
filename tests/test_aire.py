@@ -2,14 +2,15 @@
 import os
 import sys
 import tempfile
+import openpyxl
 import unittest
-from datetime import date
+from datetime import datetime, time, date
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
 
 from core.aire import (  # noqa: E402
-    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_pm10_hivol,
+    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_cov, leer_pm10_hivol,
     percentil_exc, procesar_aire, redondear,
 )
 from core.meteorologia import _norm  # noqa: E402
@@ -198,3 +199,94 @@ class TestMeteorologia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+
+class TestLeerCov(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_leer_cov_excepciones_y_casos_especiales(self):
+        wb = openpyxl.Workbook()
+        ruta_sin_hojas = os.path.join(self.tmp.name, "cov_vacio.xlsx")
+        wb.save(ruta_sin_hojas)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron hojas de estacion"):
+            leer_cov(ruta_sin_hojas)
+
+        wb.create_sheet("CA1")
+        ruta_sin_bloques = os.path.join(self.tmp.name, "cov_sin_bloques.xlsx")
+        wb.save(ruta_sin_bloques)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron bloques de compuestos"):
+            leer_cov(ruta_sin_bloques)
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "CA1"
+        ws["H27"] = "Estacion 1"
+
+        # Bloque 1: Benceno (alto flujo)
+        ws.cell(2, 2, "VOC´S - BENCENO")
+        ws.cell(3, 2, "ID")
+        valores = {2: 1, 3: datetime(2026, 2, 8), 4: datetime(2026, 2, 8), 5: time(16), 6: time(17), 12: 60,
+                   13: 750.3, 14: 752.5, 16: 28.2, 17: 28.5,
+                   31: 66.7, 32: 66.5,
+                   9: 0.05}
+        for col, v in valores.items():
+            ws.cell(4, col, v)
+
+        # Bloque 2: o-xileno (bajo flujo, sin masa en alto flujo)
+        ws.cell(6, 2, "VOC´S - o-xileno")
+        ws.cell(7, 2, "ID")
+        valores2 = {2: 2, 3: datetime(2026, 2, 8), 4: datetime(2026, 2, 8), 5: time(17), 6: time(18), 12: 60,
+                   13: 750.3, 14: 752.5, 16: 28.2, 17: 28.5,
+                   26: 33.3, 27: 33.5,
+                   8: 0.1, 9: None}
+        for col, v in valores2.items():
+            ws.cell(8, col, v)
+
+        # Bloque 3: Etilbenceno sin ID (debe saltarlo)
+        ws.cell(10, 2, "VOC´S - Etilbenceno")
+        ws.cell(11, 2, "OTRA COSA")
+
+        # Bloque 4: Compuesto desconocido (debe saltarlo)
+        ws.cell(13, 2, "VOC´S - DESCONOCIDO")
+        ws.cell(14, 2, "ID")
+
+        # Bloque 5: Tolueno (faltan datos, referenciar primera)
+        ws.cell(16, 2, "VOC´S - TOLUENO")
+        ws.cell(17, 2, "ID")
+        ws.cell(18, 2, 1)
+        ws.cell(18, 9, 0.08)
+        ws.cell(18, 3, datetime(2026, 2, 8))
+        ws.cell(18, 31, 60.0) # q_alto 1
+        ws.cell(18, 32, 60.0) # q_alto 2
+        # Faltan datos que tomará de la primera fila (Bloque 1)
+
+        ruta_varios = os.path.join(self.tmp.name, "cov_varios.xlsx")
+        wb.save(ruta_varios)
+
+        series = leer_cov(ruta_varios)
+
+        self.assertEqual(len(series), 3)
+        self.assertEqual(series[0].contaminante, "Benceno")
+        self.assertEqual(series[1].contaminante, "o-Xileno")
+        self.assertEqual(series[2].contaminante, "Tolueno")
+
+        # Benceno: alto flujo
+        m_benceno = series[0].muestras[0]
+        self.assertEqual(m_benceno.masa, 0.05)
+        self.assertAlmostEqual(m_benceno.caudal, 66.6 / 1000)
+
+        # o-Xileno: bajo flujo (masa_alto es None)
+        m_oxileno = series[1].muestras[0]
+        self.assertEqual(m_oxileno.masa, 0.1)
+        self.assertAlmostEqual(m_oxileno.caudal, 33.4 / 1000)
+
+        # Tolueno: datos referenciados de la primera
+        m_tolueno = series[2].muestras[0]
+        self.assertEqual(m_tolueno.masa, 0.08)
+        self.assertAlmostEqual(m_tolueno.minutos, 60)
+        self.assertAlmostEqual(m_tolueno.temperatura, 28.35)
