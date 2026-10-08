@@ -812,14 +812,13 @@ def _tabla_estaciones(doc, ctx: ContextoAire) -> Table:
             ancho = Cm(_FOTO_ANCHO_CM)
             try:
                 from PIL import Image
-                from docx.image.exceptions import UnrecognizedImageError
 
                 with Image.open(e.foto_ruta) as im:
                     w, h = im.size
                 if h and w and _FOTO_ANCHO_CM * h / w > _FOTO_ALTO_CM:
                     ancho = Cm(_FOTO_ALTO_CM * w / h)
                 celda.paragraphs[0].add_run().add_picture(e.foto_ruta, width=ancho)
-            except (OSError, UnrecognizedImageError):  # noqa: BLE001 - una foto ilegible no detiene el informe
+            except Exception:  # noqa: BLE001 - una foto ilegible no detiene el informe
                 pass
     # Ninguna fila es encabezado repetido: cada bloque trae el suyo.
     for fila in t.rows:
