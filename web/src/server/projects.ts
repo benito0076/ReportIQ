@@ -240,9 +240,9 @@ export async function deletePoint(projectId: string, pointId: string) {
       .from(points)
       .where(eq(points.projectId, projectId))
       .orderBy(asc(points.orden));
-    for (const [i, p] of rest.entries()) {
-      await tx.update(points).set({ orden: i + 1 }).where(eq(points.id, p.id));
-    }
+    await Promise.all(
+      rest.map((p, i) => tx.update(points).set({ orden: i + 1 }).where(eq(points.id, p.id)))
+    );
     await invalidateResults(projectId, tx);
   });
   await Promise.all([point.fotoKey, ...mems.map((m) => m.key)].map((k) => deleteObject(k)));
