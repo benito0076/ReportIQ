@@ -51,54 +51,63 @@ export async function duplicateProject(id: string, userId: string): Promise<{ id
 
       if (p.tipo === "ambiental" || p.tipo === "emision") {
         const pts = await tx.select().from(points).where(eq(points.projectId, id)).orderBy(asc(points.orden));
-        for (const pt of pts) {
-          await tx.insert(points).values({
-            projectId: nuevo.id,
-            orden: pt.orden,
-            nombre: pt.nombre,
-            sector: pt.sector,
-            incertidumbre: pt.incertidumbre,
-            este: pt.este,
-            norte: pt.norte,
-            altitud: pt.altitud,
-            descripcion: pt.descripcion,
-            fuentes: pt.fuentes,
-            fotoKey: await copiarFoto("foto", pt.fotoKey, nuevo.id),
-            fotoNombre: pt.fotoNombre,
-          });
+        if (pts.length > 0) {
+          const insertData = await Promise.all(
+            pts.map(async (pt) => ({
+              projectId: nuevo.id,
+              orden: pt.orden,
+              nombre: pt.nombre,
+              sector: pt.sector,
+              incertidumbre: pt.incertidumbre,
+              este: pt.este,
+              norte: pt.norte,
+              altitud: pt.altitud,
+              descripcion: pt.descripcion,
+              fuentes: pt.fuentes,
+              fotoKey: await copiarFoto("foto", pt.fotoKey, nuevo.id),
+              fotoNombre: pt.fotoNombre,
+            }))
+          );
+          await tx.insert(points).values(insertData);
         }
       } else if (p.tipo === "aire") {
         const est = await tx.select().from(airStations).where(eq(airStations.projectId, id)).orderBy(asc(airStations.numero));
-        for (const e of est) {
-          await tx.insert(airStations).values({
-            projectId: nuevo.id,
-            numero: e.numero,
-            nombre: e.nombre,
-            codigo: e.codigo,
-            codigoAnla: e.codigoAnla,
-            longitud: e.longitud,
-            latitud: e.latitud,
-            descripcion: e.descripcion,
-            fotoKey: await copiarFoto("fotoAire", e.fotoKey, nuevo.id),
-            fotoNombre: e.fotoNombre,
-          });
+        if (est.length > 0) {
+          const insertData = await Promise.all(
+            est.map(async (e) => ({
+              projectId: nuevo.id,
+              numero: e.numero,
+              nombre: e.nombre,
+              codigo: e.codigo,
+              codigoAnla: e.codigoAnla,
+              longitud: e.longitud,
+              latitud: e.latitud,
+              descripcion: e.descripcion,
+              fotoKey: await copiarFoto("fotoAire", e.fotoKey, nuevo.id),
+              fotoNombre: e.fotoNombre,
+            }))
+          );
+          await tx.insert(airStations).values(insertData);
         }
       } else {
         const pts = await tx.select().from(waterPoints).where(eq(waterPoints.projectId, id)).orderBy(asc(waterPoints.orden));
-        for (const w of pts) {
-          await tx.insert(waterPoints).values({
-            projectId: nuevo.id,
-            orden: w.orden,
-            nombre: w.nombre,
-            hojaFp: w.hojaFp,
-            evaluar: w.evaluar,
-            tipoAgua: w.tipoAgua,
-            longitud: w.longitud,
-            latitud: w.latitud,
-            descripcion: w.descripcion,
-            fotoKey: await copiarFoto("fotoAgua", w.fotoKey, nuevo.id),
-            fotoNombre: w.fotoNombre,
-          });
+        if (pts.length > 0) {
+          const insertData = await Promise.all(
+            pts.map(async (w) => ({
+              projectId: nuevo.id,
+              orden: w.orden,
+              nombre: w.nombre,
+              hojaFp: w.hojaFp,
+              evaluar: w.evaluar,
+              tipoAgua: w.tipoAgua,
+              longitud: w.longitud,
+              latitud: w.latitud,
+              descripcion: w.descripcion,
+              fotoKey: await copiarFoto("fotoAgua", w.fotoKey, nuevo.id),
+              fotoNombre: w.fotoNombre,
+            }))
+          );
+          await tx.insert(waterPoints).values(insertData);
         }
       }
       return { id: nuevo.id, href: hrefProyecto(nuevo), nombre };
