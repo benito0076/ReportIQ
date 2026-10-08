@@ -216,9 +216,4 @@ ruido_app/
   teselas satelitales); sin internet, se genera igual pero con fondo simple.
 - Los mapas de isofonas dependen de `contextily`/`rasterio`, que agregan
   bastante peso y tiempo de compilacion al `.exe` (unos 60-90 s adicionales
-  al generar el ejecutable). Si `RuidoAmbiental.exe --selftest-isofonas`
-  genera un `selftest_isofonas.png` pequeno (<200 KB) o un
-  `selftest_isofonas.log` con "ERROR", revise la conexion a internet o que
-  el `.exe` se haya generado con `--collect-all rasterio` y
-  `--hidden-import matplotlib.backends.backend_pdf` (ya incluidos en
-  `build_exe.bat`).
+  al generar el ejecutable). Si los mapas de isofonas no se generan correctamente, revise la conexion a internet o que el `.exe` se haya generado con `--collect-all rasterio` y `--hidden-import matplotlib.backends.backend_pdf` (ya incluidos en `build_exe.bat`).
