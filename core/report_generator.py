@@ -3,10 +3,13 @@ misma estructura de tablas que ER-731-26_V1.docx) y los resultados calculados
 por el pipeline de procesamiento."""
 from __future__ import annotations
 
+import logging
 import os
 import zipfile
 
 import docx
+
+logger = logging.getLogger(__name__)
 
 from .docx_utils import (
     ajustar_bloques_de_filas,
@@ -122,7 +125,7 @@ def _filas_detalle(resultados_proyecto, esquema):
 
 def _filas_comparacion(resultados_proyecto, jornada: str):
     filas = []
-    for no_punto, rc in resultados_proyecto.comparacion.items():
+    for rc in resultados_proyecto.comparacion.values():
         if jornada == "diurno":
             filas.append([
                 rc.punto.nombre, fmt_es(rc.lraeq_dh), rc.cumple_dh or "",
@@ -212,8 +215,9 @@ def _escribir_tarjeta(tabla, indice_bloque: int, punto, latitud_primero: bool = 
     if punto.foto_ruta and os.path.exists(punto.foto_ruta):
         try:
             set_cell_image(celda_foto, punto.foto_ruta, ancho_emu=1500000)
-        except Exception:  # noqa: BLE001
-            pass  # imagen invalida/no soportada: se deja el contenido previo de la celda
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Error al insertar imagen %s en tarjeta de punto: %s", punto.foto_ruta, e)
+            # imagen invalida/no soportada: se deja el contenido previo de la celda
     else:
         # Sin foto: se quita la de la plantilla (es de otro proyecto).
         for dibujo in list(celda_foto._tc.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}drawing")):
@@ -278,7 +282,7 @@ def generar_informe(
     _validar_plantilla(ruta_plantilla)
     try:
         doc = docx.Document(ruta_plantilla)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise ErrorPlantilla(
             f"No se pudo abrir la plantilla como documento Word:\n{exc}\n\n"
             "Use la plantilla incluida en la carpeta 'templates' de la aplicacion, o una "
