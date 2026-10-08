@@ -1,5 +1,7 @@
 """Calidad del aire: lectura de las plantillas FP y calculos (Res. 2254 de 2017)."""
 import os
+import openpyxl
+import datetime
 import sys
 import tempfile
 import unittest
@@ -9,7 +11,7 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
 
 from core.aire import (  # noqa: E402
-    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_pm10_hivol,
+    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, leer_fp021, estadistica, ica, leer_pm10_hivol,
     percentil_exc, procesar_aire, redondear,
 )
 from core.meteorologia import _norm  # noqa: E402
@@ -198,3 +200,81 @@ class TestMeteorologia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLeerFP021(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_hoja_oculta_o_nombre_invalido(self):
+        ruta = os.path.join(self.tmp.name, "oculta.xlsx")
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = "ESTACION 1_CO"
+        ws1.sheet_state = "hidden"
+        ws2 = wb.create_sheet("OTRA HOJA")
+        wb.save(ruta)
+
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron hojas de estación"):
+            leer_fp021(ruta)
+
+    def test_sin_columnas_requeridas(self):
+        ruta = os.path.join(self.tmp.name, "sin_cols.xlsx")
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = "ESTACION 1_CO"
+        ws1.cell(1, 1).value = "Texto random"
+        wb.save(ruta)
+
+        with self.assertRaisesRegex(ErrorPlantillaAire, "no tiene las columnas Fecha / Hora / Concentración"):
+            leer_fp021(ruta)
+
+    def test_sin_columna_ppm_ppb(self):
+        ruta = os.path.join(self.tmp.name, "sin_unidades.xlsx")
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = "ESTACION 1_CO"
+        ws1.cell(1, 1).value = "Fecha"
+        ws1.cell(1, 2).value = "Hora"
+        ws1.cell(1, 3).value = "Concentración de algo"
+        wb.save(ruta)
+
+        with self.assertRaisesRegex(ErrorPlantillaAire, "no tiene la columna de concentración en ppm/ppb"):
+            leer_fp021(ruta)
+
+    def test_h_is_none_continue_and_break(self):
+        ruta = os.path.join(self.tmp.name, "skip_rows.xlsx")
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = "ESTACION 1_CO"
+        ws1.cell(5, 1).value = "Fecha de hoy"
+        ws1.cell(5, 2).value = "Hora de hoy"
+        ws1.cell(5, 3).value = "Concentración de CO (ppm)"
+
+        # Blank row before data
+        # Row 7 is empty
+
+        # Valid row 8
+        ws1.cell(8, 1).value = datetime.date(2026, 2, 8)
+        ws1.cell(8, 2).value = datetime.time(12, 0)
+        ws1.cell(8, 3).value = 2.5
+
+        # Blank row after data, stops reading (break)
+        # Row 9 is empty
+
+        # Row 10 (should be skipped because of break)
+        ws1.cell(10, 1).value = datetime.date(2026, 2, 8)
+        ws1.cell(10, 2).value = datetime.time(13, 0)
+        ws1.cell(10, 3).value = 3.5
+
+        wb.save(ruta)
+
+        series = leer_fp021(ruta)
+        self.assertEqual(len(series), 1)
+        self.assertEqual(len(series[0].horas), 1)
+        self.assertEqual(series[0].horas[0][1], 2.5 * 1140) # factor for CO is 1140
