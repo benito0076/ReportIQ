@@ -92,6 +92,34 @@ class TestCalculos(unittest.TestCase):
         res = procesar_aire(ProyectoAire(plantillas={PM10: self.rutas["so2"]}))
         self.assertTrue(any("FP-031" in a for a in res.advertencias))
 
+    def test_leer_so2_excepciones(self):
+        from core.aire import leer_so2
+        import openpyxl
+
+        # Happy path testing para leer_so2 de forma directa
+        series = leer_so2(self.rutas["so2"])
+        self.assertEqual(len(series), 1)
+        self.assertEqual(series[0].estacion, 1)
+        self.assertEqual(series[0].nombre_estacion, "Finca Los Camachos_E1_Lis_Tmpst")
+        self.assertAlmostEqual(series[0].muestras[0].concentracion, 9.36, places=2)
+
+        # Sin hojas CA
+        ruta_vacia = os.path.join(self.tmp.name, "vacia_so2.xlsx")
+        wb = openpyxl.Workbook()
+        wb.save(ruta_vacia)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron hojas"):
+            leer_so2(ruta_vacia)
+
+        # Con hoja CA pero formato equivocado (encabezado o "fecha de inicio" faltantes)
+        ruta_error_formato = os.path.join(self.tmp.name, "error_formato_so2.xlsx")
+        wb_formato = openpyxl.Workbook()
+        ws = wb_formato.active
+        ws.title = "CA-1"
+        ws["B33"], ws["C33"] = "ID", "Otra cosa"
+        wb_formato.save(ruta_error_formato)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "no tiene el formato"):
+            leer_so2(ruta_error_formato)
+
 
 class TestInformeWord(unittest.TestCase):
     @classmethod
