@@ -710,7 +710,7 @@ def leer_reporte_analizador(ruta: str, contaminante: str, estacion: int, nombre:
     """Exportacion directa del analizador: columna 'Time' y la del gas (ppm/ppb)."""
     wb = _abrir(ruta)
     ws = wb.worksheets[0]
-    enc = [_texto(c).lower() for c in next(ws.iter_rows(max_row=1, values_only=True))]
+    enc = [_texto(c).lower() for c in next(ws.iter_rows(max_row=1, values_only=True), [])]
     clave = {CO: "co", NO2: "no2", O3: "o3"}[contaminante]
     col = next((i for i, t in enumerate(enc) if re.match(rf"^{clave}\b", t)), None)
     if not enc or not enc[0].startswith(("time", "fecha")) or col is None:

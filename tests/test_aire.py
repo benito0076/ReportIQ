@@ -9,8 +9,8 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
 
 from core.aire import (  # noqa: E402
-    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_pm10_hivol,
-    percentil_exc, procesar_aire, redondear,
+    CO, COV, NO2, O3, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_pm10_hivol,
+    leer_reporte_analizador, percentil_exc, procesar_aire, redondear,
 )
 from core.meteorologia import _norm  # noqa: E402
 from tests import plantillas_aire as fp  # noqa: E402
@@ -198,3 +198,58 @@ class TestMeteorologia(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLeerReporteAnalizador(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.ruta_ok = os.path.join(cls.tmp.name, "auto_ok.xlsx")
+        cls.ruta_vacia = os.path.join(cls.tmp.name, "auto_vacia.xlsx")
+        cls.ruta_incompleta = os.path.join(cls.tmp.name, "auto_incompleta.xlsx")
+
+        import openpyxl
+        from datetime import datetime
+        # Happy path file
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Time", "CO (ppm)"])
+        ws.append([datetime(2026, 2, 8, 0, 0), 1.5])
+        ws.append([datetime(2026, 2, 8, 1, 0), 2.0])
+        ws.append(["invalid date", 3.0])
+        ws.append([datetime(2026, 2, 8, 3, 0), "invalid value"])
+        wb.save(cls.ruta_ok)
+
+        # Empty file
+        wb = openpyxl.Workbook()
+        wb.save(cls.ruta_vacia)
+
+        # Incomplete columns
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Fecha", "NO2"])
+        wb.save(cls.ruta_incompleta)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def test_leer_reporte_valido(self):
+        from datetime import datetime
+        serie = leer_reporte_analizador(self.ruta_ok, CO, 1, "Estacion 1")
+        self.assertEqual(serie.nombre_estacion, "Estacion 1")
+        self.assertEqual(serie.contaminante, CO)
+        self.assertEqual(serie.estacion, 1)
+        # 1.5 ppm CO * 1140 (factor) = 1710
+        # 2.0 ppm CO * 1140 (factor) = 2280
+        self.assertEqual(serie.horas, [
+            (datetime(2026, 2, 8, 0, 0), 1710.0),
+            (datetime(2026, 2, 8, 1, 0), 2280.0)
+        ])
+
+    def test_reporte_sin_columnas(self):
+        with self.assertRaisesRegex(ErrorPlantillaAire, "El reporte del analizador no tiene las columnas 'Time' y 'CO'"):
+            leer_reporte_analizador(self.ruta_vacia, CO, 1, "")
+
+        with self.assertRaisesRegex(ErrorPlantillaAire, "El reporte del analizador no tiene las columnas 'Time' y 'O3'"):
+            leer_reporte_analizador(self.ruta_incompleta, O3, 1, "")
