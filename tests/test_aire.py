@@ -9,7 +9,7 @@ RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RAIZ)
 
 from core.aire import (  # noqa: E402
-    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_pm10_hivol,
+    CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, categoria_ica, estadistica, ica, leer_pm10_hivol,
     percentil_exc, procesar_aire, redondear,
 )
 from core.meteorologia import _norm  # noqa: E402
@@ -194,6 +194,57 @@ class TestMeteorologia(unittest.TestCase):
     def test_encabezados_con_tildes_danadas(self):
         self.assertEqual(_norm("PresiÃ³n absoluta(hpa)"), "presion absoluta(hpa)")
         self.assertEqual(_norm("DirecciÃ³n del viento(Â°)"), "direccion del viento()")
+
+
+class TestCategoriaIca(unittest.TestCase):
+    def test_categoria_ica(self):
+        # Boundaries:
+        # (0, 50, "Buena", "Verde"),
+        # (51, 100, "Aceptable", "Amarillo"),
+        # (101, 150, "Dañina a la salud para grupos sensibles", "Naranja"),
+        # (151, 200, "Dañina a la salud", "Rojo"),
+        # (201, 300, "Muy dañina a la salud", "Púrpura"),
+        # (301, 500, "Peligrosa", "Marrón"),
+
+        # Happy Paths
+        self.assertEqual(categoria_ica(25), "Buena")
+        self.assertEqual(categoria_ica(75), "Aceptable")
+        self.assertEqual(categoria_ica(400), "Peligrosa")
+
+        # Edge cases and boundaries
+        self.assertEqual(categoria_ica(0), "Buena")
+        self.assertEqual(categoria_ica(50), "Buena")
+        self.assertEqual(categoria_ica(50.1), "Aceptable")
+        self.assertEqual(categoria_ica(100), "Aceptable")
+        self.assertEqual(categoria_ica(500), "Peligrosa")
+
+        # Out-of-bounds (fallback to the last category)
+        self.assertEqual(categoria_ica(600), "Peligrosa")
+
+    def test_categoria_ica_mocked(self):
+        import unittest.mock as mock
+
+        mock_categorias = (
+            (0, 10, "Baja", "Azul"),
+            (11, 20, "Media", "Amarillo"),
+            (21, 30, "Alta", "Rojo"),
+        )
+
+        with mock.patch("core.aire.CATEGORIAS_ICA", mock_categorias):
+            # Happy Paths
+            self.assertEqual(categoria_ica(5), "Baja")
+            self.assertEqual(categoria_ica(15), "Media")
+            self.assertEqual(categoria_ica(25), "Alta")
+
+            # Boundaries
+            self.assertEqual(categoria_ica(0), "Baja")
+            self.assertEqual(categoria_ica(10), "Baja")
+            self.assertEqual(categoria_ica(10.1), "Media")
+            self.assertEqual(categoria_ica(20), "Media")
+            self.assertEqual(categoria_ica(30), "Alta")
+
+            # Out of bounds fallback to last
+            self.assertEqual(categoria_ica(100), "Alta")
 
 
 if __name__ == "__main__":
