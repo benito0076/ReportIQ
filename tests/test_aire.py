@@ -10,7 +10,7 @@ sys.path.insert(0, RAIZ)
 
 from core.aire import (  # noqa: E402
     CO, COV, NO2, PM10, PM25, SO2, ErrorPlantillaAire, ProyectoAire, estadistica, ica, leer_pm10_hivol,
-    percentil_exc, procesar_aire, redondear,
+    leer_pm25_lowvol, percentil_exc, procesar_aire, redondear,
 )
 from core.meteorologia import _norm  # noqa: E402
 from tests import plantillas_aire as fp  # noqa: E402
@@ -91,6 +91,39 @@ class TestCalculos(unittest.TestCase):
             leer_pm10_hivol(self.rutas["pm25"])
         res = procesar_aire(ProyectoAire(plantillas={PM10: self.rutas["so2"]}))
         self.assertTrue(any("FP-031" in a for a in res.advertencias))
+
+    def test_leer_pm25_lowvol_missing_sheets(self):
+        import openpyxl
+        ruta_falsa = os.path.join(self.tmp.name, "pm25_falsa_missing.xlsx")
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+        wb.create_sheet("Hoja1")
+        wb.save(ruta_falsa)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "No se encontraron hojas de estacion"):
+            leer_pm25_lowvol(ruta_falsa)
+
+    def test_leer_pm25_lowvol_invalid_format(self):
+        import openpyxl
+        ruta_falsa = os.path.join(self.tmp.name, "pm25_falsa_invalid.xlsx")
+        wb = openpyxl.load_workbook(self.rutas["pm25"])
+        # In the valid PM25 file, cell C45 contains "Inicial"
+        wb["CA-1"]["C45"] = "Invalido"
+        wb.save(ruta_falsa)
+        with self.assertRaisesRegex(ErrorPlantillaAire, "no tiene el formato de la FP-032"):
+            leer_pm25_lowvol(ruta_falsa)
+
+    def test_leer_pm25_lowvol_valid_file(self):
+        series = leer_pm25_lowvol(self.rutas["pm25"])
+        self.assertEqual(len(series), 1)
+        serie = series[0]
+        self.assertEqual(serie.contaminante, PM25)
+        self.assertEqual(serie.estacion, 1)
+        self.assertEqual(len(serie.muestras), 1)
+
+        m = serie.muestras[0]
+        self.assertAlmostEqual(m.concentracion, 16.93, places=2)
+        self.assertAlmostEqual(m.minutos, 1430)
+        self.assertAlmostEqual(m.volumen, 23.82, places=2)
 
 
 class TestInformeWord(unittest.TestCase):
